@@ -1,247 +1,142 @@
-const STATE_PROPERTY_KEY = "CONTEST_SYNC_STATE_V1";
-const LAST_LOGS_SIG_KEY = "CONTEST_LAST_LOGS_SIG_V1";
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>برنامج إدارة المسابقات</title>
+  <style>
+    :root{--bg:#0b1120;--card:#162032;--line:#283548;--text:#f8fafc;--muted:#94a3b8;--blue:#3b82f6;--green:#10b981;--red:#ef4444;--gold:#eab308;--purple:#8b5cf6}
+    *{box-sizing:border-box;font-family:system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif}
+    body{margin:0;padding:16px;background:var(--bg);color:var(--text);min-height:100vh}
+    button,input,select,textarea{font:inherit} button{border:0;border-radius:8px;padding:9px 12px;font-weight:700;cursor:pointer}.primary{background:var(--blue);color:white}.danger{background:var(--red);color:white}.success{background:var(--green);color:white}.ghost{background:var(--line);color:white}.gold{background:var(--gold);color:#111827}
+    button:disabled{opacity:.45;cursor:not-allowed}.wrap{max-width:1300px;margin:auto}header,.panel,.stat{background:var(--card);border:1px solid var(--line);border-radius:12px}header{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px;margin-bottom:14px}h1,h2,h3,p{margin:0}.actions{display:flex;gap:8px;flex-wrap:wrap}.stats{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:10px;margin-bottom:14px}.stat{text-align:center;padding:12px}.stat strong{display:block;font-size:28px;color:var(--blue)}
+    .grid{display:grid;grid-template-columns:1fr 340px;gap:14px}.panel{padding:16px;margin-bottom:14px}.players{display:grid;grid-template-columns:repeat(var(--cols,5),1fr);gap:8px}.tile{min-height:75px;border:2px solid var(--line);background:#0b1120;border-radius:10px;text-align:center;cursor:pointer;padding:8px}.tile:hover{border-color:var(--blue)}.tile.selector{border-color:var(--blue);background:#1e3a5f}.tile.target{border-color:var(--purple);background:#32275a}.tile.eliminated{border-color:var(--red);opacity:.55}.tile.winner{border-color:var(--gold);background:#4a3a10}.num{font-size:24px;font-weight:800}.name{font-size:13px;color:var(--muted)}
+    input,select,textarea{width:100%;background:#0b1120;border:1px solid var(--line);color:white;border-radius8px;padding8px12px;margin:6px0}
+    .row{display:flex;gap8px;align-items:center}.row>*{flex:1}.question{display:none;border:2px solid var(--purple);border-radius12px;padding14px;margin-top12px}.question.show{display:block}.questionText{font-size22px;font-weight800;margin12px0}.answer{display:none;background:#173b31;border:1px dashed var(--green);padding10px;border-radius8px}.answer.show{display:block}.timer{font-size24px;font-weight800;color:var(--gold)}.muted{color:var(--muted)}.modal{position:fixed;inset0;display:none;align-items:center;justify-content:center;background:#000c;padding16px}.modal.show{display:flex}.box{width:min(620px,100%);max-height90vh;overflow:auto;background:var(--card);border:1px solid var(--line);border-radius12px;padding16px}.winners,.logs{list-style:none;padding:0;margin:0}.winners li,.logs li{padding8px;border-bottom:1px solid var(--line)}body.viewer .admin{display:none!important}.file{margin-top8px}
+    @media(max-width:900px){.grid{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}header{align-items:flex-start;flex-direction:column}.players{grid-template-columns:repeat(min(var(--cols,5),3),1fr)}}
+  </style>
+</head>
+<body class="viewer">
+  <div class="wrap">
+    <header>
+      <div><h1>برنامج إدارة المسابقات</h1><p class="muted" id="rules"></p></div>
+      <div class="actions">
+        <button class="gold" id="roleBtn" onclick="toggleRole()">🔑 دخول المدير</button>
+        <button class="ghost admin" onclick="openSettings()">⚙️ الإعدادات والأسئلة</button>
+        <button class="danger admin" onclick="newGame()">مسابقة جديدة</button>
+      </div>
+    </header>
 
-const SHEET_LOGS_NAME = "سجل_الأحداث";
-const SHEET_RESULTS_NAME = "النتائج_والمتسابقين";
-const SHEET_FOLLOWERS_NAME = "المتابعون_والمشاهدون";
+    <div class="stats">
+      <div class="stat"><strong id="activeCount">15</strong><span class="muted">لاعبون في اللعبة</span></div>
+      <div class="stat"><strong id="winnerCount">0</strong><span class="muted">الفائزون</span></div>
+      <div class="stat"><strong id="eliminatedCount">0</strong><span class="muted">المستبعدون</span></div>
+      <div class="stat"><strong id="questionCount">0</strong><span class="muted">أسئلة متبقية</span></div>
+    </div>
 
-function doGet(e) {
-  try {
-    const action = (e && e.parameter && e.parameter.action) ? String(e.parameter.action) : "get_state";
-    const lock = LockService.getScriptLock();
-    lock.waitLock(5000);
+    <div class="grid">
+      <main>
+        <section class="panel">
+          <div class="row">
+            <h2>ساحة المواجهة والاختيار</h2>
+            <div class="admin" style="display:flex;gap8px">
+              <select id="mode" onchange="changeMode()"><option value="manual">اختيار الخصم: يدوي</option><option value="random">اختيار الخصم: عشوائي</option></select>
+              <button class="primary" id="randomBtn" onclick="randomTarget()">🎲 اختيار عشوائي</button>
+            </div>
+          </div>
+          <p class="muted" id="instruction" style="margin-top8px"></p>
+          <div class="question" id="questionCard">
+            <div class="row"><strong id="targetLabel"></strong><strong class="timer" id="timer">30</strong></div>
+            <div class="questionText" id="questionText"></div>
+            <div class="answer" id="answer"></div>
+            <div class="row admin" style="margin-top12px">
+              <button class="ghost" onclick="toggleAnswer()">إظهار الإجابة</button>
+              <button class="success" onclick="judge(true)">إجابة صحيحة</button>
+              <button class="danger" onclick="judge(false)">إجابة خاطئة</button>
+              <button class="gold" onclick="passQuestion()">اعتذار</button>
+            </div>
+          </div>
+        </section>
 
-    const rawState = PropertiesService.getScriptProperties().getProperty(STATE_PROPERTY_KEY);
-    lock.releaseLock();
+        <section class="panel">
+          <h2 style="margin-bottom10px">لوحة الأرقام</h2>
+          <div class="row" style="margin-bottom10px">
+            <input id="search" oninput="render()" placeholder="بحث بالاسم أو الرقم">
+            <select id="filter" onchange="render()"><option value="all">الكل</option><option value="available">المتاحون</option><option value="eliminated">المستبعدون</option><option value="winner">الفائزون</option></select>
+          </div>
+          <div class="players" id="players"></div>
+        </section>
+      </main>
 
-    let parsedState = null;
-    if (rawState) {
-      try {
-        parsedState = JSON.parse(rawState);
-      } catch (err) {
-        parsedState = null;
-      }
-    }
+      <aside>
+        <section class="panel admin">
+          <h2>تسجيل المتسابقين</h2>
+          <div class="row"><input id="nameInput" placeholder="اسم المتسابق" onkeydown="if(event.key==='Enter')registerPlayer()"><button class="primary" onclick="registerPlayer()">تسجيل</button></div>
+        </section>
+        <section class="panel"><h2>الفائزون</h2><ul class="winners" id="winners"></ul></section>
+        <section class="panel"><h2>سجل الأحداث</h2><ul class="logs" id="logs"></ul></section>
+      </aside>
+    </div>
+  </div>
 
-    return ContentService
-      .createTextOutput(JSON.stringify({
-        ok: true,
-        action: action,
-        state: parsedState,
-        serverTime: Date.now()
-      }))
-      .setMimeType(ContentService.MimeType.JSON);
-  } catch (error) {
-    return ContentService
-      .createTextOutput(JSON.stringify({
-        ok: false,
-        error: error.message
-      }))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-}
+  <div class="modal" id="loginModal"><div class="box" style="max-width420px;text-align:center"><h2>دخول المدير</h2><p class="muted">الرقم السري الافتراضي: 1234</p><input id="password" type="password" onkeydown="if(event.key==='Enter')login()"><div class="row"><button class="primary" onclick="login()">دخول</button><button class="ghost" onclick="closeLogin()">إلغاء</button></div></div></div>
 
-function doPost(e) {
-  try {
-    if (!e || !e.postData || !e.postData.contents) {
-      return jsonResponse({ ok: false, error: "Empty payload" });
-    }
+  <div class="modal" id="settingsModal"><div class="box">
+    <div class="row"><h2>الإعدادات والأسئلة</h2><button class="ghost" onclick="closeSettings()">إغلاق</button></div>
+    <div class="row"><label>عدد الخصوم للفوز</label><input id="killsToWin" type="number" min="1"></div>
+    <div class="row"><label>عدد اللاعبين</label><input id="totalPlayers" type="number" min="2" max="100"></div>
+    <div class="row"><label>الأخطاء قبل الاستبعاد</label><input id="maxErrors" type="number" min="1"></div>
+    <div class="row"><label>زمن السؤال</label><input id="timerSeconds" type="number" min="5"></div>
+    <button class="success" onclick="saveSettings()">حفظ الإعدادات</button>
+    <h3 style="margin-top16px">إضافة أسئلة</h3>
+    <p class="muted">الصيغة: السؤال | الإجابة | سهل/متوسط/صعب</p>
+    <textarea id="bulkQuestions" rows="4"></textarea>
+    <button class="primary" onclick="addQuestions()">إضافة الأسئلة</button>
+  </div></div>
 
-    const body = JSON.parse(e.postData.contents);
-    const incomingState = body.state;
-    const reason = body.reason ? String(body.reason) : "تحديث";
+<script>
+const DEFAULTS=[
+ {q:"ما عاصمة سلطنة عمان؟",a:"مسقط",level:"easy"},{q:"ما أطول نهر في العالم؟",a:"نهر النيل",level:"easy"},
+ {q:"كم عدد سور القرآن الكريم؟",a:"114 سورة",level:"easy"},{q:"ما الكوكب الأحمر؟",a:"المريخ",level:"easy"},
+ {q:"من مؤسس علم الجبر؟",a:"الخوارزمي",level:"medium"},{q:"ما رمز الذهب الكيميائي؟",a:"Au",level:"easy"}
+];
+let state={isAdmin:false,password:"1234",mode:"manual",settings:{killsToWin:3,totalPlayers:15,maxErrors:1,timerSeconds:30,cols:5},players:[],selectorId:null,targetId:null,winners:[],logs:[],archive:[],used:[],currentQuestion:null};
+let timer=null,timeLeft=30,broadcast=null;
 
-    if (!incomingState || typeof incomingState !== "object") {
-      return jsonResponse({ ok: false, error: "Invalid state object" });
-    }
-
-    const lock = LockService.getScriptLock();
-    lock.waitLock(5000);
-
-    const props = PropertiesService.getScriptProperties();
-    const existingRaw = props.getProperty(STATE_PROPERTY_KEY);
-    let shouldSaveState = true;
-
-    if (existingRaw) {
-      try {
-        const existingState = JSON.parse(existingRaw);
-        const oldTs = Number(existingState.lastUpdated || 0);
-        const newTs = Number(incomingState.lastUpdated || Date.now());
-        if (newTs < oldTs) {
-          shouldSaveState = false;
-        }
-      } catch (err) {
-        shouldSaveState = true;
-      }
-    }
-
-    if (!incomingState.lastUpdated) {
-      incomingState.lastUpdated = Date.now();
-    }
-
-    if (shouldSaveState) {
-      props.setProperty(STATE_PROPERTY_KEY, JSON.stringify(incomingState));
-      syncStateToSheets(incomingState, reason, props);
-    }
-
-    lock.releaseLock();
-
-    return jsonResponse({
-      ok: true,
-      saved: shouldSaveState,
-      lastUpdated: incomingState.lastUpdated
-    });
-  } catch (error) {
-    return jsonResponse({
-      ok: false,
-      error: error.message
-    });
-  }
-}
-
-function syncStateToSheets(stateObj, reason, props) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  if (!ss) return;
-
-  const updatedAtStr = Utilities.formatDate(
-    new Date(Number(stateObj.lastUpdated || Date.now())),
-    Session.getScriptTimeZone() || "Asia/Muscat",
-    "yyyy-MM-dd HH:mm:ss"
-  );
-
-  writeLogsSheet(ss, stateObj, reason, updatedAtStr, props);
-  writeResultsSheet(ss, stateObj, updatedAtStr);
-  writeFollowersSheet(ss, stateObj, reason, updatedAtStr);
-}
-
-function getOrCreateSheet(ss, name, headers) {
-  let sheet = ss.getSheetByName(name);
-  if (!sheet) {
-    sheet = ss.insertSheet(name);
-    sheet.setRightToLeft(true);
-    sheet.appendRow(headers);
-    sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold");
-    sheet.setFrozenRows(1);
-  }
-  return sheet;
-}
-
-function writeLogsSheet(ss, stateObj, reason, updatedAtStr, props) {
-  const sheet = getOrCreateSheet(ss, SHEET_LOGS_NAME, [
-    "وقت التسجيل في الشيت",
-    "سبب المزامنة",
-    "نص الحدث"
-  ]);
-
-  const logs = Array.isArray(stateObj.logs) ? stateObj.logs : [];
-  if (logs.length === 0) {
-    props.setProperty(LAST_LOGS_SIG_KEY, "");
-    return;
-  }
-
-  // إذا بدأ سجل جديد بعد تصفير المسابقة، نعيد ضبط البصمة
-  const prevTop = props.getProperty(LAST_LOGS_SIG_KEY) || "";
-  const currentTop = String(logs[0] || "");
-
-  // نجمع الأحداث الجديدة التي لم تُسجل بعد بناءً على آخر حدث مسجل
-  let newEntries = [];
-  if (!prevTop) {
-    newEntries = logs.slice().reverse();
-  } else {
-    const idxInLogs = logs.indexOf(prevTop);
-    if (idxInLogs === -1) {
-      // في حال تم تصفير السجل أو بدء مسابقة جديدة
-      newEntries = logs.slice().reverse();
-    } else if (idxInLogs > 0) {
-      newEntries = logs.slice(0, idxInLogs).reverse();
-    }
-  }
-
-  if (newEntries.length > 0) {
-    const rows = newEntries.map(entry => [updatedAtStr, reason, String(entry)]);
-    sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, 3).setValues(rows);
-  }
-
-  props.setProperty(LAST_LOGS_SIG_KEY, currentTop);
-}
-
-function writeResultsSheet(ss, stateObj, updatedAtStr) {
-  const sheet = getOrCreateSheet(ss, SHEET_RESULTS_NAME, [
-    "الرقم",
-    "اسم المتسابق",
-    "الحالة",
-    "الإسقاطات",
-    "الأخطاء",
-    "الاعتذارات",
-    "فائز؟",
-    "آخر تحديث"
-  ]);
-
-  const players = Array.isArray(stateObj.players) ? stateObj.players : [];
-  const winners = Array.isArray(stateObj.winners) ? stateObj.winners : [];
-  const winnerIds = new Set(winners.map(w => Number(w.id)));
-
-  // إعادة كتابة جدول النتائج المحدّث بشكل نظيف دون تكرار صفوف اللاعبين
-  const lastRow = sheet.getLastRow();
-  if (lastRow > 1) {
-    sheet.getRange(2, 1, lastRow - 1, 8).clearContent();
-  }
-
-  if (players.length > 0) {
-    const rows = players.map(p => {
-      let statusAr = "متاح";
-      if (p.status === "eliminated") statusAr = "مستبعد / منسحب";
-      else if (p.status === "winner") statusAr = "فائز";
-
-      const isWinner = winnerIds.has(Number(p.id)) || p.status === "winner" ? "نعم 🏆" : "لا";
-
-      return [
-        Number(p.id || 0),
-        String(p.name || ("متسابق #" + p.id)),
-        statusAr,
-        Number(p.kills || 0),
-        Number(p.errors || 0),
-        Number(p.passes || 0),
-        isWinner,
-        updatedAtStr
-      ];
-    });
-
-    sheet.getRange(2, 1, rows.length, 8).setValues(rows);
-  }
-}
-
-function writeFollowersSheet(ss, stateObj, reason, updatedAtStr) {
-  const sheet = getOrCreateSheet(ss, SHEET_FOLLOWERS_NAME, [
-    "وقت التحديث",
-    "إجمالي المتابعين",
-    "عدد الشاشات المرتبة",
-    "عدد الفائزين الحالي",
-    "ملاحظة / سبب التحديث"
-  ]);
-
-  const followersCount = Number(stateObj.followersCount || 0);
-  const screensCount = Number(stateObj.orderedScreensCount || 1);
-  const winnersCount = Array.isArray(stateObj.winners) ? stateObj.winners.length : 0;
-
-  // نضيف صفاً جديداً عندما يتغير عدد المتابعين أو عند تحديثات رئيسية
-  const lastRow = sheet.getLastRow();
-  let shouldAppend = true;
-  if (lastRow > 1) {
-    const prevFollowers = Number(sheet.getRange(lastRow, 2).getValue() || 0);
-    const prevReason = String(sheet.getRange(lastRow, 5).getValue() || "");
-    if (prevFollowers === followersCount && prevReason === reason) {
-      shouldAppend = false;
-    }
-  }
-
-  if (shouldAppend) {
-    sheet.appendRow([updatedAtStr, followersCount, screensCount, winnersCount, reason]);
-  }
-}
-
-function jsonResponse(obj) {
-  return ContentService
-    .createTextOutput(JSON.stringify(obj))
-    .setMimeType(ContentService.MimeType.JSON);
-}
+function makePlayers(total,old=[]){const a=[];for(let i=1;i<=total;i++){const p=old.find(x=>x.id===i);a.push(p?JSON.parse(JSON.stringify(p)): {id:i,name:`اللاعب ${i}`,customName:false,status:"available",kills:0,errors:0,passes:0})}return a}
+function fresh(){state.players=makePlayers(state.settings.totalPlayers);state.selectorId=null;state.targetId=null;state.winners=[];state.logs=[];state.used=[];state.currentQuestion=null;addLog("بدأت مسابقة جديدة")}
+function init(){try{const v=localStorage.getItem("mosabbaat_state_v2");if(v){const p=JSON.parse(v);state={...state,...p,isAdmin:false}}else{state.archive=[...DEFAULTS];fresh()}}catch(e){state.archive=[...DEFAULTS];fresh()}render();try{broadcast=new BroadcastChannel("mosabkaat");broadcast.onmessage=e=>{if(!state.isAdmin&&e.data&&e.data.state){state={...state,...e.data.state,isAdmin:false};render()}};window.addEventListener("storage",e=>{if(e.key==="mosabkaat_state_v2"&&!state.isAdmin){try{state={...state,...JSON.parse(e.newValue),isAdmin:false};render()}catch(_){}}})}catch(e){}}
+function save(){state.lastUpdated=Date.now();const copy={...state,isAdmin:false};localStorage.setItem("mosabbaat_state_v2",JSON.stringify(copy));if(broadcast)broadcast.postMessage({state:copy})}
+function addLog(t){state.logs.unshift(`[${new Date().toLocaleTimeString("ar-OM")}] ${t}`);if(state.logs.length>80)state.logs.length=80}
+function toggleRole(){if(state.isAdmin){state.isAdmin=false;render()}else{password.value="";loginModal.classList.add("show")}}
+function login(){if(password.value===state.password){state.isAdmin=true;loginModal.classList.remove("show");render()}else alert("الرقم السري غير صحيح")}
+function closeLogin(){loginModal.classList.remove("show")}
+function changeMode(){state.mode=mode.value;save();render()}
+function available(){return state.players.filter(p=>p.status==="available")}
+function registerPlayer(){if(!state.isAdmin)return;const n=nameInput.value.trim();if(!n)return;const p=state.players.find(x=>!x.customName);if(!p)return alert("اكتمل تسجيل الأسماء");p.name=n;p.customName=true;nameInput.value="";addLog(`تم تسجيل المتسابق #${p.id}: ${n}`);save();render()}
+function randomAvailable(exclude){const list=available().filter(p=>p.id!==exclude);return list.length?list[Math.floor(Math.random()*list.length)]:null}
+function randomTarget(){if(!state.isAdmin)return;if(!state.selectorId)return alert("اختر المتسابق الذي يختار أولاً");if(state.mode!=="random")return alert("غيّر نمط الاختيار إلى عشوائي");const p=randomAvailable(state.selectorId);if(p)prepareTarget(p)}
+function prepareTarget(p){state.targetId=p.id;state.currentQuestion=null;questionCard.classList.remove("show");addLog(`تم اختيار الخصم #${p.id}: ${p.name}`);save();render();if(!state.isAdmin)return}
+function render(){document.body.classList.toggle("viewer",!state.isAdmin);document.documentElement.style.setProperty("--cols",state.settings.cols||5);mode.value=state.mode;
+ const active=available().length,eliminated=state.players.filter(p=>p.status==="eliminated").length;activeCount.textContent=active;eliminatedCount.textContent=eliminated;winnerCount.textContent=state.winners.length;questionCount.textContent=Math.max(0,(state.archive||[]).length-(state.used||[]).length);rules.textContent=`الفوز بعد ${state.settings.killsToWin} إسقاطات، والاستبعاد بعد ${state.settings.maxErrors} أخطاء.`;
+ const s=state.selectorId?state.players.find(p=>p.id===state.selectorId):null;instruction.textContent=s?(state.mode==="manual"?`#${s.id} ${s.name} يختار الخصم بالضغط على رقم متسابق متاح ثم اضغط طرح السؤال`:`#${s.id} ${s.name} يختار الخصم عشوائياً`):"اختر المتسابق الذي يبدأ من اللوحة بالضغط على رقمه";
+ randomBtn.disabled=!state.isAdmin||state.mode!=="random"||!state.selectorId||!!state.targetId;
+ const f=filter.value,searchText=(search.value||"").trim();const g=players;g.innerHTML="";state.players.forEach(p=>{if(f!=="all"&&p.status!==f)return;if(searchText&&!(`${p.id} ${p.name}`).includes(searchText))return;const c=document.createElement("button");c.type="button";c.className="tile"+(p.status==="eliminated"?" eliminated":"")+(p.status==="winner"?" winner":"")+(p.id===state.selectorId?" selector":"")+(p.id===state.targetId?" target":"");c.innerHTML=`<div class="num">${p.id}</div><div class="name">${p.name}</div>`;c.onclick=()=>tileClick(p.id);g.appendChild(c)});
+ winners.innerHTML=state.winners.length?state.winners.map((p,i)=>`<li>المركز ${i+1}: #${p.id} ${p.name} — ${p.kills} إسقاطات</li>`).join(""):"<li class=\"muted\">لا يوجد فائزون بعد</li>";logs.innerHTML=state.logs.map(x=>`<li>${x}</li>`).join("");
+ if(state.targetId){const t=state.players.find(p=>p.id===state.targetId);targetLabel.textContent=t?`المسؤول: #${t.id} ${t.name}`:""}
+ roleBtn.textContent=state.isAdmin?"خروج المدير":"🔑 دخول المدير"}
+function tileClick(id){if(!state.isAdmin)return;if(state.targetId)return;const p=state.players.find(x=>x.id===id&&x.status==="available");if(!p)return;if(!state.selectorId||state.selectorId===id){state.selectorId=id;addLog(`تم تعيين #${id} ${p.name} مختاراً`);save();render();return}if(state.mode!=="manual")return alert("الاختيار اليدوي معطّل؛ غيّر النمط إلى يدوي");prepareTarget(p);render()}
+function askQuestion(){if(!state.isAdmin||!state.targetId)return;const list=state.archive.map((q,i)=>({q,i})).filter(x=>!state.used.includes(x.i));if(!list.length)return alert("لا توجد أسئلة متبقية");const pick=list[Math.floor(Math.random()*list.length)];const q=state.archive[pick.i];state.used.push(pick.i);state.currentQuestion=q;questionText.textContent=q.q;answer.textContent=`الإجابة الصحيحة: ${q.a}`;answer.classList.remove("show");questionCard.classList.add("show");timeLeft=state.settings.timerSeconds;timer.textContent=timeLeft;clearInterval(timer);timer=setInterval(()=>{timeLeft--;timerElement.textContent=timeLeft;if(timeLeft<=0){clearInterval(timer)}} ,1000);save();render()}
+function toggleAnswer(){answer.classList.toggle("show")}
+function judge(correct){if(!state.isAdmin||!state.targetId)return;const p=state.players.find(x=>x.id===state.targetId);if(!p)return;if(correct){p.kills=(p.kills||0)+1;p.errors=0;addLog(`إجابة صحيحة لـ #${p.id} ${p.name} — إسقاطات ${p.kills}`);if(p.kills>=state.settings.killsToWin){p.status="winner";state.winners.push({...p});addLog(`🏆 فوز #${p.id} ${p.name}`)}}else{p.errors=(p.errors||0)+1;addLog(`إجابة خاطئة لـ #${p.id} ${p.name} — خطأ ${p.errors}`);if(p.errors>=state.settings.maxErrors){p.status="eliminated";addLog(`تم استبعاد #${p.id} ${p.name}`)}}finishTurn(p)}
+function passQuestion(){if(!state.isAdmin||!state.targetId)return;const p=state.players.find(x=>x.id===state.targetId);p.passes=(p.passes||0)+1;addLog(`اعتذار/تمرير من #${p.id} ${p.name}`);finishTurn(p)}
+function finishTurn(p){clearInterval(timer);questionCard.classList.remove("show");state.currentQuestion=null;state.targetId=null;state.selectorId=p.status==="available"?p.id:null;save();render()}
+function openSettings(){if(!state.isAdmin)return;killsToWin.value=state.settings.killsToWin;totalPlayers.value=state.settings.totalPlayers;maxErrors.value=state.settings.maxErrors;timerSeconds.value=state.settings.timerSeconds;settingsModal.classList.add("show")}
+function closeSettings(){settingsModal.classList.remove("show")}
+function saveSettings(){if(!state.isAdmin)return;state.settings.killsToWin=Math.max(1,+killsToWin.value||3);state.settings.totalPlayers=Math.max(2,+totalPlayers.value||15);state.settings.maxErrors=Math.max(1,+maxErrors.value||1);state.settings.timerSeconds=Math.max(5,+timerSeconds.value||30);state.players=makePlayers(state.settings.totalPlayers,state.players);state.selectorId=null;state.targetId=null;save();closeSettings();render()}
+function addQuestions(){if(!state.isAdmin)return;const lines=bulkQuestions.value.split(/\n/).map(x=>x.trim()).filter(Boolean);let n=0;lines.forEach(line=>{const [q,a,levelRaw="easy"]=line.split("|").map(x=>x.trim());if(q&&a){const level=["easy","medium","hard"].includes(levelRaw)?levelRaw:(levelRaw.includes("متوسط")?"medium":levelRaw.includes("صعب")?"hard":"easy");state.archive.push({q,a,level});n++}});bulkQuestions.value="";state.used=[];if(n)addLog(`تمت إضافة ${n} سؤالاً`);save();render();if(n)alert(`تمت إضافة ${n} سؤالاً`)}
+function newGame(){if(!state.isAdmin||!confirm("هل تريد بدء مسابقة جديدة؟"))return;fresh();save();render()}
+window.init=init;if(document.readyState!="loading")init();else document.addEventListener("DOMContentLoaded",init);
+</script>
+</body>
+</html>
