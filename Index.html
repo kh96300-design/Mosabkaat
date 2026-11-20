@@ -1,247 +1,2341 @@
-const STATE_PROPERTY_KEY = "CONTEST_SYNC_STATE_V1";
-const LAST_LOGS_SIG_KEY = "CONTEST_LAST_LOGS_SIG_V1";
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>برنامج إدارة المسابقات التفاعلي - النسخة الاحترافية المتزامنة</title>
+  <style>
+    :root {
+      --bg-main: #0b1120;
+      --bg-card: #162032;
+      --border-color: #283548;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --success: #10b981;
+      --success-bg: rgba(16, 185, 129, 0.15);
+      --danger: #ef4444;
+      --danger-bg: rgba(239, 68, 68, 0.15);
+      --warning: #f59e0b;
+      --warning-bg: rgba(245, 158, 11, 0.15);
+      --gold: #eab308;
+      --gold-bg: rgba(234, 179, 8, 0.18);
+      --purple: #8b5cf6;
+      --cyan: #06b6d4;
+      --cols: 5;
+    }
 
-const SHEET_LOGS_NAME = "سجل_الأحداث";
-const SHEET_RESULTS_NAME = "النتائج_والمتسابقين";
-const SHEET_FOLLOWERS_NAME = "المتابعون_والمشاهدون";
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", Tahoma, Arial, sans-serif;
+    }
 
-function doGet(e) {
-  try {
-    const action = (e && e.parameter && e.parameter.action) ? String(e.parameter.action) : "get_state";
-    const lock = LockService.getScriptLock();
-    lock.waitLock(5000);
+    body {
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      line-height: 1.6;
+      padding: 16px;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
 
-    const rawState = PropertiesService.getScriptProperties().getProperty(STATE_PROPERTY_KEY);
-    lock.releaseLock();
+    @keyframes screenShake {
+      0%, 100% { transform: translate(0, 0); }
+      20% { transform: translate(-8px, 4px); }
+      40% { transform: translate(8px, -4px); }
+      60% { transform: translate(-6px, -3px); }
+      80% { transform: translate(6px, 3px); }
+    }
 
-    let parsedState = null;
-    if (rawState) {
+    body.shake-effect {
+      animation: screenShake 0.45s ease-in-out;
+      box-shadow: inset 0 0 60px rgba(239, 68, 68, 0.45);
+    }
+
+    #confettiCanvas {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    .container {
+      max-width: 1460px;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    header {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: 18px 24px;
+      margin-bottom: 18px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .header-info h1 {
+      font-size: 1.45rem;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+
+    .role-badge {
+      display: inline-block;
+      background: var(--primary);
+      color: #fff;
+      font-size: 0.8rem;
+      padding: 2px 12px;
+      border-radius: 999px;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+
+    .role-badge.viewer {
+      background: var(--warning);
+      color: #0b1120;
+    }
+
+    .sync-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.78rem;
+      padding: 2px 10px;
+      border-radius: 999px;
+      background: rgba(6, 182, 212, 0.15);
+      color: #67e8f9;
+      border: 1px solid rgba(6, 182, 212, 0.35);
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+
+    .dynamic-rules {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    /* Buttons */
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 8px;
+      padding: 9px 14px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-success:hover:not(:disabled) { filter: brightness(1.1); }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-danger:hover:not(:disabled) { filter: brightness(1.1); }
+    .btn-warning { background: var(--warning); color: #0b1120; }
+    .btn-warning:hover:not(:disabled) { filter: brightness(1.1); }
+    .btn-purple { background: var(--purple); color: #fff; }
+    .btn-purple:hover:not(:disabled) { filter: brightness(1.1); }
+    .btn-cyan { background: var(--cyan); color: #0b1120; }
+    .btn-cyan:hover:not(:disabled) { filter: brightness(1.1); }
+    .btn-ghost { background: #283548; color: #f8fafc; }
+    .btn-ghost:hover:not(:disabled) { background: #37475e; }
+
+    /* Stats Bar */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 14px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 1.65rem;
+      font-weight: 800;
+      color: var(--primary);
+    }
+
+    .stat-card.gold .stat-value { color: var(--gold); }
+    .stat-card.danger .stat-value { color: var(--danger); }
+    .stat-card.success .stat-value { color: var(--success); }
+    .stat-card.cyan .stat-value { color: var(--cyan); }
+    .stat-card.purple .stat-value { color: #c4b5fd; }
+
+    .stat-label {
+      font-size: 0.84rem;
+      color: var(--text-muted);
+    }
+
+    /* Main Grid */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 400px;
+      gap: 18px;
+    }
+
+    @media (max-width: 1080px) {
+      .main-grid { grid-template-columns: 1fr; }
+    }
+
+    .panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 18px;
+    }
+
+    .panel-title {
+      font-size: 1.06rem;
+      font-weight: 700;
+      margin-bottom: 14px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .filter-bar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+      align-items: center;
+    }
+
+    .filter-bar select,
+    .filter-bar input {
+      width: auto;
+      min-width: 150px;
+      padding: 6px 10px;
+      font-size: 0.85rem;
+    }
+
+    /* Legend */
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 14px;
+      font-size: 0.85rem;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+    }
+
+    /* Players Grid */
+    .players-grid {
+      display: grid;
+      grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .player-tile {
+      background: #0b1120;
+      border: 2px solid var(--border-color);
+      border-radius: 12px;
+      padding: 12px 6px;
+      text-align: center;
+      cursor: pointer;
+      transition: transform 0.15s, border-color 0.2s, background 0.2s;
+      user-select: none;
+    }
+
+    .player-tile:hover:not(.disabled):not(.manual-locked) {
+      transform: translateY(-2px);
+      border-color: var(--primary);
+    }
+
+    .player-tile.manual-locked {
+      cursor: default;
+      opacity: 0.85;
+    }
+
+    .player-num {
+      font-size: 1.5rem;
+      font-weight: 800;
+      line-height: 1.2;
+    }
+
+    .player-name {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 4px;
+    }
+
+    .player-badges {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 6px;
+      font-size: 0.7rem;
+    }
+
+    .mini-badge {
+      padding: 2px 5px;
+      border-radius: 4px;
+      background: #283548;
+      color: #e2e8f0;
+    }
+
+    .mini-badge.err-badge {
+      background: rgba(239, 68, 68, 0.2);
+      color: #fca5a5;
+    }
+
+    /* Player States */
+    .state-available { border-color: #283548; }
+    .state-selector {
+      background: rgba(59, 130, 246, 0.2);
+      border-color: var(--primary);
+      box-shadow: 0 0 12px rgba(59, 130, 246, 0.35);
+    }
+    .state-target {
+      background: rgba(139, 92, 246, 0.22);
+      border-color: var(--purple);
+      box-shadow: 0 0 12px rgba(139, 92, 246, 0.35);
+    }
+    .state-eliminated {
+      background: rgba(239, 68, 68, 0.08);
+      border-color: rgba(239, 68, 68, 0.35);
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .state-eliminated .player-num {
+      text-decoration: line-through;
+      color: var(--danger);
+    }
+    .state-winner {
+      background: var(--gold-bg);
+      border-color: var(--gold);
+      cursor: not-allowed;
+    }
+    .state-winner .player-num { color: var(--gold); }
+
+    /* Stage & Question Card */
+    .stage-box {
+      background: #0b1120;
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+      margin-bottom: 14px;
+    }
+
+    .selector-highlight {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--primary);
+      margin: 6px 0;
+      min-height: 1.8rem;
+    }
+
+    .question-card {
+      background: linear-gradient(145deg, #162032, #0b1120);
+      border: 2px solid var(--purple);
+      border-radius: 14px;
+      padding: 18px;
+      margin-top: 14px;
+      display: none;
+    }
+
+    .question-card.active {
+      display: block;
+      animation: fadeIn 0.25s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .timer-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(0, 0, 0, 0.35);
+      padding: 8px 14px;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .level-pill {
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+    .level-easy { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border: 1px solid #10b981; }
+    .level-medium { background: rgba(245, 158, 11, 0.2); color: #fcd34d; border: 1px solid #f59e0b; }
+    .level-hard { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid #ef4444; }
+
+    .timer-display {
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: var(--warning);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .timer-display.urgent {
+      color: var(--danger);
+      animation: pulse 0.8s infinite;
+    }
+
+    @keyframes pulse { 50% { opacity: 0.4; } }
+
+    .question-text {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin: 14px 0;
+      color: #fff;
+    }
+
+    .answer-box {
+      background: var(--success-bg);
+      border: 1px dashed var(--success);
+      color: #6ee7b7;
+      padding: 10px 14px;
+      border-radius: 8px;
+      margin-bottom: 14px;
+      font-weight: 600;
+      display: none;
+    }
+
+    .answer-box.visible { display: block; }
+
+    .judge-buttons {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    /* Screens & Audience Cards */
+    .screens-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .screen-card {
+      background: #0b1120;
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 10px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.84rem;
+    }
+
+    .screen-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.76rem;
+      padding: 2px 8px;
+      border-radius: 999px;
+    }
+
+    .screen-status.online {
+      background: rgba(16, 185, 129, 0.16);
+      color: #6ee7b7;
+      border: 1px solid rgba(16, 185, 129, 0.35);
+    }
+
+    .screen-status.standby {
+      background: rgba(148, 163, 184, 0.15);
+      color: #cbd5e1;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+    }
+
+    .audience-box {
+      background: #0b1120;
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    /* Inputs */
+    .input-group {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    input[type="password"],
+    input[type="url"],
+    select,
+    textarea {
+      width: 100%;
+      background: #0b1120;
+      border: 1px solid var(--border-color);
+      color: #fff;
+      padding: 9px 12px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    /* Winners & Logs */
+    .winners-list { list-style: none; }
+    .winners-list li {
+      background: var(--gold-bg);
+      border: 1px solid rgba(234, 179, 8, 0.4);
+      padding: 8px 12px;
+      border-radius: 8px;
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+      font-weight: 700;
+      color: #fef08a;
+    }
+
+    .log-list {
+      max-height: 220px;
+      overflow-y: auto;
+      font-size: 0.84rem;
+      color: var(--text-muted);
+      list-style: none;
+    }
+
+    .log-list li {
+      padding: 6px 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    /* Modals */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.82);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 1000;
+    }
+
+    .modal-backdrop.open { display: flex; }
+
+    .modal {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 900px;
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: 22px;
+    }
+
+    .settings-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .form-field label {
+      display: block;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .archive-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      background: #0b1120;
+      padding: 8px 12px;
+      border-radius: 8px;
+      margin-bottom: 6px;
+      font-size: 0.85rem;
+    }
+
+    body.viewer-mode .admin-only { display: none !important; }
+  </style>
+</head>
+<body class="viewer-mode">
+  <canvas id="confettiCanvas"></canvas>
+
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <div class="header-info">
+        <h1>
+          برنامج إدارة المسابقة
+          <span id="roleBadge" class="role-badge viewer">وضع الجمهور أولاً</span>
+          <span id="syncStatusPill" class="sync-pill">🔄 مزامنة محلية وتبويبات نشطة</span>
+        </h1>
+        <p id="dynamicRulesText" class="dynamic-rules"></p>
+      </div>
+      <div class="header-actions">
+        <button id="toggleRoleBtn" class="btn-warning" onclick="handleRoleButton()">🔑 دخول المدير</button>
+        <button class="btn-cyan" onclick="openDisplayWindow(1)">🖥️ شاشة عرض</button>
+        <button class="btn-purple" onclick="openReportsModal()">📊 التقارير والتصدير</button>
+        <button class="btn-primary admin-only" onclick="openSettings()">⚙️ الإعدادات والأسئلة</button>
+        <button class="btn-ghost admin-only" onclick="undoAction()" id="undoBtn" disabled>↩️ تراجع</button>
+        <button class="btn-danger admin-only" onclick="resetContest()">🔄 مسابقة جديدة</button>
+      </div>
+    </header>
+
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value" id="statActive">15</div>
+        <div class="stat-label">لاعبون في اللعبة</div>
+      </div>
+      <div class="stat-card gold">
+        <div class="stat-value" id="statWinners">0 / 3</div>
+        <div class="stat-label">الفائزون</div>
+      </div>
+      <div class="stat-card danger">
+        <div class="stat-value" id="statEliminated">0</div>
+        <div class="stat-label">منسحبون / مستبعدون</div>
+      </div>
+      <div class="stat-card success">
+        <div class="stat-value" id="statQuestions">20</div>
+        <div class="stat-label">أسئلة متبقية</div>
+      </div>
+      <div class="stat-card cyan">
+        <div class="stat-value" id="statLiveViewers">1</div>
+        <div class="stat-label">المشاهدون الآن</div>
+      </div>
+      <div class="stat-card purple">
+        <div class="stat-value" id="statFollowers">0</div>
+        <div class="stat-label">إجمالي المتابعين</div>
+      </div>
+    </div>
+
+    <!-- Main Grid -->
+    <div class="main-grid">
+      <!-- Right Column -->
+      <div>
+        <div class="panel">
+          <div class="panel-title">
+            <span>🎯 ساحة المواجهة والاختيار</span>
+            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;" class="admin-only">
+              <select id="selectionModeSelect" onchange="changeSelectionMode()" style="width: auto; padding: 6px 10px; font-size: 0.85rem;">
+                <option value="random">اختيار الخصم: عشوائي</option>
+                <option value="manual">اختيار الخصم: يدوي</option>
+              </select>
+              <select id="levelSelector" style="width: auto; padding: 6px 10px; font-size: 0.85rem;">
+                <option value="all">مستوى السؤال: عشوائي</option>
+                <option value="easy">🟢 سهل</option>
+                <option value="medium">🟡 متوسط</option>
+                <option value="hard">🔴 صعب</option>
+              </select>
+              <button class="btn-primary" onclick="pickRandomTarget()" id="randomTargetBtn">🎲 اختيار عشوائي</button>
+            </div>
+          </div>
+
+          <div class="stage-box">
+            <div class="selector-highlight" id="currentSelectorDisplay"></div>
+            <div id="selectorStatsDisplay" style="font-size: 0.88rem; color: var(--gold); margin-bottom: 6px;"></div>
+            <p id="selectionInstructionText" style="font-size: 0.86rem; color: var(--text-muted); margin-top: 6px;"></p>
+          </div>
+
+          <!-- Active Question Card -->
+          <div class="question-card" id="questionCard">
+            <div class="timer-bar">
+              <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <span>المسؤول: <strong id="targetPlayerLabel" style="color: #c4b5fd;"></strong></span>
+                <span id="questionLevelBadge" class="level-pill level-easy">سهل</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span class="timer-display" id="timerDisplay">30</span>
+                <button class="btn-ghost admin-only" style="padding: 4px 8px; font-size: 0.8rem;" onclick="toggleTimer()" id="timerToggleBtn">⏸️</button>
+              </div>
+            </div>
+
+            <div class="question-text" id="questionText">نص السؤال هنا</div>
+
+            <div class="answer-box" id="answerBox">
+              الإجابة الصحيحة: <span id="answerText"></span>
+            </div>
+
+            <div style="margin-bottom: 12px;" class="admin-only">
+              <button class="btn-ghost" style="width: 100%;" onclick="revealAnswer()">👁️ إظهار / إخفاء الإجابة</button>
+            </div>
+
+            <div class="judge-buttons admin-only">
+              <button class="btn-success" onclick="handleAnswer(true)">✅ إجابة صحيحة (تثبيت)</button>
+              <button class="btn-danger" onclick="handleAnswer(false)">❌ إجابة خاطئة</button>
+              <button class="btn-warning" onclick="handlePass()">✋ اعتذار / تمرير</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Numbers Board -->
+        <div class="panel">
+          <div class="panel-title">
+            <span>🔢 لوحة الأرقام وتصفية المتسابقين</span>
+          </div>
+
+          <div class="filter-bar">
+            <select id="playerStatusFilter" onchange="renderPlayersGrid()">
+              <option value="all">تصفية: جميع المتسابقين</option>
+              <option value="available">المتاحون فقط</option>
+              <option value="eliminated">المستبعدون فقط</option>
+              <option value="winner">الفائزون فقط</option>
+            </select>
+            <input type="text" id="playerSearchInput" oninput="renderPlayersGrid()" placeholder="بحث بالاسم أو الرقم..." />
+            <button class="btn-ghost" onclick="resetPlayerFilters()" style="padding: 6px 10px; font-size: 0.82rem;">إعادة التصفية</button>
+          </div>
+
+          <div class="legend">
+            <div class="legend-item"><span class="dot" style="background:#283548;"></span> متاح</div>
+            <div class="legend-item"><span class="dot" style="background:var(--primary);"></span> يختار الآن</div>
+            <div class="legend-item"><span class="dot" style="background:var(--purple);"></span> الخصم المحدد</div>
+            <div class="legend-item"><span class="dot" style="background:var(--danger);"></span> منسحب</div>
+            <div class="legend-item"><span class="dot" style="background:var(--gold);"></span> فائز</div>
+          </div>
+
+          <div class="players-grid" id="playersGrid"></div>
+        </div>
+      </div>
+
+      <!-- Left Column -->
+      <div>
+        <!-- Audience & Follow Card -->
+        <div class="panel">
+          <div class="panel-title">
+            <span>👥 المتابعة والمشاهدون</span>
+            <span style="font-size: 0.8rem; color: var(--text-muted);" id="deviceRoleTag">جهاز مشاهدة</span>
+          </div>
+          <div class="audience-box">
+            <div>
+              <div style="font-size: 0.85rem; color: var(--text-muted);">المشاهدون النشطون حالياً: <strong id="inlineLiveViewers" style="color: var(--cyan);">1</strong></div>
+              <div style="font-size: 0.85rem; color: var(--text-muted);">عدد المتابعين للمسابقة: <strong id="inlineFollowersCount" style="color: #c4b5fd;">0</strong></div>
+            </div>
+            <button id="followBtn" class="btn-purple" onclick="toggleFollowContest()">⭐ متابعة المسابقة</button>
+          </div>
+
+          <!-- Ordered Screens Manager (Admin) -->
+          <div class="admin-only">
+            <div style="font-size: 0.9rem; font-weight: 700; margin-bottom: 8px; color: #67e8f9;">
+              🖥️ إدارة الشاشات المرتبة والمزامنة
+            </div>
+            <div class="input-group">
+              <input type="number" id="orderedScreensInput" min="1" max="12" placeholder="عدد الشاشات المرتبة" />
+              <button class="btn-cyan" onclick="updateOrderedScreensCount()">تطبيق العدد</button>
+            </div>
+            <div style="display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap;">
+              <button class="btn-ghost" style="flex: 1; font-size: 0.8rem;" onclick="openAllOrderedScreens()">🚀 فتح الشاشات المرتبة</button>
+              <button class="btn-primary" style="flex: 1; font-size: 0.8rem;" onclick="broadcastFullState('مزامنة يدوية من المدير')">🔄 مزامنة الكل الآن</button>
+            </div>
+            <div class="screens-list" id="orderedScreensList"></div>
+          </div>
+        </div>
+
+        <!-- Registration Panel (Admin) -->
+        <div class="panel admin-only">
+          <div class="panel-title">📝 تسجيل المتسابقين</div>
+          <p id="nextSlotHint" style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px;"></p>
+          <div class="input-group">
+            <input type="text" id="playerNameInput" value="" placeholder="اكتب اسم المتسابق..." onkeydown="if(event.key==='Enter') registerPlayer()" />
+            <button class="btn-primary" onclick="registerPlayer()">تسجيل</button>
+          </div>
+          <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+            <button class="btn-ghost" style="flex:1; font-size:0.82rem;" onclick="removeLastPlayer()">حذف آخر تسجيل</button>
+          </div>
+
+          <div style="border-top: 1px solid var(--border-color); padding-top: 10px;">
+            <label style="font-size: 0.85rem; display: block; margin-bottom: 6px;">استيراد الأسماء (ملف txt أو csv):</label>
+            <input type="file" id="importNamesFile" accept=".txt,.csv" onchange="importNamesFromFile(event)" style="font-size: 0.82rem; margin-bottom: 6px;" />
+            <label style="font-size: 0.82rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px;">
+              <input type="checkbox" id="replaceNamesCheck" checked /> استبدال الأسماء الحالية
+            </label>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">🏆 لوحة الفائزين</div>
+          <ul class="winners-list" id="winnersList"></ul>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">📜 سجل الأحداث</div>
+          <ul class="log-list" id="logList"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin Login Modal -->
+  <div class="modal-backdrop" id="loginModal">
+    <div class="modal" style="max-width: 420px; text-align: center;">
+      <h2 style="margin-bottom: 8px;">🔐 بوابة دخول المدير</h2>
+      <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 16px;">
+        أدخل الرقم السري لتفعيل صلاحيات إدارة المسابقة والتحكم الكامل (الافتراضي: <code>1234</code>).
+      </p>
+      <input type="password" id="loginPassInput" placeholder="أدخل الرقم السري للمدير..." style="text-align: center; font-size: 1.1rem; margin-bottom: 14px;" onkeydown="if(event.key==='Enter') verifyAdminLogin()" />
+      <div style="display: flex; gap: 8px;">
+        <button class="btn-primary" style="flex: 2;" onclick="verifyAdminLogin()">🔓 دخول المدير</button>
+        <button class="btn-ghost" style="flex: 1;" onclick="closeLoginModal()">إلغاء</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reports & Export Modal -->
+  <div class="modal-backdrop" id="reportsModal">
+    <div class="modal" style="max-width: 650px;">
+      <div class="panel-title">
+        <span>📊 التقارير وتصدير النتائج</span>
+        <button class="btn-ghost" onclick="closeReportsModal()">✕ إغلاق</button>
+      </div>
+      <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 16px;">
+        يمكنك تصدير كشف شامل بأسماء المتسابقين، الفائزين، عدد الإسقاطات، والأخطاء والاعتذارات المسجلة:
+      </p>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+        <button class="btn-success" style="padding: 14px;" onclick="exportExcelCSV()">📗 تصدير ملف Excel (CSV)</button>
+        <button class="btn-danger" style="padding: 14px;" onclick="printPDFReport()">📕 طباعة / حفظ تقرير PDF</button>
+      </div>
+      <div id="reportPreviewBox" style="background: #0b1120; padding: 14px; border-radius: 10px; font-size: 0.85rem; max-height: 280px; overflow-y: auto;"></div>
+    </div>
+  </div>
+
+  <!-- Settings & Archive Modal -->
+  <div class="modal-backdrop" id="settingsModal">
+    <div class="modal">
+      <div class="panel-title">
+        <span>⚙️ الإعدادات وأرشيف الأسئلة والمزامنة السحابية</span>
+        <button class="btn-ghost" onclick="closeSettings()">✕ إغلاق</button>
+      </div>
+
+      <div class="settings-grid">
+        <div class="form-field">
+          <label>عدد الخصوم للفوز</label>
+          <input type="number" id="cfgKillsToWin" min="1" max="50" />
+        </div>
+        <div class="form-field">
+          <label>عدد الفائزين</label>
+          <input type="number" id="cfgMaxWinners" min="1" max="20" />
+        </div>
+        <div class="form-field">
+          <label>عدد اللاعبين</label>
+          <input type="number" id="cfgTotalPlayers" min="2" max="100" />
+        </div>
+        <div class="form-field">
+          <label>أرقام في كل صف</label>
+          <input type="number" id="cfgCols" min="2" max="12" />
+        </div>
+        <div class="form-field">
+          <label>الأخطاء المسموحة قبل الخروج</label>
+          <input type="number" id="cfgMaxErrors" min="1" max="10" />
+        </div>
+        <div class="form-field">
+          <label>الاعتذارات / المحاولات المسموحة</label>
+          <input type="number" id="cfgMaxPasses" min="0" max="10" />
+        </div>
+        <div class="form-field">
+          <label>زمن السؤال بالثواني</label>
+          <input type="number" id="cfgTimerSec" min="5" max="300" />
+        </div>
+        <div class="form-field">
+          <label>عدد الشاشات المرتبة</label>
+          <input type="number" id="cfgOrderedScreens" min="1" max="12" />
+        </div>
+      </div>
+
+      <!-- Cloud Sync Webhook (Optional Google Apps Script) -->
+      <div class="form-field" style="margin-bottom: 14px;">
+        <label>رابط مزامنة سحابية خارجية (اختياري - Google Apps Script Web App URL لمزامنة أجهزة مختلفة عبر الإنترنت):</label>
+        cloudSyncUrl: "<?= webAppUrl ?>".startsWith("http") ? "<?= webAppUrl ?>" : "",
+      </div>
+
+      <button class="btn-success" onclick="saveSettings()" style="margin-bottom: 18px;">💾 حفظ الإعدادات وتطبيقها</button>
+
+      <!-- Security & Backup -->
+      <div style="border-top: 1px solid var(--border-color); padding-top: 14px; margin-bottom: 18px;">
+        <h4 style="margin-bottom: 8px;">🔐 الرقم السري للمدير والنسخ الاحتياطي</h4>
+        <div class="input-group">
+          <input type="password" id="newAdminPass" placeholder="الرقم السري الجديد للمدير" />
+          <button class="btn-warning" onclick="changePassword()">تحديث الرقم السري</button>
+        </div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button class="btn-primary" onclick="exportBackupJSON()">⬇️ تصدير نسخة احتياطية (JSON)</button>
+          <label class="btn-ghost" style="cursor: pointer;">
+            ⬆️ استعادة نسخة احتياطية
+            <input type="file" accept=".json" onchange="importBackupJSON(event)" style="display: none;" />
+          </label>
+        </div>
+      </div>
+
+      <!-- Question Archive -->
+      <div style="border-top: 1px solid var(--border-color); padding-top: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+          <h4>📚 أرشيف الأسئلة (<span id="archiveTotalCount">0</span> سؤالاً)</h4>
+          <select id="archiveFilterSelect" onchange="renderArchiveList()" style="width: auto; padding: 5px 10px; font-size: 0.82rem;">
+            <option value="all">عرض الكل</option>
+            <option value="easy">🟢 سهل</option>
+            <option value="medium">🟡 متوسط</option>
+            <option value="hard">🔴 صعب</option>
+          </select>
+        </div>
+        <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 8px;">
+          الصيغة: <code>السؤال | الإجابة | المستوى</code> (المستوى اختياري: سهل، متوسط، صعب):
+        </p>
+        <textarea id="bulkQuestionsInput" rows="3" placeholder="مثال: ما عاصمة سلطنة عمان؟ | مسقط | سهل"></textarea>
+        <div style="display: flex; gap: 8px; margin: 8px 0 14px; flex-wrap: wrap;">
+          <button class="btn-primary" onclick="addBulkQuestions()">➕ إضافة للأرشيف</button>
+          <button class="btn-ghost" onclick="restoreDefaultQuestions()">🔄 استعادة الأسئلة الافتراضية</button>
+          <button class="btn-danger" onclick="clearArchive()">🗑️ مسح الأرشيف</button>
+        </div>
+        <div id="archiveListContainer" style="max-height: 230px; overflow-y: auto;"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "contest_pro_synced_state_v1";
+    const PRESENCE_KEY = "contest_pro_presence_v1";
+    const FOLLOW_FLAG_KEY = "contest_pro_user_followed_v1";
+    const CHANNEL_NAME = "contest_pro_sync_channel";
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const screenSlotParam = parseInt(urlParams.get("screen") || "0", 10);
+    const isDedicatedScreen = screenSlotParam > 0;
+    const CLIENT_ID = "client_" + Math.random().toString(36).slice(2, 10);
+
+    const DEFAULT_QUESTIONS = [
+      { q: "ما عاصمة سلطنة عمان؟", a: "مسقط", level: "easy" },
+      { q: "ما هو أطول نهر في العالم؟", a: "نهر النيل", level: "easy" },
+      { q: "كم عدد السور في القرآن الكريم؟", a: "114 سورة", level: "easy" },
+      { q: "ما هو الكوكب الأحمر؟", a: "كوكب المريخ", level: "easy" },
+      { q: "من هو مخترع الديناميت؟", a: "ألفرد نوبل", level: "medium" },
+      { q: "ما هي أصغر دولة في العالم من حيث المساحة؟", a: "دولة الفاتيكان", level: "easy" },
+      { q: "من هو العالم المسلم الملقب بالشيخ الرئيس؟", a: "ابن سينا", level: "medium" },
+      { q: "كم عدد أضلاع الشكل السداسي؟", a: "ستة أضلاع", level: "easy" },
+      { q: "ما هو الغاز الذي يشكل حوالي 78% من الغلاف الجوي؟", a: "النيتروجين", level: "medium" },
+      { q: "في أي عام هجري وقعت غزوة تبوك؟", a: "السنة التاسعة للهجرة", level: "medium" },
+      { q: "ما اسم السورة التي ذُكرت فيها البسملة مرتين؟", a: "سورة النمل", level: "medium" },
+      { q: "ما هو العظم الوحيد في جسم الإنسان الذي لا يرتبط بعظم آخر؟", a: "عظمة اللامي (عظمة الحنجرة)", level: "hard" },
+      { q: "ما اسم أول قمر صناعي أطلقه الاتحاد السوفييتي عام 1957؟", a: "سبوتنيك 1", level: "medium" },
+      { q: "ما اسم العاصمة العربية التي كانت تُعرف قديماً بفلادلفيا؟", a: "عمّان", level: "hard" },
+      { q: "من هو مؤسس علم الجبر؟", a: "الخوارزمي", level: "easy" },
+      { q: "ما اسم المضيق الذي يربط بحر مرمرة بالبحر الأسود؟", a: "مضيق البوسفور", level: "medium" },
+      { q: "ما اسم أول جامعة أنشئت في التاريخ الإسلامي؟", a: "جامعة القرويين", level: "medium" },
+      { q: "ما اسم العملية التي تتحول فيها المادة الصلبة مباشرة إلى غاز؟", a: "التسامي", level: "hard" },
+      { q: "ما هو الرمز الكيميائي للذهب؟", a: "Au", level: "easy" },
+      { q: "من هو صاحب رواية البؤساء؟", a: "فيكتور هوجو", level: "medium" }
+    ];
+
+    let state = {
+      isAdmin: false,
+      adminPassword: "1234",
+      selectionMode: "random",
+      orderedScreensCount: 2,
+      cloudSyncUrl: "",
+      followersCount: 0,
+      cloudLiveViewers: null,
+      cloudActiveScreens: [],
+      lastUpdated: Date.now(),
+      settings: {
+        killsToWin: 3,
+        maxWinners: 3,
+        totalPlayers: 15,
+        cols: 5,
+        maxErrors: 1,
+        maxPasses: 3,
+        timerSec: 30
+      },
+      players: [],
+      selectorId: null,
+      targetId: null,
+      winners: [],
+      logs: [],
+      archive: [],
+      usedQuestionIndices: [],
+      currentQuestion: null
+    };
+
+    let historyStack = [];
+    let timerInterval = null;
+    let timeLeft = 30;
+    let timerRunning = false;
+    let broadcastChannel = null;
+    let isApplyingRemoteState = false;
+
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    const audioCtx = AudioContextClass ? new AudioContextClass() : null;
+
+    function playTone(freq, type = "sine", duration = 0.2) {
+      if (!audioCtx) return;
       try {
-        parsedState = JSON.parse(rawState);
-      } catch (err) {
-        parsedState = null;
+        if (audioCtx.state === "suspended") audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {}
+    }
+
+    function playWinFanfare() {
+      [523.25, 659.25, 783.99, 1046.5].forEach((freq, idx) => {
+        setTimeout(() => playTone(freq, "triangle", 0.3), idx * 120);
+      });
+      launchConfetti();
+    }
+
+    function triggerEliminationEffect() {
+      playTone(180, "sawtooth", 0.4);
+      document.body.classList.remove("shake-effect");
+      void document.body.offsetWidth;
+      document.body.classList.add("shake-effect");
+      setTimeout(() => document.body.classList.remove("shake-effect"), 500);
+    }
+
+    function launchConfetti() {
+      const canvas = document.getElementById("confettiCanvas");
+      if (!canvas || !canvas.getContext) return;
+      const ctx = canvas.getContext("2d");
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      const colors = ["#eab308", "#10b981", "#3b82f6", "#ec4899", "#8b5cf6"];
+      const particles = Array.from({ length: 130 }, () => ({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height - canvas.height,
+        w: Math.random() * 10 + 6,
+        h: Math.random() * 6 + 4,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        vy: Math.random() * 4 + 3,
+        vx: Math.random() * 4 - 2,
+        rot: Math.random() * 360
+      }));
+
+      let frames = 0;
+      function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        particles.forEach(p => {
+          p.y += p.vy;
+          p.x += p.vx;
+          p.rot += 4;
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate((p.rot * Math.PI) / 180);
+          ctx.fillStyle = p.color;
+          ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+          ctx.restore();
+        });
+        frames++;
+        if (frames < 150) requestAnimationFrame(animate);
+        else ctx.clearRect(0, 0, canvas.width, canvas.height);
       }
+      animate();
     }
 
-    return ContentService
-      .createTextOutput(JSON.stringify({
-        ok: true,
-        action: action,
-        state: parsedState,
-        serverTime: Date.now()
-      }))
-      .setMimeType(ContentService.MimeType.JSON);
-  } catch (error) {
-    return ContentService
-      .createTextOutput(JSON.stringify({
-        ok: false,
-        error: error.message
-      }))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-}
-
-function doPost(e) {
-  try {
-    if (!e || !e.postData || !e.postData.contents) {
-      return jsonResponse({ ok: false, error: "Empty payload" });
-    }
-
-    const body = JSON.parse(e.postData.contents);
-    const incomingState = body.state;
-    const reason = body.reason ? String(body.reason) : "تحديث";
-
-    if (!incomingState || typeof incomingState !== "object") {
-      return jsonResponse({ ok: false, error: "Invalid state object" });
-    }
-
-    const lock = LockService.getScriptLock();
-    lock.waitLock(5000);
-
-    const props = PropertiesService.getScriptProperties();
-    const existingRaw = props.getProperty(STATE_PROPERTY_KEY);
-    let shouldSaveState = true;
-
-    if (existingRaw) {
-      try {
-        const existingState = JSON.parse(existingRaw);
-        const oldTs = Number(existingState.lastUpdated || 0);
-        const newTs = Number(incomingState.lastUpdated || Date.now());
-        if (newTs < oldTs) {
-          shouldSaveState = false;
+    function buildDefaultPlayers(total, oldPlayers = []) {
+      const list = [];
+      for (let i = 1; i <= total; i++) {
+        const existing = oldPlayers.find(p => p.id === i);
+        if (existing) {
+          list.push(existing);
+        } else {
+          list.push({
+            id: i,
+            name: "",
+            status: "available",
+            kills: 0,
+            errors: 0,
+            passes: 0
+          });
         }
-      } catch (err) {
-        shouldSaveState = true;
+      }
+      return list;
+    }
+
+    function addLog(msg) {
+      const time = new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      state.logs.unshift(`[${time}] ${msg}`);
+      if (state.logs.length > 120) state.logs.pop();
+    }
+
+    function saveSnapshot() {
+      const snap = JSON.stringify({
+        selectionMode: state.selectionMode,
+        settings: state.settings,
+        players: state.players,
+        selectorId: state.selectorId,
+        targetId: state.targetId,
+        winners: state.winners,
+        logs: state.logs,
+        usedQuestionIndices: state.usedQuestionIndices,
+        currentQuestion: state.currentQuestion
+      });
+      historyStack.push(snap);
+      if (historyStack.length > 30) historyStack.shift();
+      updateUndoButton();
+    }
+
+    function updateUndoButton() {
+      const btn = document.getElementById("undoBtn");
+      if (btn) btn.disabled = historyStack.length === 0;
+    }
+
+    function undoAction() {
+      if (!state.isAdmin || historyStack.length === 0) return;
+      const last = JSON.parse(historyStack.pop());
+      Object.assign(state, last);
+      stopTimer();
+      clearActiveQuestionUI();
+      addLog("↩️ تم التراجع عن آخر إجراء.");
+      syncAll("تراجع عن إجراء");
+      updateUndoButton();
+    }
+
+    /* ==================== SYNC & PRESENCE SYSTEM ==================== */
+    function initSyncChannel() {
+      if ("BroadcastChannel" in window) {
+        broadcastChannel = new BroadcastChannel(CHANNEL_NAME);
+        broadcastChannel.onmessage = (event) => {
+          const msg = event.data;
+          if (!msg || msg.senderId === CLIENT_ID) return;
+          if (msg.type === "STATE_UPDATE" && msg.payload) {
+            applyIncomingState(msg.payload);
+          } else if (msg.type === "PRESENCE_PING") {
+            renderPresenceAndScreens();
+          } else if (msg.type === "FOLLOW_CHANGED" && typeof msg.followersCount === "number") {
+            state.followersCount = msg.followersCount;
+            persistLocalState();
+            renderAudienceUI();
+          }
+        };
+      }
+
+      window.addEventListener("storage", (e) => {
+        if (e.key === STORAGE_KEY && e.newValue) {
+          try {
+            const parsed = JSON.parse(e.newValue);
+            applyIncomingState(parsed);
+          } catch (err) {}
+        } else if (e.key === PRESENCE_KEY) {
+          renderPresenceAndScreens();
+        }
+      });
+    }
+
+    function persistLocalState() {
+      try {
+        const shareableState = {
+          ...state,
+          isAdmin: false,
+          adminPassword: state.adminPassword
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(shareableState));
+      } catch (e) {}
+    }
+
+    function loadLocalState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          state = {
+            ...state,
+            ...parsed,
+            settings: { ...state.settings, ...(parsed.settings || {}) },
+            isAdmin: false
+          };
+        }
+      } catch (e) {}
+
+      if (!Array.isArray(state.archive) || state.archive.length === 0) {
+        state.archive = [...DEFAULT_QUESTIONS];
+      }
+      if (!Array.isArray(state.players) || state.players.length !== state.settings.totalPlayers) {
+        state.players = buildDefaultPlayers(state.settings.totalPlayers, state.players || []);
+      }
+      if (!Array.isArray(state.winners)) state.winners = [];
+      if (!Array.isArray(state.logs)) state.logs = [];
+      if (!Array.isArray(state.usedQuestionIndices)) state.usedQuestionIndices = [];
+    }
+
+    function applyIncomingState(incoming) {
+      if (!incoming || !incoming.lastUpdated) return;
+      if (incoming.lastUpdated <= (state.lastUpdated || 0) && !isApplyingRemoteState) return;
+      isApplyingRemoteState = true;
+      const keepAdmin = state.isAdmin;
+      const keepLocalFollowers = state.followersCount;
+      state = {
+        ...state,
+        ...incoming,
+        settings: { ...state.settings, ...(incoming.settings || {}) },
+        isAdmin: keepAdmin
+      };
+      if (!state.cloudSyncUrl && typeof keepLocalFollowers === "number") {
+        state.followersCount = Math.max(state.followersCount || 0, keepLocalFollowers);
+      }
+      if (state.currentQuestion) {
+        renderActiveQuestionCard(state.currentQuestion, state.currentQuestion.timeLeft ?? state.settings.timerSec);
+      } else {
+        clearActiveQuestionUI();
+      }
+      renderAll();
+      isApplyingRemoteState = false;
+    }
+
+    function broadcastFullState(reason = "تحديث") {
+      state.lastUpdated = Date.now();
+      persistLocalState();
+      if (broadcastChannel) {
+        broadcastChannel.postMessage({
+          type: "STATE_UPDATE",
+          senderId: CLIENT_ID,
+          reason,
+          payload: { ...state, isAdmin: false }
+        });
+      }
+      if (state.cloudSyncUrl && state.cloudSyncUrl.trim().startsWith("http")) {
+        fetch(state.cloudSyncUrl.trim(), {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "sync_state",
+            reason,
+            state: { ...state, isAdmin: false }
+          })
+        }).catch(() => {});
       }
     }
 
-    if (!incomingState.lastUpdated) {
-      incomingState.lastUpdated = Date.now();
+    function pullCloudStateIfConfigured() {
+      if (!state.cloudSyncUrl || !state.cloudSyncUrl.trim().startsWith("http")) return;
+      const role = state.isAdmin ? "admin" : (isDedicatedScreen ? "screen" : "viewer");
+      const slot = isDedicatedScreen ? screenSlotParam : 0;
+      const url = `${state.cloudSyncUrl.trim()}?action=ping_and_get&clientId=${encodeURIComponent(CLIENT_ID)}&role=${role}&screenSlot=${slot}&_t=${Date.now()}`;
+
+      fetch(url)
+        .then(res => res.json())
+        .then(data => {
+          if (!data || !data.ok) return;
+          if (typeof data.liveViewersCount === "number") {
+            state.cloudLiveViewers = data.liveViewersCount;
+          }
+          if (Array.isArray(data.activeScreens)) {
+            state.cloudActiveScreens = data.activeScreens;
+          }
+          if (data.state && data.state.lastUpdated > state.lastUpdated) {
+            applyIncomingState(data.state);
+          } else {
+            renderPresenceAndScreens();
+            renderAudienceUI();
+          }
+        })
+        .catch(() => {});
     }
 
-    if (shouldSaveState) {
-      props.setProperty(STATE_PROPERTY_KEY, JSON.stringify(incomingState));
-      syncStateToSheets(incomingState, reason, props);
+    function syncAll(reason = "") {
+      renderAll();
+      broadcastFullState(reason);
     }
 
-    lock.releaseLock();
-
-    return jsonResponse({
-      ok: true,
-      saved: shouldSaveState,
-      lastUpdated: incomingState.lastUpdated
-    });
-  } catch (error) {
-    return jsonResponse({
-      ok: false,
-      error: error.message
-    });
-  }
-}
-
-function syncStateToSheets(stateObj, reason, props) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  if (!ss) return;
-
-  const updatedAtStr = Utilities.formatDate(
-    new Date(Number(stateObj.lastUpdated || Date.now())),
-    Session.getScriptTimeZone() || "Asia/Muscat",
-    "yyyy-MM-dd HH:mm:ss"
-  );
-
-  writeLogsSheet(ss, stateObj, reason, updatedAtStr, props);
-  writeResultsSheet(ss, stateObj, updatedAtStr);
-  writeFollowersSheet(ss, stateObj, reason, updatedAtStr);
-}
-
-function getOrCreateSheet(ss, name, headers) {
-  let sheet = ss.getSheetByName(name);
-  if (!sheet) {
-    sheet = ss.insertSheet(name);
-    sheet.setRightToLeft(true);
-    sheet.appendRow(headers);
-    sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold");
-    sheet.setFrozenRows(1);
-  }
-  return sheet;
-}
-
-function writeLogsSheet(ss, stateObj, reason, updatedAtStr, props) {
-  const sheet = getOrCreateSheet(ss, SHEET_LOGS_NAME, [
-    "وقت التسجيل في الشيت",
-    "سبب المزامنة",
-    "نص الحدث"
-  ]);
-
-  const logs = Array.isArray(stateObj.logs) ? stateObj.logs : [];
-  if (logs.length === 0) {
-    props.setProperty(LAST_LOGS_SIG_KEY, "");
-    return;
-  }
-
-  // إذا بدأ سجل جديد بعد تصفير المسابقة، نعيد ضبط البصمة
-  const prevTop = props.getProperty(LAST_LOGS_SIG_KEY) || "";
-  const currentTop = String(logs[0] || "");
-
-  // نجمع الأحداث الجديدة التي لم تُسجل بعد بناءً على آخر حدث مسجل
-  let newEntries = [];
-  if (!prevTop) {
-    newEntries = logs.slice().reverse();
-  } else {
-    const idxInLogs = logs.indexOf(prevTop);
-    if (idxInLogs === -1) {
-      // في حال تم تصفير السجل أو بدء مسابقة جديدة
-      newEntries = logs.slice().reverse();
-    } else if (idxInLogs > 0) {
-      newEntries = logs.slice(0, idxInLogs).reverse();
+    /* Heartbeat for Active Viewers & Ordered Screens */
+    function sendPresenceHeartbeat() {
+      try {
+        const now = Date.now();
+        const raw = localStorage.getItem(PRESENCE_KEY);
+        const map = raw ? JSON.parse(raw) : {};
+        map[CLIENT_ID] = {
+          id: CLIENT_ID,
+          role: state.isAdmin ? "admin" : (isDedicatedScreen ? "screen" : "viewer"),
+          screenSlot: isDedicatedScreen ? screenSlotParam : 0,
+          lastSeen: now
+        };
+        Object.keys(map).forEach((k) => {
+          if (now - map[k].lastSeen > 15000) delete map[k];
+        });
+        localStorage.setItem(PRESENCE_KEY, JSON.stringify(map));
+        if (broadcastChannel) {
+          broadcastChannel.postMessage({ type: "PRESENCE_PING", senderId: CLIENT_ID });
+        }
+        renderPresenceAndScreens();
+      } catch (e) {}
     }
-  }
 
-  if (newEntries.length > 0) {
-    const rows = newEntries.map(entry => [updatedAtStr, reason, String(entry)]);
-    sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, 3).setValues(rows);
-  }
-
-  props.setProperty(LAST_LOGS_SIG_KEY, currentTop);
-}
-
-function writeResultsSheet(ss, stateObj, updatedAtStr) {
-  const sheet = getOrCreateSheet(ss, SHEET_RESULTS_NAME, [
-    "الرقم",
-    "اسم المتسابق",
-    "الحالة",
-    "الإسقاطات",
-    "الأخطاء",
-    "الاعتذارات",
-    "فائز؟",
-    "آخر تحديث"
-  ]);
-
-  const players = Array.isArray(stateObj.players) ? stateObj.players : [];
-  const winners = Array.isArray(stateObj.winners) ? stateObj.winners : [];
-  const winnerIds = new Set(winners.map(w => Number(w.id)));
-
-  // إعادة كتابة جدول النتائج المحدّث بشكل نظيف دون تكرار صفوف اللاعبين
-  const lastRow = sheet.getLastRow();
-  if (lastRow > 1) {
-    sheet.getRange(2, 1, lastRow - 1, 8).clearContent();
-  }
-
-  if (players.length > 0) {
-    const rows = players.map(p => {
-      let statusAr = "متاح";
-      if (p.status === "eliminated") statusAr = "مستبعد / منسحب";
-      else if (p.status === "winner") statusAr = "فائز";
-
-      const isWinner = winnerIds.has(Number(p.id)) || p.status === "winner" ? "نعم 🏆" : "لا";
-
-      return [
-        Number(p.id || 0),
-        String(p.name || ("متسابق #" + p.id)),
-        statusAr,
-        Number(p.kills || 0),
-        Number(p.errors || 0),
-        Number(p.passes || 0),
-        isWinner,
-        updatedAtStr
-      ];
-    });
-
-    sheet.getRange(2, 1, rows.length, 8).setValues(rows);
-  }
-}
-
-function writeFollowersSheet(ss, stateObj, reason, updatedAtStr) {
-  const sheet = getOrCreateSheet(ss, SHEET_FOLLOWERS_NAME, [
-    "وقت التحديث",
-    "إجمالي المتابعين",
-    "عدد الشاشات المرتبة",
-    "عدد الفائزين الحالي",
-    "ملاحظة / سبب التحديث"
-  ]);
-
-  const followersCount = Number(stateObj.followersCount || 0);
-  const screensCount = Number(stateObj.orderedScreensCount || 1);
-  const winnersCount = Array.isArray(stateObj.winners) ? stateObj.winners.length : 0;
-
-  // نضيف صفاً جديداً عندما يتغير عدد المتابعين أو عند تحديثات رئيسية
-  const lastRow = sheet.getLastRow();
-  let shouldAppend = true;
-  if (lastRow > 1) {
-    const prevFollowers = Number(sheet.getRange(lastRow, 2).getValue() || 0);
-    const prevReason = String(sheet.getRange(lastRow, 5).getValue() || "");
-    if (prevFollowers === followersCount && prevReason === reason) {
-      shouldAppend = false;
+    function getActivePresenceList() {
+      try {
+        const now = Date.now();
+        const raw = localStorage.getItem(PRESENCE_KEY);
+        const map = raw ? JSON.parse(raw) : {};
+        return Object.values(map).filter(p => now - p.lastSeen <= 15000);
+      } catch (e) {
+        return [{ id: CLIENT_ID, role: "viewer", screenSlot: 0, lastSeen: Date.now() }];
+      }
     }
-  }
 
-  if (shouldAppend) {
-    sheet.appendRow([updatedAtStr, followersCount, screensCount, winnersCount, reason]);
-  }
-}
+    function getEffectiveViewersCount() {
+      const localCount = Math.max(1, getActivePresenceList().length);
+      if (state.cloudSyncUrl && typeof state.cloudLiveViewers === "number") {
+        return Math.max(localCount, state.cloudLiveViewers);
+      }
+      return localCount;
+    }
 
-function jsonResponse(obj) {
-  return ContentService
-    .createTextOutput(JSON.stringify(obj))
-    .setMimeType(ContentService.MimeType.JSON);
-}
+    function isScreenSlotActive(slot) {
+      const localActive = getActivePresenceList().some(p => Number(p.screenSlot) === Number(slot));
+      const cloudActive = Array.isArray(state.cloudActiveScreens) && state.cloudActiveScreens.map(Number).includes(Number(slot));
+      return localActive || cloudActive;
+    }
+
+    function renderPresenceAndScreens() {
+      const viewersCount = getEffectiveViewersCount();
+
+      const statViewers = document.getElementById("statLiveViewers");
+      const inlineViewers = document.getElementById("inlineLiveViewers");
+      if (statViewers) statViewers.textContent = viewersCount;
+      if (inlineViewers) inlineViewers.textContent = viewersCount;
+
+      const deviceTag = document.getElementById("deviceRoleTag");
+      if (deviceTag) {
+        if (state.isAdmin) deviceTag.textContent = "جهاز المدير";
+        else if (isDedicatedScreen) deviceTag.textContent = `شاشة عرض #${screenSlotParam}`;
+        else deviceTag.textContent = "جهاز مشاهدة";
+      }
+
+      const screensContainer = document.getElementById("orderedScreensList");
+      const screensInput = document.getElementById("orderedScreensInput");
+      if (screensInput && document.activeElement !== screensInput) {
+        screensInput.value = state.orderedScreensCount || 2;
+      }
+
+      if (screensContainer) {
+        const count = Math.min(12, Math.max(1, parseInt(state.orderedScreensCount || 2, 10)));
+        screensContainer.innerHTML = "";
+        for (let slot = 1; slot <= count; slot++) {
+          const isOnline = isScreenSlotActive(slot);
+          const card = document.createElement("div");
+          card.className = "screen-card";
+          card.innerHTML = `
+            <div>
+              <strong>شاشة مرتبة #${slot}</strong>
+              <div style="margin-top: 2px;">
+                <span class="screen-status ${isOnline ? "online" : "standby"}">
+                  ${isOnline ? "● متصلة الآن" : "○ بانتظار الفتح"}
+                </span>
+              </div>
+            </div>
+            <button class="btn-ghost" style="padding: 5px 10px; font-size: 0.78rem;" onclick="openDisplayWindow(${slot})">
+              فتح الشاشة
+            </button>
+          `;
+          screensContainer.appendChild(card);
+        }
+      }
+    }
+
+    function updateOrderedScreensCount() {
+      if (!state.isAdmin) return;
+      const input = document.getElementById("orderedScreensInput");
+      const val = Math.min(12, Math.max(1, parseInt(input?.value || "2", 10)));
+      state.orderedScreensCount = val;
+      addLog(`🖥️ تم تحديد عدد الشاشات المرتبة إلى ${val} شاشات.`);
+      syncAll("تحديث عدد الشاشات المرتبة");
+    }
+
+    function openDisplayWindow(slot = 1) {
+      const url = new URL(window.location.href);
+      url.searchParams.set("screen", String(slot));
+      window.open(url.toString(), `contest_screen_${slot}`, "noopener,noreferrer");
+    }
+
+    function openAllOrderedScreens() {
+      if (!state.isAdmin) return;
+      const count = Math.min(12, Math.max(1, parseInt(state.orderedScreensCount || 2, 10)));
+      for (let slot = 1; slot <= count; slot++) {
+        openDisplayWindow(slot);
+      }
+      addLog(`🚀 تم فتح ${count} شاشات عرض مرتبة.`);
+      syncAll("فتح الشاشات المرتبة");
+    }
+
+    function toggleFollowContest() {
+      const alreadyFollowed = localStorage.getItem(FOLLOW_FLAG_KEY) === "1";
+      const delta = alreadyFollowed ? -1 : 1;
+
+      if (!alreadyFollowed) {
+        state.followersCount = (state.followersCount || 0) + 1;
+        localStorage.setItem(FOLLOW_FLAG_KEY, "1");
+        addLog("⭐ انضم متابع جديد إلى المسابقة.");
+      } else {
+        state.followersCount = Math.max(0, (state.followersCount || 0) - 1);
+        localStorage.removeItem(FOLLOW_FLAG_KEY);
+        addLog("☆ ألغى متابع متابعة المسابقة.");
+      }
+
+      persistLocalState();
+      if (broadcastChannel) {
+        broadcastChannel.postMessage({
+          type: "FOLLOW_CHANGED",
+          senderId: CLIENT_ID,
+          followersCount: state.followersCount
+        });
+      }
+
+      if (state.cloudSyncUrl && state.cloudSyncUrl.trim().startsWith("http")) {
+        fetch(state.cloudSyncUrl.trim(), {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "follow_delta", delta })
+        }).catch(() => {});
+      }
+
+      renderAudienceUI();
+      renderLogs();
+    }
+
+    function renderAudienceUI() {
+      const totalFollowers = state.followersCount || 0;
+      const statFollowers = document.getElementById("statFollowers");
+      const inlineFollowers = document.getElementById("inlineFollowersCount");
+      if (statFollowers) statFollowers.textContent = totalFollowers;
+      if (inlineFollowers) inlineFollowers.textContent = totalFollowers;
+
+      const followBtn = document.getElementById("followBtn");
+      const followed = localStorage.getItem(FOLLOW_FLAG_KEY) === "1";
+      if (followBtn) {
+        followBtn.textContent = followed ? "★ متابَع (إلغاء المتابعة)" : "⭐ متابعة المسابقة";
+        followBtn.className = followed ? "btn-success" : "btn-purple";
+      }
+
+      const syncPill = document.getElementById("syncStatusPill");
+      if (syncPill) {
+        if (state.cloudSyncUrl && state.cloudSyncUrl.trim().startsWith("http")) {
+          syncPill.textContent = "🌐 مزامنة سحابية + تبويبات نشطة";
+        } else if (isDedicatedScreen) {
+          syncPill.textContent = `🖥️ شاشة عرض #${screenSlotParam} متزامنة`;
+        } else {
+          syncPill.textContent = "🔄 مزامنة محلية وتبويبات نشطة";
+        }
+      }
+    }
+
+    /* ==================== ADMIN ROLE & AUTH ==================== */
+    function handleRoleButton() {
+      if (state.isAdmin) {
+        state.isAdmin = false;
+        applyRoleUI();
+        renderPresenceAndScreens();
+      } else {
+        openLoginModal();
+      }
+    }
+
+    function openLoginModal() {
+      document.getElementById("loginPassInput").value = "";
+      document.getElementById("loginModal").classList.add("open");
+      setTimeout(() => document.getElementById("loginPassInput").focus(), 50);
+    }
+
+    function closeLoginModal() {
+      document.getElementById("loginModal").classList.remove("open");
+    }
+
+    function verifyAdminLogin() {
+      const pass = document.getElementById("loginPassInput").value.trim();
+      if (pass === state.adminPassword) {
+        state.isAdmin = true;
+        closeLoginModal();
+        applyRoleUI();
+        sendPresenceHeartbeat();
+        addLog("🔓 تم تسجيل دخول المدير.");
+        syncAll("دخول المدير");
+      } else {
+        playTone(160, "sawtooth", 0.25);
+        alert("الرقم السري غير صحيح!");
+      }
+    }
+
+    function applyRoleUI() {
+      const badge = document.getElementById("roleBadge");
+      const btn = document.getElementById("toggleRoleBtn");
+      if (state.isAdmin) {
+        document.body.classList.remove("viewer-mode");
+        badge.textContent = "وضع المدير";
+        badge.className = "role-badge";
+        btn.textContent = "🔒 خروج المدير";
+        btn.className = "btn-ghost";
+      } else {
+        document.body.classList.add("viewer-mode");
+        badge.textContent = isDedicatedScreen ? `شاشة عرض #${screenSlotParam}` : "وضع الجمهور أولاً";
+        badge.className = "role-badge viewer";
+        btn.textContent = "🔑 دخول المدير";
+        btn.className = "btn-warning";
+      }
+      renderSelectionStage();
+      renderPlayersGrid();
+    }
+
+    /* ==================== CONTEST LOGIC ==================== */
+    function changeSelectionMode() {
+      if (!state.isAdmin) return;
+      saveSnapshot();
+      state.selectionMode = document.getElementById("selectionModeSelect").value;
+      state.targetId = null;
+      stopTimer();
+      clearActiveQuestionUI();
+      addLog(`🎯 تم تغيير نمط اختيار الخصم إلى: ${state.selectionMode === "random" ? "عشوائي" : "يدوي"}.`);
+      syncAll("تغيير نمط الاختيار");
+    }
+
+    function pickRandomTarget() {
+      if (!state.isAdmin) return;
+      if (state.winners.length >= state.settings.maxWinners) {
+        alert("تم اكتمال العدد المطلوب من الفائزين!");
+        return;
+      }
+      const candidates = state.players.filter(p => p.status === "available" && p.id !== state.selectorId);
+      if (candidates.length === 0) {
+        alert("لا يوجد متسابقون متاحون لاختيار خصم!");
+        return;
+      }
+      const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+      selectTargetPlayer(chosen.id, true);
+    }
+
+    function onPlayerTileClick(playerId) {
+      if (!state.isAdmin) return;
+      const player = state.players.find(p => p.id === playerId);
+      if (!player) return;
+
+      if (player.status === "eliminated" || player.status === "winner") {
+        alert(`المتسابق رقم (${player.id}) غير متاح حالياً.`);
+        return;
+      }
+
+      if (!state.selectorId || state.players.find(p => p.id === state.selectorId)?.status !== "available") {
+        saveSnapshot();
+        state.selectorId = player.id;
+        state.targetId = null;
+        stopTimer();
+        clearActiveQuestionUI();
+        addLog(`🔵 تم تحديد المتسابق رقم (${player.id}) ${player.name || ""} كـ (يختار الآن).`);
+        syncAll("تحديد المختار");
+        return;
+      }
+
+      if (player.id === state.selectorId) {
+        alert("لا يمكن للمتسابق اختيار نفسه كخصم!");
+        return;
+      }
+
+      if (state.selectionMode === "manual") {
+        selectTargetPlayer(player.id, false);
+      } else {
+        saveSnapshot();
+        state.selectorId = player.id;
+        state.targetId = null;
+        stopTimer();
+        clearActiveQuestionUI();
+        addLog(`🔵 تم تغيير (يختار الآن) إلى المتسابق رقم (${player.id}) ${player.name || ""}.`);
+        syncAll("تغيير المختار");
+      }
+    }
+
+    function selectTargetPlayer(targetId, isRandom) {
+      saveSnapshot();
+      state.targetId = targetId;
+      const target = state.players.find(p => p.id === targetId);
+      const selector = state.players.find(p => p.id === state.selectorId);
+
+      const levelChoice = document.getElementById("levelSelector")?.value || "all";
+      const qObj = drawQuestionFromArchive(levelChoice);
+
+      if (!qObj) {
+        alert("لا توجد أسئلة متاحة في الأرشيف لهذا المستوى! يمكنك إضافة أسئلة أو استعادة الافتراضية.");
+        return;
+      }
+
+      state.currentQuestion = {
+        ...qObj,
+        targetId: target.id,
+        selectorId: selector ? selector.id : null,
+        timeLeft: state.settings.timerSec
+      };
+
+      addLog(`🟣 تم اختيار الخصم رقم (${target.id}) ${target.name || ""} ${isRandom ? "(عشوائياً)" : "(يدوياً)"} وطُرح سؤال.`);
+      startTimer(state.settings.timerSec);
+      renderActiveQuestionCard(state.currentQuestion, state.settings.timerSec);
+      syncAll("اختيار خصم وطرح سؤال");
+    }
+
+    function drawQuestionFromArchive(levelFilter) {
+      if (!Array.isArray(state.archive) || state.archive.length === 0) return null;
+      const availableIndices = [];
+      state.archive.forEach((item, idx) => {
+        if (state.usedQuestionIndices.includes(idx)) return;
+        if (levelFilter === "all" || item.level === levelFilter) {
+          availableIndices.push(idx);
+        }
+      });
+
+      if (availableIndices.length === 0) {
+        state.usedQuestionIndices = [];
+        state.archive.forEach((item, idx) => {
+          if (levelFilter === "all" || item.level === levelFilter) {
+            availableIndices.push(idx);
+          }
+        });
+      }
+
+      if (availableIndices.length === 0) return null;
+      const chosenIdx = availableIndices[Math.floor(Math.random() * availableIndices.length)];
+      state.usedQuestionIndices.push(chosenIdx);
+      return state.archive[chosenIdx];
+    }
+
+    function renderActiveQuestionCard(qData, sec) {
+      const card = document.getElementById("questionCard");
+      if (!card || !qData) return;
+      card.classList.add("active");
+
+      const targetPlayer = state.players.find(p => p.id === qData.targetId);
+      const targetLabel = targetPlayer
+        ? `رقم (${targetPlayer.id})${targetPlayer.name ? " - " + targetPlayer.name : ""}`
+        : "المتسابق";
+
+      document.getElementById("targetPlayerLabel").textContent = targetLabel;
+      document.getElementById("questionText").textContent = qData.q;
+      document.getElementById("answerText").textContent = qData.a;
+      document.getElementById("answerBox").classList.remove("visible");
+
+      const badge = document.getElementById("questionLevelBadge");
+      badge.className = "level-pill level-" + (qData.level || "easy");
+      badge.textContent =
+        qData.level === "hard" ? "🔴 صعب" : qData.level === "medium" ? "🟡 متوسط" : "🟢 سهل";
+
+      const timerEl = document.getElementById("timerDisplay");
+      timerEl.textContent = sec;
+      timerEl.classList.toggle("urgent", sec <= 5);
+    }
+
+    function clearActiveQuestionUI() {
+      const card = document.getElementById("questionCard");
+      if (card) card.classList.remove("active");
+      const ans = document.getElementById("answerBox");
+      if (ans) ans.classList.remove("visible");
+      state.currentQuestion = null;
+    }
+
+    function revealAnswer() {
+      document.getElementById("answerBox").classList.toggle("visible");
+    }
+
+    function startTimer(seconds) {
+      stopTimer();
+      timeLeft = seconds;
+      timerRunning = true;
+      updateTimerDisplay();
+      const btn = document.getElementById("timerToggleBtn");
+      if (btn) btn.textContent = "⏸️";
+
+      timerInterval = setInterval(() => {
+        if (!timerRunning) return;
+        timeLeft--;
+        if (state.currentQuestion) state.currentQuestion.timeLeft = timeLeft;
+        updateTimerDisplay();
+        if (timeLeft <= 5 && timeLeft > 0) playTone(880, "sine", 0.08);
+        if (timeLeft <= 0) {
+          stopTimer();
+          playTone(220, "sawtooth", 0.35);
+          addLog("⏰ انتهى وقت السؤال!");
+          renderLogs();
+        }
+      }, 1000);
+    }
+
+    function stopTimer() {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+      timerRunning = false;
+    }
+
+    function toggleTimer() {
+      if (!state.isAdmin) return;
+      if (!timerInterval && timeLeft > 0) {
+        startTimer(timeLeft);
+        return;
+      }
+      timerRunning = !timerRunning;
+      const btn = document.getElementById("timerToggleBtn");
+      if (btn) btn.textContent = timerRunning ? "⏸️" : "▶️";
+    }
+
+    function updateTimerDisplay() {
+      const el = document.getElementById("timerDisplay");
+      if (!el) return;
+      el.textContent = timeLeft;
+      el.classList.toggle("urgent", timeLeft <= 5);
+    }
+
+    function handleAnswer(isCorrect) {
+      if (!state.isAdmin || !state.currentQuestion) return;
+      saveSnapshot();
+      stopTimer();
+
+      const target = state.players.find(p => p.id === state.currentQuestion.targetId);
+      const selector = state.players.find(p => p.id === state.selectorId);
+
+      if (isCorrect) {
+        playTone(740, "triangle", 0.22);
+        if (target) {
+          target.status = "eliminated";
+          addLog(`❌ أجاب الخصم رقم (${target.id}) بشكل صحيح وتم استبعاده.`);
+        }
+        if (selector && selector.status === "available") {
+          selector.kills = (selector.kills || 0) + 1;
+          addLog(`⚔️ سجل المتسابق رقم (${selector.id}) إسقاطاً جديداً (${selector.kills}/${state.settings.killsToWin}).`);
+          if (selector.kills >= state.settings.killsToWin && state.winners.length < state.settings.maxWinners) {
+            selector.status = "winner";
+            state.winners.push({
+              id: selector.id,
+              name: selector.name || `متسابق #${selector.id}`,
+              kills: selector.kills
+            });
+            playWinFanfare();
+            addLog(`🏆 ألف مبروك! تأهل المتسابق رقم (${selector.id}) ${selector.name || ""} إلى قائمة الفائزين!`);
+            state.selectorId = null;
+          }
+        }
+      } else {
+        triggerEliminationEffect();
+        if (target) {
+          target.errors = (target.errors || 0) + 1;
+          addLog(`⚠️ خطأ على المتسابق رقم (${target.id}) (${target.errors}/${state.settings.maxErrors}).`);
+          if (target.errors >= state.settings.maxErrors) {
+            target.status = "eliminated";
+            addLog(`🚫 خروج المتسابق رقم (${target.id}) ${target.name || ""} لتجاوزه الحد المسموح من الأخطاء.`);
+          }
+        }
+      }
+
+      state.targetId = null;
+      clearActiveQuestionUI();
+      checkContestCompletion();
+      syncAll(isCorrect ? "إجابة صحيحة" : "إجابة خاطئة");
+    }
+
+    function handlePass() {
+      if (!state.isAdmin || !state.currentQuestion) return;
+      saveSnapshot();
+      stopTimer();
+
+      const target = state.players.find(p => p.id === state.currentQuestion.targetId);
+      if (target) {
+        target.passes = (target.passes || 0) + 1;
+        addLog(`✋ اعتذار/تمرير من المتسابق رقم (${target.id}) (${target.passes}/${state.settings.maxPasses}).`);
+        if (state.settings.maxPasses > 0 && target.passes >= state.settings.maxPasses) {
+          target.status = "eliminated";
+          triggerEliminationEffect();
+          addLog(`🚫 استبعاد المتسابق رقم (${target.id}) ${target.name || ""} لاستنفاد عدد الاعتذارات المسموحة.`);
+        }
+      }
+
+      state.targetId = null;
+      clearActiveQuestionUI();
+      checkContestCompletion();
+      syncAll("اعتذار أو تمرير");
+    }
+
+    function checkContestCompletion() {
+      const availableCount = state.players.filter(p => p.status === "available").length;
+      if (state.winners.length >= state.settings.maxWinners || availableCount === 0) {
+        addLog("🏁 انتهت جولات المسابقة أو اكتمل عدد الفائزين.");
+      }
+    }
+
+    /* ==================== PLAYERS & REGISTRATION ==================== */
+    function registerPlayer() {
+      if (!state.isAdmin) return;
+      const input = document.getElementById("playerNameInput");
+      const name = input.value.trim();
+      if (!name) return;
+
+      const emptySlot = state.players.find(p => !p.name && p.status === "available");
+      if (!emptySlot) {
+        alert("جميع الأرقام المتاحة مسجلة بالفعل!");
+        return;
+      }
+
+      saveSnapshot();
+      emptySlot.name = name;
+      input.value = "";
+      addLog(`📝 تم تسجيل (${name}) في الرقم (${emptySlot.id}).`);
+      syncAll("تسجيل متسابق");
+    }
+
+    function removeLastPlayer() {
+      if (!state.isAdmin) return;
+      for (let i = state.players.length - 1; i >= 0; i--) {
+        if (state.players[i].name) {
+          saveSnapshot();
+          const removed = state.players[i].name;
+          state.players[i].name = "";
+          addLog(`🗑️ تم حذف تسجيل (${removed}) من الرقم (${state.players[i].id}).`);
+          syncAll("حذف آخر تسجيل");
+          return;
+        }
+      }
+    }
+
+    function importNamesFromFile(event) {
+      if (!state.isAdmin) return;
+      const file = event.target.files[0];
+      if (!file) return;
+      const replace = document.getElementById("replaceNamesCheck").checked;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target.result || "";
+        const names = text
+          .split(/\r?\n|,|;/)
+          .map(n => n.trim())
+          .filter(Boolean);
+
+        if (names.length === 0) {
+          alert("لم يتم العثور على أسماء صالحة في الملف.");
+          return;
+        }
+
+        saveSnapshot();
+        if (replace) {
+          state.players.forEach((p, idx) => {
+            p.name = names[idx] || "";
+          });
+        } else {
+          let idx = 0;
+          state.players.forEach(p => {
+            if (!p.name && idx < names.length) {
+              p.name = names[idx++];
+            }
+          });
+        }
+        addLog(`📥 تم استيراد ${names.length} اسماً من الملف.`);
+        event.target.value = "";
+        syncAll("استيراد أسماء");
+      };
+      reader.readAsText(file, "UTF-8");
+    }
+
+    function resetPlayerFilters() {
+      document.getElementById("playerStatusFilter").value = "all";
+      document.getElementById("playerSearchInput").value = "";
+      renderPlayersGrid();
+    }
+
+    /* ==================== RENDERING ==================== */
+    function renderAll() {
+      document.documentElement.style.setProperty("--cols", state.settings.cols || 5);
+      const modeSelect = document.getElementById("selectionModeSelect");
+      if (modeSelect) modeSelect.value = state.selectionMode;
+
+      renderRulesAndStats();
+      renderSelectionStage();
+      renderPlayersGrid();
+      renderWinnersList();
+      renderLogs();
+      renderAudienceUI();
+      renderPresenceAndScreens();
+      updateUndoButton();
+    }
+
+    function renderRulesAndStats() {
+      const s = state.settings;
+      document.getElementById("dynamicRulesText").textContent =
+        `الفوز بإسقاط ${s.killsToWin} خصوم • عدد الفائزين: ${s.maxWinners} • الأخطاء المسموحة: ${s.maxErrors} • الاعتذارات: ${s.maxPasses} • زمن السؤال: ${s.timerSec} ثانية`;
+
+      const active = state.players.filter(p => p.status === "available").length;
+      const eliminated = state.players.filter(p => p.status === "eliminated").length;
+      const remainingQ = Math.max(0, (state.archive?.length || 0) - (state.usedQuestionIndices?.length || 0));
+
+      document.getElementById("statActive").textContent = active;
+      document.getElementById("statWinners").textContent = `${state.winners.length} / ${s.maxWinners}`;
+      document.getElementById("statEliminated").textContent = eliminated;
+      document.getElementById("statQuestions").textContent = remainingQ;
+
+      const nextSlot = state.players.find(p => !p.name && p.status === "available");
+      const hint = document.getElementById("nextSlotHint");
+      if (hint) {
+        hint.textContent = nextSlot
+          ? `الرقم التالي المتاح للتسجيل: (${nextSlot.id})`
+          : "تم تعبئة جميع الأرقام المتاحة.";
+      }
+    }
+
+    function renderSelectionStage() {
+      const selEl = document.getElementById("currentSelectorDisplay");
+      const statsEl = document.getElementById("selectorStatsDisplay");
+      const instEl = document.getElementById("selectionInstructionText");
+      const randBtn = document.getElementById("randomTargetBtn");
+
+      const selector = state.players.find(p => p.id === state.selectorId);
+      const target = state.players.find(p => p.id === state.targetId);
+
+      if (selector && selector.status === "available") {
+        selEl.textContent = `يختار الآن: رقم (${selector.id}) ${selector.name ? "- " + selector.name : ""}`;
+        statsEl.textContent = `الإسقاطات: ${selector.kills || 0} / ${state.settings.killsToWin} | الأخطاء: ${selector.errors || 0} | الاعتذارات: ${selector.passes || 0}`;
+        if (randBtn) randBtn.disabled = false;
+        if (target) {
+          instEl.textContent = `المواجهة جارية ضد الخصم رقم (${target.id}) ${target.name || ""}`;
+        } else {
+          instEl.textContent =
+            state.selectionMode === "manual"
+              ? "اختر خصماً متاحاً من اللوحة بالضغط عليه، أو اضغط (اختيار عشوائي)."
+              : "اضغط (اختيار عشوائي) لتحديد الخصم وطرح السؤال.";
+        }
+      } else {
+        selEl.textContent = "بانتظار تحديد المتسابق الذي يختار";
+        statsEl.textContent = "";
+        if (randBtn) randBtn.disabled = true;
+        instEl.textContent = state.isAdmin
+          ? "اضغط على أي رقم متاح في اللوحة لتعيينه كـ (يختار الآن)."
+          : "تابع مجريات المسابقة والنتائج المباشرة على الشاشة.";
+      }
+    }
+
+    function renderPlayersGrid() {
+      const grid = document.getElementById("playersGrid");
+      if (!grid) return;
+      const statusFilter = document.getElementById("playerStatusFilter")?.value || "all";
+      const searchVal = (document.getElementById("playerSearchInput")?.value || "").trim().toLowerCase();
+
+      grid.innerHTML = "";
+      state.players.forEach(p => {
+        if (statusFilter !== "all" && p.status !== statusFilter) return;
+        if (searchVal) {
+          const matchNum = String(p.id).includes(searchVal);
+          const matchName = (p.name || "").toLowerCase().includes(searchVal);
+          if (!matchNum && !matchName) return;
+        }
+
+        const tile = document.createElement("div");
+        let stateClass = "state-available";
+        if (p.status === "eliminated") stateClass = "state-eliminated";
+        else if (p.status === "winner") stateClass = "state-winner";
+        else if (p.id === state.selectorId) stateClass = "state-selector";
+        else if (p.id === state.targetId) stateClass = "state-target";
+
+        const isManualLocked =
+          state.isAdmin &&
+          state.selectionMode === "manual" &&
+          state.selectorId &&
+          p.id !== state.selectorId &&
+          p.status !== "available";
+
+        tile.className = `player-tile ${stateClass} ${isManualLocked ? "manual-locked" : ""}`;
+        tile.onclick = () => onPlayerTileClick(p.id);
+
+        tile.innerHTML = `
+          <div class="player-num">${p.id}</div>
+          <div class="player-name">${p.name || "متسابق #" + p.id}</div>
+          <div class="player-badges">
+            <span class="mini-badge">⚔️ ${p.kills || 0}</span>
+            <span class="mini-badge err-badge">❌ ${p.errors || 0}</span>
+            <span class="mini-badge">✋ ${p.passes || 0}</span>
+          </div>
+        `;
+        grid.appendChild(tile);
+      });
+    }
+
+    function renderWinnersList() {
+      const list = document.getElementById("winnersList");
+      if (!list) return;
+      if (!state.winners || state.winners.length === 0) {
+        list.innerHTML = `<li style="background: transparent; border: none; color: var(--text-muted); justify-content: center;">لم يتم تتويج فائزين بعد</li>`;
+        return;
+      }
+      list.innerHTML = state.winners
+        .map((w, idx) => `
+          <li>
+            <span>#${idx + 1} - رقم (${w.id}) ${w.name}</span>
+            <span>⚔️ ${w.kills} إسقاطات</span>
+          </li>
+        `)
+        .join("");
+    }
+
+    function renderLogs() {
+      const list = document.getElementById("logList");
+      if (!list) return;
+      if (!state.logs || state.logs.length === 0) {
+        list.innerHTML = `<li>لا توجد أحداث مسجلة بعد.</li>`;
+        return;
+      }
+      list.innerHTML = state.logs.map(entry => `<li>${escapeHtml(entry)}</li>`).join("");
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    /* ==================== SETTINGS, ARCHIVE & REPORTS ==================== */
+    function openSettings() {
+      if (!state.isAdmin) return;
+      const s = state.settings;
+      document.getElementById("cfgKillsToWin").value = s.killsToWin;
+      document.getElementById("cfgMaxWinners").value = s.maxWinners;
+      document.getElementById("cfgTotalPlayers").value = s.totalPlayers;
+      document.getElementById("cfgCols").value = s.cols;
+      document.getElementById("cfgMaxErrors").value = s.maxErrors;
+      document.getElementById("cfgMaxPasses").value = s.maxPasses;
+      document.getElementById("cfgTimerSec").value = s.timerSec;
+      document.getElementById("cfgOrderedScreens").value = state.orderedScreensCount || 2;
+      document.getElementById("cfgCloudSyncUrl").value = state.cloudSyncUrl || "";
+
+      renderArchiveList();
+      document.getElementById("settingsModal").classList.add("open");
+    }
+
+    function closeSettings() {
+      document.getElementById("settingsModal").classList.remove("open");
+    }
+
+    function saveSettings() {
+      if (!state.isAdmin) return;
+      saveSnapshot();
+
+      const newTotal = Math.min(100, Math.max(2, parseInt(document.getElementById("cfgTotalPlayers").value || "15", 10)));
+      state.settings = {
+        killsToWin: Math.min(50, Math.max(1, parseInt(document.getElementById("cfgKillsToWin").value || "3", 10))),
+        maxWinners: Math.min(20, Math.max(1, parseInt(document.getElementById("cfgMaxWinners").value || "3", 10))),
+        totalPlayers: newTotal,
+        cols: Math.min(12, Math.max(2, parseInt(document.getElementById("cfgCols").value || "5", 10))),
+        maxErrors: Math.min(10, Math.max(1, parseInt(document.getElementById("cfgMaxErrors").value || "1", 10))),
+        maxPasses: Math.min(10, Math.max(0, parseInt(document.getElementById("cfgMaxPasses").value || "3", 10))),
+        timerSec: Math.min(300, Math.max(5, parseInt(document.getElementById("cfgTimerSec").value || "30", 10)))
+      };
+      state.orderedScreensCount = Math.min(12, Math.max(1, parseInt(document.getElementById("cfgOrderedScreens").value || "2", 10)));
+      state.cloudSyncUrl = (document.getElementById("cfgCloudSyncUrl").value || "").trim();
+      state.players = buildDefaultPlayers(newTotal, state.players);
+
+      addLog("⚙️ تم حفظ إعدادات المسابقة والشاشات المرتبة.");
+      closeSettings();
+      syncAll("حفظ الإعدادات");
+      pullCloudStateIfConfigured();
+    }
+
+    function changePassword() {
+      if (!state.isAdmin) return;
+      const val = document.getElementById("newAdminPass").value.trim();
+      if (!val) {
+        alert("يرجى إدخال رقم سري جديد.");
+        return;
+      }
+      state.adminPassword = val;
+      document.getElementById("newAdminPass").value = "";
+      persistLocalState();
+      alert("تم تحديث الرقم السري للمدير بنجاح.");
+    }
+
+    function addBulkQuestions() {
+      if (!state.isAdmin) return;
+      const raw = document.getElementById("bulkQuestionsInput").value || "";
+      const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      if (lines.length === 0) return;
+
+      let added = 0;
+      lines.forEach(line => {
+        const parts = line.split("|").map(p => p.trim());
+        if (parts.length >= 2 && parts[0] && parts[1]) {
+          let lvl = "medium";
+          const rawLvl = (parts[2] || "").toLowerCase();
+          if (rawLvl.includes("سهل") || rawLvl === "easy") lvl = "easy";
+          else if (rawLvl.includes("صعب") || rawLvl === "hard") lvl = "hard";
+          else if (rawLvl.includes("متوسط") || rawLvl === "medium") lvl = "medium";
+
+          state.archive.push({ q: parts[0], a: parts[1], level: lvl });
+          added++;
+        }
+      });
+
+      if (added > 0) {
+        document.getElementById("bulkQuestionsInput").value = "";
+        addLog(`📚 تمت إضافة ${added} أسئلة إلى الأرشيف.`);
+        renderArchiveList();
+        syncAll("إضافة أسئلة");
+      } else {
+        alert("تأكد من استخدام الصيغة: السؤال | الإجابة | المستوى");
+      }
+    }
+
+    function deleteArchiveItem(index) {
+      if (!state.isAdmin) return;
+      state.archive.splice(index, 1);
+      state.usedQuestionIndices = [];
+      renderArchiveList();
+      syncAll("حذف سؤال من الأرشيف");
+    }
+
+    function restoreDefaultQuestions() {
+      if (!state.isAdmin) return;
+      state.archive = [...DEFAULT_QUESTIONS];
+      state.usedQuestionIndices = [];
+      addLog("🔄 تم استعادة الأسئلة الافتراضية.");
+      renderArchiveList();
+      syncAll("استعادة الأسئلة الافتراضية");
+    }
+
+    function clearArchive() {
+      if (!state.isAdmin) return;
+      if (!confirm("هل أنت متأكد من مسح جميع الأسئلة من الأرشيف؟")) return;
+      state.archive = [];
+      state.usedQuestionIndices = [];
+      addLog("🗑️ تم مسح أرشيف الأسئلة.");
+      renderArchiveList();
+      syncAll("مسح الأرشيف");
+    }
+
+    function renderArchiveList() {
+      const filter = document.getElementById("archiveFilterSelect")?.value || "all";
+      const container = document.getElementById("archiveListContainer");
+      const totalSpan = document.getElementById("archiveTotalCount");
+      if (!container || !totalSpan) return;
+
+      totalSpan.textContent = state.archive.length;
+      const items = state.archive
+        .map((item, idx) => ({ ...item, idx }))
+        .filter(item => filter === "all" || item.level === filter);
+
+      if (items.length === 0) {
+        container.innerHTML = `<p style="color: var(--text-muted); font-size: 0.85rem;">لا توجد أسئلة مطابقة.</p>`;
+        return;
+      }
+
+      container.innerHTML = items
+        .map(it => {
+          const lvlLabel = it.level === "hard" ? "🔴 صعب" : it.level === "medium" ? "🟡 متوسط" : "🟢 سهل";
+          return `
+            <div class="archive-item">
+              <div>
+                <strong>${escapeHtml(it.q)}</strong>
+                <div style="font-size: 0.8rem; color: #6ee7b7;">الإجابة: ${escapeHtml(it.a)} — <span style="color: var(--text-muted);">${lvlLabel}</span></div>
+              </div>
+              <button class="btn-danger" style="padding: 4px 8px; font-size: 0.78rem;" onclick="deleteArchiveItem(${it.idx})">حذف</button>
+            </div>
+          `;
+        })
+        .join("");
+    }
+
+    function exportBackupJSON() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
+      const a = document.createElement("a");
+      a.setAttribute("href", dataStr);
+      a.setAttribute("download", `contest_backup_${Date.now()}.json`);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+
+    function importBackupJSON(event) {
+      if (!state.isAdmin) return;
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          const keepAdmin = state.isAdmin;
+          state = {
+            ...state,
+            ...parsed,
+            settings: { ...state.settings, ...(parsed.settings || {}) },
+            isAdmin: keepAdmin
+          };
+          addLog("⬆️ تم استعادة نسخة احتياطية كاملة.");
+          event.target.value = "";
+          renderArchiveList();
+          syncAll("استعادة نسخة احتياطية");
+        } catch (err) {
+          alert("ملف النسخة الاحتياطية غير صالح!");
+        }
+      };
+      reader.readAsText(file, "UTF-8");
+    }
+
+    function openReportsModal() {
+      const box = document.getElementById("reportPreviewBox");
+      const viewers = getEffectiveViewersCount();
+      const rows = state.players
+        .map(p => {
+          const st = p.status === "winner" ? "🏆 فائز" : p.status === "eliminated" ? "❌ مستبعد" : "⏳ متاح";
+          return `<tr>
+            <td style="padding:6px;border-bottom:1px solid #283548;">${p.id}</td>
+            <td style="padding:6px;border-bottom:1px solid #283548;">${escapeHtml(p.name || "-")}</td>
+            <td style="padding:6px;border-bottom:1px solid #283548;">${st}</td>
+            <td style="padding:6px;border-bottom:1px solid #283548;">${p.kills || 0}</td>
+            <td style="padding:6px;border-bottom:1px solid #283548;">${p.errors || 0}</td>
+            <td style="padding:6px;border-bottom:1px solid #283548;">${p.passes || 0}</td>
+          </tr>`;
+        })
+        .join("");
+
+      box.innerHTML = `
+        <div style="margin-bottom:10px;color:#67e8f9;">
+          المشاهدون النشطون: <strong>${viewers}</strong> | إجمالي المتابعين: <strong>${state.followersCount || 0}</strong> | الشاشات المرتبة: <strong>${state.orderedScreensCount || 1}</strong>
+        </div>
+        <table style="width:100%;border-collapse:collapse;text-align:right;">
+          <thead>
+            <tr style="color:var(--text-muted);">
+              <th style="padding:6px;border-bottom:1px solid #283548;">الرقم</th>
+              <th style="padding:6px;border-bottom:1px solid #283548;">الاسم</th>
+              <th style="padding:6px;border-bottom:1px solid #283548;">الحالة</th>
+              <th style="padding:6px;border-bottom:1px solid #283548;">الإسقاطات</th>
+              <th style="padding:6px;border-bottom:1px solid #283548;">الأخطاء</th>
+              <th style="padding:6px;border-bottom:1px solid #283548;">الاعتذارات</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+      document.getElementById("reportsModal").classList.add("open");
+    }
+
+    function closeReportsModal() {
+      document.getElementById("reportsModal").classList.remove("open");
+    }
+
+    function exportExcelCSV() {
+      const header = ["الرقم", "الاسم", "الحالة", "الإسقاطات", "الأخطاء", "الاعتذارات"];
+      const lines = [header.join(",")];
+      state.players.forEach(p => {
+        const st = p.status === "winner" ? "فائز" : p.status === "eliminated" ? "مستبعد" : "متاح";
+        lines.push([
+          p.id,
+          `"${(p.name || "").replace(/"/g, '""')}"`,
+          st,
+          p.kills || 0,
+          p.errors || 0,
+          p.passes || 0
+        ].join(","));
+      });
+      const csvContent = "\uFEFF" + lines.join("\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `contest_report_${Date.now()}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function printPDFReport() {
+      window.print();
+    }
+
+    function resetContest() {
+      if (!state.isAdmin) return;
+      if (!confirm("هل تريد بدء مسابقة جديدة وتصفير النتائج واللاعبين؟")) return;
+      saveSnapshot();
+      stopTimer();
+      clearActiveQuestionUI();
+      state.players = buildDefaultPlayers(state.settings.totalPlayers, []);
+      state.selectorId = null;
+      state.targetId = null;
+      state.winners = [];
+      state.usedQuestionIndices = [];
+      state.logs = [];
+      addLog("🔄 تم بدء مسابقة جديدة.");
+      syncAll("مسابقة جديدة");
+    }
+
+    /* ==================== INIT ==================== */
+    (function init() {
+      loadLocalState();
+      initSyncChannel();
+      applyRoleUI();
+      renderAll();
+      sendPresenceHeartbeat();
+      pullCloudStateIfConfigured();
+
+      setInterval(sendPresenceHeartbeat, 5000);
+      setInterval(() => {
+        renderPresenceAndScreens();
+        pullCloudStateIfConfigured();
+      }, 4000);
+    })();
+  </script>
+</body>
+</html>
