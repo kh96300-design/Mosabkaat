@@ -354,6 +354,7 @@
       font-weight: 800;
       color: var(--primary);
       margin: 6px 0;
+      min-height: 1.8rem;
     }
 
     .selector-picker-row {
@@ -370,21 +371,6 @@
       min-width: 220px;
       padding: 7px 10px;
       font-size: 0.85rem;
-    }
-
-    .pending-match-box {
-      background: rgba(139, 92, 246, 0.14);
-      border: 1px solid var(--purple);
-      border-radius: 12px;
-      padding: 14px;
-      margin-top: 12px;
-      display: none;
-      text-align: center;
-    }
-
-    .pending-match-box.active {
-      display: block;
-      animation: fadeIn 0.2s ease;
     }
 
     .question-card {
@@ -646,27 +632,13 @@
 
             <div class="selector-picker-row admin-only">
               <select id="manualSelectorSelect">
-                <option value="">-- اختر المتسابق الذي يختار --</option>
+                <option value="">-- اختر من يختار --</option>
               </select>
-              <button class="btn-primary" onclick="setManualSelectorFromDropdown()" id="setSelectorBtn" style="padding: 7px 12px; font-size: 0.84rem;">🎯 تثبيت المختار</button>
-              <button class="btn-ghost" onclick="rerollSelector()" id="rerollSelectorBtn" style="padding: 7px 12px; font-size: 0.84rem;">🔀 عشوائي</button>
+              <button class="btn-primary" onclick="setManualSelectorFromDropdown()" id="setSelectorBtn" style="padding: 7px 12px; font-size: 0.84rem;">🎯 اختيار من يختار</button>
+              <button class="btn-ghost" onclick="rerollSelector()" id="rerollSelectorBtn" style="padding: 7px 12px; font-size: 0.84rem;">🔀 قرعة من يختار</button>
             </div>
 
             <p id="selectionInstructionText" style="font-size: 0.86rem; color: var(--text-muted); margin-top: 8px;"></p>
-          </div>
-
-          <!-- Pending Target Confirmation Box (Before Asking Question) -->
-          <div class="pending-match-box" id="pendingMatchBox">
-            <div style="font-size: 0.95rem; color: #ddd6fe; margin-bottom: 8px;">
-              الخصم المحدد للمواجهة: <strong id="pendingTargetLabel" style="color: #fff;"></strong>
-            </div>
-            <p style="font-size: 0.84rem; color: var(--text-muted); margin-bottom: 12px;">
-              لن يظهر السؤال إلا بعد الضغط على زر «طرح السؤال الآن».
-            </p>
-            <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;" class="admin-only">
-              <button class="btn-purple" onclick="launchQuestionForTarget()">❓ طرح السؤال الآن</button>
-              <button class="btn-ghost" onclick="cancelPendingTarget()">↩️ إلغاء التحديد</button>
-            </div>
           </div>
 
           <!-- Active Question Card -->
@@ -917,7 +889,6 @@
       },
       players: [],
       selectorId: null,
-      pendingTargetId: null,
       targetId: null,
       winners: [],
       logs: [],
@@ -1012,7 +983,7 @@
     }
 
     function init() {
-      const saved = localStorage.getItem("contest_manager_pro_v7");
+      const saved = localStorage.getItem("contest_manager_pro_v8");
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
@@ -1036,7 +1007,7 @@
     }
 
     function saveState() {
-      localStorage.setItem("contest_manager_pro_v7", JSON.stringify(state));
+      localStorage.setItem("contest_manager_pro_v8", JSON.stringify(state));
     }
 
     function pushHistory() {
@@ -1080,12 +1051,11 @@
         });
       }
       state.winners = [];
-      state.pendingTargetId = null;
       state.targetId = null;
       state.currentQuestion = null;
       state.logs = [];
       state.selectorId = null;
-      addLog("بدأت مسابقة جديدة — خانة الاختيار فارغة لتحديد المتسابق.");
+      addLog("بدأت مسابقة جديدة — اختر المتسابق الذي يبدأ الاختيار.");
       saveState();
       clearSelectionInput();
     }
@@ -1099,11 +1069,8 @@
       }
       pushHistory();
       state.selectorId = chosen.id;
-      if (state.pendingTargetId === chosen.id) {
-        state.pendingTargetId = null;
-      }
-      const label = source === "random" ? "عشوائياً" : "يدوياً";
-      addLog(`🎯 تم تعيين (${chosen.id}) ${chosen.name} ليختار [${label}].`);
+      const label = source === "random" ? "بالقرعة" : "يدوياً";
+      addLog(`🎯 تم اختيار (${chosen.id}) ${chosen.name} ليختار [${label}].`);
       playTone(580, "sine", 0.14);
       saveState();
       renderAll();
@@ -1176,25 +1143,7 @@
       return fallback.length > 0 ? fallback[0].id : null;
     }
 
-    function handleTileClick(id) {
-      if (!state.isAdmin || state.targetId !== null) return;
-      const clicked = state.players.find(p => p.id === id && p.status === "available");
-      if (!clicked) return;
-
-      if (!state.selectorId || state.selectorId === id) {
-        setSelectorById(id, "manual");
-        return;
-      }
-
-      if (state.selectionMode !== "manual") {
-        alert("الاختيار اليدوي للخصم معطّل حالياً لأن النمط مضبوط على (عشوائي).");
-        return;
-      }
-
-      prepareTargetSelection(id, "manual");
-    }
-
-    function prepareTargetSelection(id, source = "manual") {
+    function startQuestionAgainstTarget(id, source = "manual") {
       if (!state.isAdmin) return;
       if (state.winners.length >= state.settings.maxWinners) {
         alert("اكتمل عدد الفائزين في المسابقة!");
@@ -1215,46 +1164,6 @@
         alert("لا يمكن للاعب أن يختار نفسه!");
         return;
       }
-
-      pushHistory();
-      state.pendingTargetId = id;
-      const selector = state.players.find(p => p.id === state.selectorId);
-      const modeLabel = source === "random" ? "عشوائياً" : "يدوياً";
-      addLog(`(${selector.id}) ${selector.name} حدد الخصم (${target.id}) ${target.name} [${modeLabel}] — بانتظار طرح السؤال.`);
-      playTone(520, "sine", 0.14);
-      saveState();
-      renderAll();
-    }
-
-    function pickRandomTarget() {
-      if (!state.isAdmin || state.targetId !== null) return;
-      if (!state.selectorId) {
-        alert("حدد أولاً المتسابق الذي يختار.");
-        return;
-      }
-      if (state.selectionMode !== "random") {
-        alert("يرجى تغيير نمط اختيار الخصم إلى (عشوائي) أولاً.");
-        return;
-      }
-      const candidates = state.players.filter(p => p.status === "available" && p.id !== state.selectorId);
-      if (candidates.length === 0) {
-        alert("لا يوجد خصوم متاحون حالياً!");
-        return;
-      }
-      const randomPlayer = candidates[Math.floor(Math.random() * candidates.length)];
-      prepareTargetSelection(randomPlayer.id, "random");
-    }
-
-    function cancelPendingTarget() {
-      if (!state.isAdmin || state.pendingTargetId === null) return;
-      pushHistory();
-      state.pendingTargetId = null;
-      saveState();
-      renderAll();
-    }
-
-    function launchQuestionForTarget() {
-      if (!state.isAdmin || state.pendingTargetId === null) return;
 
       const levelFilter = document.getElementById("levelSelector").value;
       let pool = state.archive
@@ -1278,15 +1187,53 @@
       pushHistory();
       const chosen = pool[Math.floor(Math.random() * pool.length)];
       state.usedQuestionIndices.push(chosen.idx);
-      state.targetId = state.pendingTargetId;
-      state.pendingTargetId = null;
+      state.targetId = id;
       state.currentQuestion = chosen;
 
-      const target = state.players.find(p => p.id === state.targetId);
-      addLog(`❓ تم طرح السؤال على (${target.id}) ${target.name}.`);
+      const selector = state.players.find(p => p.id === state.selectorId);
+      const modeLabel = source === "random" ? "عشوائياً" : "يدوياً";
+      addLog(`(${selector.id}) ${selector.name} اختار (${target.id}) ${target.name} [${modeLabel}]`);
+      playTone(520, "sine", 0.15);
       saveState();
       renderAll();
       startTimer();
+    }
+
+    function handleTileClick(id) {
+      if (!state.isAdmin || state.targetId !== null) return;
+      const clicked = state.players.find(p => p.id === id && p.status === "available");
+      if (!clicked) return;
+
+      if (!state.selectorId || state.selectorId === id) {
+        setSelectorById(id, "manual");
+        return;
+      }
+
+      if (state.selectionMode !== "manual") {
+        alert("الاختيار اليدوي للخصم معطّل حالياً لأن النمط مضبوط على (عشوائي).");
+        return;
+      }
+
+      startQuestionAgainstTarget(id, "manual");
+    }
+
+    function pickRandomTarget() {
+      if (!state.isAdmin || state.targetId !== null) return;
+      if (!state.selectorId) {
+        alert("حدد أولاً المتسابق الذي يختار.");
+        return;
+      }
+      if (state.selectionMode !== "random") {
+        alert("يرجى تغيير نمط اختيار الخصم إلى (عشوائي) أولاً.");
+        return;
+      }
+      const candidates = state.players.filter(p => p.status === "available" && p.id !== state.selectorId);
+      if (candidates.length === 0) {
+        alert("لا يوجد خصوم متاحون حالياً!");
+        return;
+      }
+      const randomPlayer = candidates[Math.floor(Math.random() * candidates.length)];
+      startQuestionAgainstTarget(randomPlayer.id, "random");
     }
 
     function handleAnswer(isCorrect) {
@@ -1334,7 +1281,6 @@
         state.selectorId = null;
       }
 
-      state.pendingTargetId = null;
       state.targetId = null;
       state.currentQuestion = null;
       saveState();
@@ -1476,7 +1422,6 @@
     function renderPlayersGrid() {
       const grid = document.getElementById("playersGrid");
       grid.innerHTML = "";
-      const activeHighlightedTarget = state.targetId || state.pendingTargetId;
 
       const statusFilter = document.getElementById("playerStatusFilter") ? document.getElementById("playerStatusFilter").value : "all";
       const searchQuery = document.getElementById("playerSearchInput") ? document.getElementById("playerSearchInput").value.trim().toLowerCase() : "";
@@ -1492,7 +1437,7 @@
         let stateClass = "state-available";
         if (p.status === "eliminated") stateClass = "state-eliminated disabled";
         else if (p.status === "winner") stateClass = "state-winner disabled";
-        else if (p.id === activeHighlightedTarget) stateClass = "state-target";
+        else if (p.id === state.targetId) stateClass = "state-target";
         else if (p.id === state.selectorId) stateClass = "state-selector";
 
         const canClickTile = p.status === "available" && state.isAdmin && state.targetId === null;
@@ -1525,7 +1470,7 @@
 
       const randomBtn = document.getElementById("randomTargetBtn");
       if (randomBtn) {
-        randomBtn.disabled = state.selectionMode !== "random" || state.targetId !== null || state.pendingTargetId !== null || !state.selectorId;
+        randomBtn.disabled = state.selectionMode !== "random" || state.targetId !== null || !state.selectorId;
       }
 
       const rerollBtn = document.getElementById("rerollSelectorBtn");
@@ -1537,7 +1482,7 @@
       const selDropdown = document.getElementById("manualSelectorSelect");
       if (selDropdown) {
         const availablePlayers = state.players.filter(p => p.status === "available");
-        selDropdown.innerHTML = `<option value="">-- اختر المتسابق الذي يختار --</option>` +
+        selDropdown.innerHTML = `<option value="">-- اختر من يختار --</option>` +
           availablePlayers.map(p => `<option value="${p.id}" ${p.id === state.selectorId ? "selected" : ""}>#${p.id} — ${p.name}</option>`).join("");
         selDropdown.disabled = state.targetId !== null;
       }
@@ -1545,11 +1490,11 @@
       const instructionEl = document.getElementById("selectionInstructionText");
       if (instructionEl) {
         if (!state.selectorId) {
-          instructionEl.textContent = "اختر المتسابق الذي سيقوم بالاختيار من القائمة أو بالضغط على رقمه في اللوحة.";
+          instructionEl.textContent = "اختر المتسابق الذي سيقوم بالاختيار أولاً.";
         } else if (state.selectionMode === "random") {
-          instructionEl.textContent = "الخصم يُختار عشوائياً عبر زر «اختيار خصم عشوائي»، ثم اضغط «طرح السؤال الآن».";
+          instructionEl.textContent = "الخصم يُختار عشوائياً عبر زر «اختيار خصم عشوائي» ويُطرح السؤال مباشرة.";
         } else {
-          instructionEl.textContent = "الخصم يُختار يدوياً بالضغط على رقمه في اللوحة، ثم اضغط «طرح السؤال الآن».";
+          instructionEl.textContent = "الخصم يُختار يدوياً بالضغط على رقمه في اللوحة ويُطرح السؤال مباشرة.";
         }
       }
 
@@ -1585,15 +1530,6 @@
       } else {
         document.getElementById("currentSelectorDisplay").textContent = "";
         document.getElementById("selectorStatsDisplay").textContent = "";
-      }
-
-      const pendingBox = document.getElementById("pendingMatchBox");
-      if (state.pendingTargetId !== null && state.targetId === null) {
-        const pendingTarget = state.players.find(p => p.id === state.pendingTargetId);
-        pendingBox.classList.add("active");
-        document.getElementById("pendingTargetLabel").textContent = `#${pendingTarget.id} — ${pendingTarget.name}`;
-      } else {
-        pendingBox.classList.remove("active");
       }
 
       const qCard = document.getElementById("questionCard");
