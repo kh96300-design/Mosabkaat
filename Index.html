@@ -111,6 +111,7 @@
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
+      align-items: center;
     }
 
     /* Buttons */
@@ -554,12 +555,12 @@
       <div class="header-info">
         <h1>
           برنامج إدارة المسابقة
-          <span id="roleBadge" class="role-badge viewer">وضع العرض للجمهور (قراءة فقط)</span>
+          <span id="roleBadge" class="role-badge viewer">وضع الجمهور (مباشر)</span>
         </h1>
         <p id="dynamicRulesText" class="dynamic-rules"></p>
       </div>
       <div class="header-actions">
-        <button id="toggleRoleBtn" class="btn-warning" onclick="handleRoleButton()">🔑 دخول المدير بالرقم السري</button>
+        <button id="toggleRoleBtn" class="btn-warning" onclick="handleRoleButton()">🔑 دخول المدير</button>
         <button class="btn-purple" onclick="openReportsModal()">📊 التقارير والتصدير</button>
         <button class="btn-primary admin-only" onclick="openSettings()">⚙️ الإعدادات والأسئلة</button>
         <button class="btn-ghost admin-only" onclick="undoAction()" id="undoBtn" disabled>↩️ تراجع</button>
@@ -711,7 +712,7 @@
   </div>
 
   <!-- Admin Login Modal -->
-  <div class="modal-backdrop open" id="loginModal">
+  <div class="modal-backdrop" id="loginModal">
     <div class="modal" style="max-width: 420px; text-align: center;">
       <h2 style="margin-bottom: 8px;">🔐 بوابة دخول المدير</h2>
       <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 16px;">
@@ -720,7 +721,7 @@
       <input type="password" id="loginPassInput" placeholder="أدخل الرقم السري للمدير..." style="text-align: center; font-size: 1.1rem; margin-bottom: 14px;" onkeydown="if(event.key==='Enter') verifyAdminLogin()" />
       <div style="display: flex; gap: 8px;">
         <button class="btn-primary" style="flex: 2;" onclick="verifyAdminLogin()">🔓 دخول المدير</button>
-        <button class="btn-ghost" style="flex: 1;" onclick="closeLoginModal()">متابعة كجمهور</button>
+        <button class="btn-ghost" style="flex: 1;" onclick="closeLoginModal()">إلغاء</button>
       </div>
     </div>
   </div>
@@ -913,6 +914,7 @@
 
     function launchConfetti() {
       const canvas = document.getElementById("confettiCanvas");
+      if (!canvas || !canvas.getContext) return;
       const ctx = canvas.getContext("2d");
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
@@ -954,38 +956,72 @@
       if (nameInput) nameInput.value = "";
     }
 
-    function init() {
-      const saved = localStorage.getItem("contest_manager_pro_v9");
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          state = {
-            ...state,
-            ...parsed,
-            selectionMode: parsed.selectionMode || "random",
-            settings: { ...state.settings, ...(parsed.settings || {}) }
-          };
-          state.isAdmin = false;
-        } catch (e) {
-          state.archive = [...DEFAULT_QUESTIONS];
-          setupFreshGame();
-        }
-      } else {
-        state.archive = [...DEFAULT_QUESTIONS];
-        setupFreshGame();
+    function buildDefaultPlayers(total, oldPlayers = []) {
+      const list = [];
+      for (let i = 1; i <= total; i++) {
+        const existing = oldPlayers.find(p => p && p.id === i);
+        list.push({
+          id: i,
+          name: existing && existing.customName ? existing.name : `اللاعب ${i}`,
+          customName: Boolean(existing && existing.customName),
+          status: "available",
+          kills: 0,
+          errors: 0,
+          passes: 0
+        });
       }
+      return list;
+    }
+
+    function init() {
+      state.archive = [...DEFAULT_QUESTIONS];
+      setupFreshGame(false);
+
+      try {
+        const saved = localStorage.getItem("contest_manager_pro_v10");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && typeof parsed === "object") {
+            state.adminPassword = parsed.adminPassword || "1234";
+            state.selectionMode = parsed.selectionMode || "random";
+            state.settings = { ...state.settings, ...(parsed.settings || {}) };
+            if (Array.isArray(parsed.archive) && parsed.archive.length > 0) {
+              state.archive = parsed.archive;
+            }
+            if (Array.isArray(parsed.players) && parsed.players.length === state.settings.totalPlayers) {
+              state.players = parsed.players;
+            } else {
+              state.players = buildDefaultPlayers(state.settings.totalPlayers);
+            }
+            state.winners = Array.isArray(parsed.winners) ? parsed.winners : [];
+            state.logs = Array.isArray(parsed.logs) ? parsed.logs : state.logs;
+            state.usedQuestionIndices = Array.isArray(parsed.usedQuestionIndices) ? parsed.usedQuestionIndices : [];
+            state.selectorId = parsed.selectorId || null;
+            state.targetId = parsed.targetId || null;
+            state.currentQuestion = parsed.currentQuestion || null;
+            state.isAdmin = false;
+          }
+        }
+      } catch (e) {
+        state.archive = [...DEFAULT_QUESTIONS];
+        setupFreshGame(false);
+      }
+
       renderAll();
       clearSelectionInput();
     }
 
     function saveState() {
-      localStorage.setItem("contest_manager_pro_v9", JSON.stringify(state));
+      try {
+        localStorage.setItem("contest_manager_pro_v10", JSON.stringify(state));
+      } catch (e) {}
     }
 
     function pushHistory() {
       historyStack.push(JSON.stringify(state));
       if (historyStack.length > 30) historyStack.shift();
-      document.getElementById("undoBtn").disabled = false;
+      const undoBtn = document.getElementById("undoBtn");
+      if (undoBtn) undoBtn.disabled = false;
     }
 
     function undoAction() {
@@ -999,29 +1035,17 @@
       renderAll();
     }
 
-    function setupFreshGame() {
+    function setupFreshGame(keepCustomNames = true) {
       stopTimer();
-      const total = state.settings.totalPlayers;
-      const oldPlayers = state.players || [];
-      state.players = [];
-      for (let i = 1; i <= total; i++) {
-        const existing = oldPlayers.find(p => p.id === i);
-        state.players.push({
-          id: i,
-          name: existing && existing.customName ? existing.name : `اللاعب ${i}`,
-          customName: existing ? existing.customName : false,
-          status: "available",
-          kills: 0,
-          errors: 0,
-          passes: 0
-        });
-      }
+      const total = Math.max(2, parseInt(state.settings.totalPlayers, 10) || 15);
+      state.settings.totalPlayers = total;
+      state.players = buildDefaultPlayers(total, keepCustomNames ? state.players : []);
       state.winners = [];
       state.targetId = null;
       state.currentQuestion = null;
       state.logs = [];
       state.selectorId = null;
-      addLog("بدأت مسابقة جديدة — استخدم الاختيار العشوائي لبدء المواجهة.");
+      addLog("المسابقة جاهزة في وضع الجمهور — استخدم «دخول المدير» للتحكم.");
       saveState();
       clearSelectionInput();
     }
@@ -1039,6 +1063,7 @@
       } else {
         document.getElementById("loginPassInput").value = "";
         document.getElementById("loginModal").classList.add("open");
+        setTimeout(() => document.getElementById("loginPassInput").focus(), 50);
       }
     }
 
@@ -1091,7 +1116,8 @@
       const target = state.players.find(p => p.id === id && p.status === "available");
       if (!target) return;
 
-      if (!state.selectorId || state.players.find(p => p.id === state.selectorId && p.status === "available")?.id === target.id) {
+      const currentSel = state.players.find(p => p.id === state.selectorId && p.status === "available");
+      if (!currentSel || currentSel.id === target.id) {
         const others = state.players.filter(p => p.status === "available" && p.id !== target.id);
         state.selectorId = others.length > 0 ? others[Math.floor(Math.random() * others.length)].id : null;
       }
@@ -1393,7 +1419,9 @@
 
       const instructionEl = document.getElementById("selectionInstructionText");
       if (instructionEl) {
-        instructionEl.textContent = "اضغط «اختيار عشوائي» لاختيار خصم عشوائي وطرح السؤال مباشرة.";
+        instructionEl.textContent = state.isAdmin
+          ? "اضغط «اختيار عشوائي» لاختيار خصم عشوائي وطرح السؤال مباشرة."
+          : "البث المباشر للجمهور — اضغط «🔑 دخول المدير» في الأعلى للتحكم.";
       }
 
       const badge = document.getElementById("roleBadge");
@@ -1403,9 +1431,9 @@
         badge.classList.remove("viewer");
         roleBtn.textContent = "🔒 خروج لوضع الجمهور";
       } else {
-        badge.textContent = "وضع العرض للجمهور (قراءة فقط)";
+        badge.textContent = "وضع الجمهور (مباشر)";
         badge.classList.add("viewer");
-        roleBtn.textContent = "🔑 دخول المدير بالرقم السري";
+        roleBtn.textContent = "🔑 دخول المدير";
       }
 
       document.getElementById("dynamicRulesText").textContent =
@@ -1466,7 +1494,7 @@
       if (!state.isAdmin) return;
       if (!confirm("هل أنت متأكد من بدء مسابقة جديدة وتصفير النتائج الحالية؟")) return;
       pushHistory();
-      setupFreshGame();
+      setupFreshGame(true);
       renderAll();
       clearSelectionInput();
     }
@@ -1491,16 +1519,16 @@
     function saveSettings() {
       pushHistory();
       const oldTotal = state.settings.totalPlayers;
-      state.settings.killsToWin = Math.max(1, parseInt(document.getElementById("cfgKillsToWin").value) || 3);
-      state.settings.maxWinners = Math.max(1, parseInt(document.getElementById("cfgMaxWinners").value) || 3);
-      state.settings.totalPlayers = Math.max(2, parseInt(document.getElementById("cfgTotalPlayers").value) || 15);
-      state.settings.cols = Math.max(2, parseInt(document.getElementById("cfgCols").value) || 5);
-      state.settings.maxErrors = Math.max(1, parseInt(document.getElementById("cfgMaxErrors").value) || 1);
-      state.settings.maxPasses = Math.max(0, parseInt(document.getElementById("cfgMaxPasses").value) || 3);
-      state.settings.timerSec = Math.max(5, parseInt(document.getElementById("cfgTimerSec").value) || 30);
+      state.settings.killsToWin = Math.max(1, parseInt(document.getElementById("cfgKillsToWin").value, 10) || 3);
+      state.settings.maxWinners = Math.max(1, parseInt(document.getElementById("cfgMaxWinners").value, 10) || 3);
+      state.settings.totalPlayers = Math.max(2, parseInt(document.getElementById("cfgTotalPlayers").value, 10) || 15);
+      state.settings.cols = Math.max(2, parseInt(document.getElementById("cfgCols").value, 10) || 5);
+      state.settings.maxErrors = Math.max(1, parseInt(document.getElementById("cfgMaxErrors").value, 10) || 1);
+      state.settings.maxPasses = Math.max(0, parseInt(document.getElementById("cfgMaxPasses").value, 10) || 3);
+      state.settings.timerSec = Math.max(5, parseInt(document.getElementById("cfgTimerSec").value, 10) || 30);
 
       if (oldTotal !== state.settings.totalPlayers) {
-        setupFreshGame();
+        setupFreshGame(true);
       }
       saveState();
       renderAll();
@@ -1650,7 +1678,7 @@
       window.print();
     }
 
-    init();
+    window.addEventListener("DOMContentLoaded", init);
   </script>
 </body>
 </html>
