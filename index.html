@@ -14,59 +14,59 @@
         if (!response.ok) throw new Error("تعذّر تحميل ملف البرنامج");
         let html = await response.text();
         const initCall = "    init();";
-        const startupPatch = `
-    // اختيار أول متسابق عشوائياً عند تشغيل البرنامج لأول مرة.
-    const originalInitForFirstTurn = init;
+        const patch = `
+    function chooseFirstContestant() {
+      const useRandom = confirm("اختيار أول متسابق: اضغط موافق للاختيار العشوائي، أو إلغاء للاختيار اليدوي.");
+      if (useRandom) {
+        const available = state.players.filter(player => player.status === "available");
+        return available.length ? available[Math.floor(Math.random() * available.length)].id : null;
+      }
+      const entered = prompt(\`أدخل رقم أول متسابق (من 1 إلى \${state.settings.totalPlayers}):\`);
+      if (entered === null) return null;
+      const id = Number(entered);
+      if (!Number.isInteger(id) || id < 1 || id > state.settings.totalPlayers) {
+        alert("رقم المتسابق غير صحيح.");
+        return null;
+      }
+      return id;
+    }
+
+    const originalInit = init;
     init = function () {
-      const isFirstStart = !localStorage.getItem("contest_manager_pro_v4");
-      originalInitForFirstTurn();
-      if (isFirstStart && state.players.length) {
-        const activePlayers = state.players.filter(player => player.status === "available");
-        if (activePlayers.length) {
-          state.selectorId = activePlayers[Math.floor(Math.random() * activePlayers.length)].id;
-          addLog(\`تم اختيار أول متسابق عشوائياً: اللاعب #\${state.selectorId} \${state.players.find(player => player.id === state.selectorId).name}\`);
+      const isNewGame = !localStorage.getItem("contest_manager_pro_v4");
+      originalInit();
+      if (isNewGame && state.players.length) {
+        const firstId = chooseFirstContestant();
+        if (firstId !== null) {
+          state.selectorId = firstId;
+          addLog(\`بدأت المسابقة بالمتسابق رقم \${firstId}: \${state.players.find(player => player.id === firstId).name}.\`);
           saveState();
           renderAll();
         }
       }
     };
 
-    // في المسابقة الجديدة يختار المدير عشوائياً أو يحدد رقم أول متسابق يدوياً.
-    const originalResetContestForChoice = resetContest;
     resetContest = function () {
       if (!state.isAdmin) return;
-      if (!confirm("هل تريد بدء مسابقة جديدة؟")) return;
-      const chooseRandom = confirm("اضغط موافق لاختيار أول متسابق عشوائياً، أو إلغاء لاختيار الرقم يدوياً.");
-      let chosenId = null;
-      if (!chooseRandom) {
-        const enteredId = prompt(\`أدخل رقم أول متسابق (1 إلى \${state.settings.totalPlayers}):\`);
-        if (enteredId === null) return;
-        chosenId = Number(enteredId);
-        if (!Number.isInteger(chosenId) || chosenId < 1 || chosenId > state.settings.totalPlayers) {
-          alert("رقم المتسابق غير صحيح.");
-          return;
-        }
-      }
-      pushHistory();
+      if (!confirm("هل أنت متأكد من بدء مسابقة جديدة وتصفير جميع النتائج والاختيارات؟")) return;
+      const firstId = chooseFirstContestant();
+      if (firstId === null) return;
       setupFreshGame();
-      if (chooseRandom) {
-        const activePlayers = state.players.filter(player => player.status === "available");
-        chosenId = activePlayers[Math.floor(Math.random() * activePlayers.length)].id;
-      }
-      state.selectorId = chosenId;
-      addLog(\`أول متسابق في المسابقة الجديدة: اللاعب #\${chosenId} \${state.players.find(player => player.id === chosenId).name}\`);
+      // setupFreshGame يصفر الانتصارات والأخطاء والاعتذارات والأسئلة المستخدمة.
+      state.selectorId = firstId;
+      addLog(\`بدأت مسابقة جديدة، وأول متسابق هو رقم \${firstId}: \${state.players.find(player => player.id === firstId).name}.\`);
       saveState();
       renderAll();
     };
 
     init();`;
         if (!html.includes(initCall)) throw new Error("لم يتم العثور على نقطة تشغيل البرنامج");
-        html = html.replace(initCall, startupPatch);
+        html = html.replace(initCall, patch);
         document.open();
         document.write(html);
         document.close();
       } catch (error) {
-        document.body.innerHTML = "<p dir='rtl'>تعذّر فتح البرنامج. افتح ملف Index.html مباشرة أو أعد تحميل الصفحة.</p>";
+        document.body.innerHTML = "<p dir='rtl'>تعذّر فتح البرنامج. أعد تحميل الصفحة أو افتح ملف Index.html مباشرة.</p>";
       }
     })();
   </script>
