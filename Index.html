@@ -1,1047 +1,1574 @@
-<option value="easy">سهل</option>
-            <option value="medium">متوسط</option>
-            <option value="hard">صعب</option>
-          </select>
-        </div>
+<script>
+  const DEFAULT_QUESTIONS = [
+    { id: 1, text: "ما هي عاصمة سلطنة عُمان؟", answer: "مسقط", level: "easy" },
+    { id: 2, text: "ما هو أطول نهر في العالم؟", answer: "نهر النيل", level: "easy" },
+    { id: 3, text: "كم عدد كواكب المجموعة الشمسية؟", answer: "8 كواكب", level: "easy" },
+    { id: 4, text: "ما هو العنصر الكيميائي الذي رمزه Au؟", answer: "الذهب", level: "medium" },
+    { id: 5, text: "في أي قارة تقع جمهورية البرازيل؟", answer: "أمريكا الجنوبية", level: "easy" },
+    { id: 6, text: "ما هو أسرع حيوان بري؟", answer: "الفهد (الشيتا)", level: "easy" },
+    { id: 7, text: "من هو مؤلف كتاب المقدمة؟", answer: "ابن خلدون", level: "medium" },
+    { id: 8, text: "ما هي أكبر محيطات العالم مساحة؟", answer: "المحيط الهادئ", level: "medium" },
+    { id: 9, text: "كم عدد سور القرآن الكريم؟", answer: "114 سورة", level: "easy" },
+    { id: 10, text: "ما هو الغاز الأكثر وفرة في الغلاف الجوي للأرض؟", answer: "النيتروجين", level: "hard" }
+  ];
 
-        <div class="settings-grid" style="margin-bottom: 10px;">
-          <div class="form-field">
-            <label>نص السؤال الجديد</label>
-            <input type="text" id="newQText" placeholder="اكتب السؤال هنا..." />
-          </div>
-          <div class="form-field">
-            <label>الإجابة الصحيحة</label>
-            <input type="text" id="newQAnswer" placeholder="اكتب الإجابة..." />
-          </div>
-          <div class="form-field">
-            <label>المستوى</label>
-            <select id="newQLevel">
-              <option value="easy">🟢 سهل</option>
-              <option value="medium">🟡 متوسط</option>
-              <option value="hard">🔴 صعب</option>
-            </select>
-          </div>
-        </div>
-        <button class="btn-primary" onclick="addQuestionToArchive()" style="margin-bottom: 14px;">➕ إضافة سؤال للأرشيف</button>
+  const STORAGE_KEY = "contest_pro_sync_v2";
+  const LOCAL_AUDIENCE_KEY = "contest_pro_local_audience_v2";
+  const CHANNEL_NAME = "contest_pro_sync_channel_v2";
+  const channel = ("BroadcastChannel" in window) ? new BroadcastChannel(CHANNEL_NAME) : null;
 
-        <div id="archiveListContainer"></div>
-      </div>
-    </div>
-  </div>
+  // تجزئة SHA-256 للرقم السري الافتراضي ("1234") لتجنب تخزينه كنص واضح في الكود
+  const DEFAULT_ADMIN_PASS_HASH = "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4";
 
-  <script>
-    const DEFAULT_QUESTIONS = [
-      { id: 1, text: "ما هي عاصمة سلطنة عُمان؟", answer: "مسقط", level: "easy" },
-      { id: 2, text: "ما هو أطول نهر في العالم؟", answer: "نهر النيل", level: "easy" },
-      { id: 3, text: "كم عدد كواكب المجموعة الشمسية؟", answer: "8 كواكب", level: "easy" },
-      { id: 4, text: "ما هو العنصر الكيميائي الذي رمزه Au؟", answer: "الذهب", level: "medium" },
-      { id: 5, text: "في أي قارة تقع جمهورية البرازيل؟", answer: "أمريكا الجنوبية", level: "easy" },
-      { id: 6, text: "ما هو أسرع حيوان بري؟", answer: "الفهد (الشيتا)", level: "easy" },
-      { id: 7, text: "من هو مؤلف كتاب المقدمة؟", answer: "ابن خلدون", level: "medium" },
-      { id: 8, text: "ما هي أكبر محيطات العالم مساحة؟", answer: "المحيط الهادئ", level: "medium" },
-      { id: 9, text: "كم عدد سور القرآن الكريم؟", answer: "114 سورة", level: "easy" },
-      { id: 10, text: "ما هو الغاز الأكثر وفرة في الغلاف الجوي للأرض؟", answer: "النيتروجين", level: "hard" }
-    ];
+  let localAudienceState = loadLocalAudienceState();
+  let state = loadState();
+  let historyStack = [];
+  let timerInterval = null;
+  let timerEndPerf = null;
+  let timerRemainingAtPause = null;
+  let sheetsSyncTimer = null;
+  let isAdmin = false;
 
-    const STORAGE_KEY = "contest_pro_sync_v1";
-    const channel = ("BroadcastChannel" in window) ? new BroadcastChannel("contest_pro_sync_channel") : null;
+  async function sha256Hex(text) {
+    if (window.crypto && window.crypto.subtle) {
+      const enc = new TextEncoder();
+      const buf = await window.crypto.subtle.digest("SHA-256", enc.encode(String(text)));
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+    }
+    // احتياط بسيط في حال عدم توفر Web Crypto
+    let h = 2166136261;
+    const s = String(text);
+    for (let i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return (h >>> 0).toString(16);
+  }
 
-    let state = loadState();
-    let historyStack = [];
-    let timerInterval = null;
-    let sheetsSyncTimer = null;
-    let isAdmin = false;
+  function clampInt(val, min, max, fallback) {
+    const n = parseInt(val, 10);
+    if (Number.isNaN(n)) return fallback;
+    return Math.max(min, Math.min(max, n));
+  }
 
-    function createInitialState() {
-      const totalPlayers = 15;
-      const players = Array.from({ length: totalPlayers }, (_, i) => ({
-        number: i + 1,
-        name: "",
-        status: "available", // available | eliminated | winner
-        kills: 0,
-        errors: 0,
-        passes: 0
-      }));
+  function normalizeName(name) {
+    return String(name || "").trim().replace(/\s+/g, " ").toLowerCase();
+  }
 
+  function loadLocalAudienceState() {
+    try {
+      const raw = localStorage.getItem(LOCAL_AUDIENCE_KEY);
+      if (!raw) return { isFollowing: false, localFollowers: 0 };
+      const parsed = JSON.parse(raw);
       return {
-        settings: {
-          killsToWin: 3,
-          maxWinners: 3,
-          totalPlayers: totalPlayers,
-          cols: 5,
-          maxErrors: 2,
-          maxPasses: 1,
-          timerSec: 30,
-          orderedScreens: 2,
-          adminPass: "1234",
-          cloudSyncUrl: ""
-        },
-        sheetsConfig: {
-          url: "",
-          range: "",
-          intervalSec: 30,
-          autoSync: false,
-          lastSyncText: "لم يتم التزامن بعد"
-        },
-        players,
-        questions: [...DEFAULT_QUESTIONS],
-        usedQuestionIds: [],
-        winners: [],
-        logs: ["بدأت المسابقة بنجاح."],
-        followersCount: 0,
-        isFollowing: false,
-        selectionMode: "random",
-        currentSelector: null,
-        currentTarget: null,
-        activeQuestion: null,
-        timeLeft: 30,
-        timerRunning: false,
-        answerRevealed: false
+        isFollowing: Boolean(parsed.isFollowing),
+        localFollowers: clampInt(parsed.localFollowers, 0, 1000000, 0)
       };
+    } catch {
+      return { isFollowing: false, localFollowers: 0 };
     }
+  }
 
-    function loadState() {
+  function saveLocalAudienceState() {
+    try {
+      localStorage.setItem(LOCAL_AUDIENCE_KEY, JSON.stringify(localAudienceState));
+    } catch (err) {
+      console.warn("تعذر حفظ حالة المتابع المحلية:", err);
+    }
+  }
+
+  function createInitialState() {
+    const totalPlayers = 15;
+    const players = Array.from({ length: totalPlayers }, (_, i) => ({
+      number: i + 1,
+      name: "",
+      status: "available", // available | eliminated | winner
+      kills: 0,
+      errors: 0,
+      passes: 0
+    }));
+
+    return {
+      revision: 1,
+      contestClosed: false,
+      settings: {
+        killsToWin: 3,
+        maxWinners: 3,
+        totalPlayers: totalPlayers,
+        cols: 5,
+        maxErrors: 2,
+        maxPasses: 1,
+        timerSec: 30,
+        orderedScreens: 2,
+        adminPassHash: DEFAULT_ADMIN_PASS_HASH,
+        cloudSyncUrl: ""
+      },
+      sheetsConfig: {
+        url: "",
+        range: "",
+        intervalSec: 30,
+        autoSync: false,
+        lastSyncText: "لم يتم التزامن بعد"
+      },
+      players,
+      questions: DEFAULT_QUESTIONS.map(q => ({ ...q })),
+      usedQuestionIds: [],
+      winners: [],
+      logs: ["بدأت المسابقة بنجاح."],
+      selectionMode: "random",
+      currentSelector: null,
+      currentTarget: null,
+      activeQuestion: null,
+      timeLeft: 30,
+      timerRunning: false,
+      answerRevealed: false
+    };
+  }
+
+  function sanitizeState(rawObj) {
+    const base = createInitialState();
+    if (!rawObj || typeof rawObj !== "object") return base;
+
+    const rawSettings = (rawObj.settings && typeof rawObj.settings === "object") ? rawObj.settings : {};
+    const rawSheets = (rawObj.sheetsConfig && typeof rawObj.sheetsConfig === "object") ? rawObj.sheetsConfig : {};
+
+    const totalPlayers = clampInt(rawSettings.totalPlayers, 2, 100, base.settings.totalPlayers);
+    const maxWinners = clampInt(rawSettings.maxWinners, 1, totalPlayers, base.settings.maxWinners);
+    const killsToWin = clampInt(rawSettings.killsToWin, 1, 50, base.settings.killsToWin);
+    const cols = clampInt(rawSettings.cols, 2, 12, base.settings.cols);
+    const maxErrors = clampInt(rawSettings.maxErrors, 1, 20, base.settings.maxErrors);
+    const maxPasses = clampInt(rawSettings.maxPasses, 0, 20, base.settings.maxPasses);
+    const timerSec = clampInt(rawSettings.timerSec, 5, 600, base.settings.timerSec);
+    const orderedScreens = clampInt(rawSettings.orderedScreens, 1, 12, base.settings.orderedScreens);
+
+    const adminPassHash =
+      typeof rawSettings.adminPassHash === "string" && rawSettings.adminPassHash.trim()
+        ? rawSettings.adminPassHash.trim()
+        : base.settings.adminPassHash;
+
+    let cloudSyncUrl = "";
+    if (typeof rawSettings.cloudSyncUrl === "string" && rawSettings.cloudSyncUrl.trim()) {
       try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return createInitialState();
-        const parsed = JSON.parse(raw);
-        const base = createInitialState();
-        return {
-          ...base,
-          ...parsed,
-          settings: { ...base.settings, ...(parsed.settings || {}) },
-          sheetsConfig: { ...base.sheetsConfig, ...(parsed.sheetsConfig || {}) }
-        };
-      } catch (e) {
-        return createInitialState();
-      }
-    }
-
-    function saveState(broadcastMsg = null) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      if (channel && broadcastMsg) {
-        channel.postMessage({ type: "STATE_UPDATE", msg: broadcastMsg, state });
-      }
-      if (isAdmin && state.settings.cloudSyncUrl) {
-        pushToCloudSync(broadcastMsg || "update");
-      }
-    }
-
-    function broadcastFullState(reason = "تحديث") {
-      saveState(reason);
-      addLog(`تمت مزامنة الحالة (${reason}).`);
-      renderAll();
-    }
-
-    async function pushToCloudSync(reason) {
-      if (!state.settings.cloudSyncUrl) return;
-      try {
-        await fetch(state.settings.cloudSyncUrl, {
-          method: "POST",
-          mode: "no-cors",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ reason, timestamp: new Date().toISOString(), state })
-        });
-      } catch (err) {
-        console.warn("Cloud sync push skipped/failed:", err);
-      }
-    }
-
-    if (channel) {
-      channel.onmessage = (event) => {
-        if (event.data && event.data.type === "STATE_UPDATE" && event.data.state) {
-          const prevFollow = state.isFollowing;
-          state = { ...event.data.state, isFollowing: prevFollow };
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-          renderAll();
+        const u = new URL(rawSettings.cloudSyncUrl.trim());
+        if (u.protocol === "https:" || u.protocol === "http:") {
+          cloudSyncUrl = u.toString();
         }
+      } catch {
+        cloudSyncUrl = "";
+      }
+    }
+
+    const rawPlayers = Array.isArray(rawObj.players) ? rawObj.players : [];
+    const seenNames = new Set();
+    const players = Array.from({ length: totalPlayers }, (_, idx) => {
+      const p = rawPlayers[idx] && typeof rawPlayers[idx] === "object" ? rawPlayers[idx] : {};
+      let cleanName = typeof p.name === "string" ? p.name.trim().slice(0, 80) : "";
+      const norm = normalizeName(cleanName);
+      if (norm) {
+        if (seenNames.has(norm)) {
+          cleanName = "";
+        } else {
+          seenNames.add(norm);
+        }
+      }
+      let status = ["available", "eliminated", "winner"].includes(p.status) ? p.status : "available";
+      if (!cleanName && status === "winner") {
+        status = "available";
+      }
+      return {
+        number: idx + 1,
+        name: cleanName,
+        status,
+        kills: clampInt(p.kills, 0, 999, 0),
+        errors: clampInt(p.errors, 0, 999, 0),
+        passes: clampInt(p.passes, 0, 999, 0)
       };
-    }
+    });
 
-    function pushHistory() {
-      historyStack.push(JSON.stringify(state));
-      if (historyStack.length > 25) historyStack.shift();
-      updateUndoButton();
-    }
+    const rawQuestions = Array.isArray(rawObj.questions) ? rawObj.questions : base.questions;
+    const questions = rawQuestions
+      .filter(q => q && typeof q === "object" && typeof q.text === "string" && typeof q.answer === "string")
+      .map((q, idx) => ({
+        id: Number.isFinite(Number(q.id)) ? Number(q.id) : idx + 1,
+        text: q.text.trim().slice(0, 500),
+        answer: q.answer.trim().slice(0, 300),
+        level: ["easy", "medium", "hard"].includes(q.level) ? q.level : "easy"
+      }))
+      .filter(q => q.text && q.answer);
 
-    function undoAction() {
-      if (!isAdmin || historyStack.length === 0) return;
-      const prev = JSON.parse(historyStack.pop());
-      state = prev;
-      saveState("تراجع عن آخر إجراء");
-      updateUndoButton();
-      renderAll();
-    }
+    const validQIds = new Set(questions.map(q => q.id));
+    const usedQuestionIds = Array.isArray(rawObj.usedQuestionIds)
+      ? Array.from(new Set(rawObj.usedQuestionIds.map(Number).filter(id => validQIds.has(id))))
+      : [];
 
-    function updateUndoButton() {
-      const btn = document.getElementById("undoBtn");
-      if (btn) btn.disabled = !isAdmin || historyStack.length === 0;
-    }
-
-    function addLog(text) {
-      const time = new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-      state.logs.unshift(`[${time}] ${text}`);
-      if (state.logs.length > 100) state.logs.pop();
-    }
-
-    // صلاحيات المدير والجمهور
-    function handleRoleButton() {
-      if (isAdmin) {
-        isAdmin = false;
-        document.body.classList.add("viewer-mode");
-        updateRoleUI();
-        renderAll();
-      } else {
-        document.getElementById("loginPassInput").value = "";
-        document.getElementById("loginModal").classList.add("open");
-        setTimeout(() => document.getElementById("loginPassInput").focus(), 50);
+    const validPlayerMap = new Map(players.map(p => [p.number, p]));
+    const winners = [];
+    if (Array.isArray(rawObj.winners)) {
+      for (const w of rawObj.winners) {
+        if (winners.length >= maxWinners) break;
+        if (!w || typeof w !== "object") continue;
+        const num = clampInt(w.number, 1, totalPlayers, -1);
+        const pl = validPlayerMap.get(num);
+        if (!pl || !pl.name) continue;
+        if (winners.some(existing => existing.number === num)) continue;
+        pl.status = "winner";
+        winners.push({
+          number: num,
+          name: pl.name,
+          kills: clampInt(w.kills, 0, 999, pl.kills)
+        });
       }
     }
 
-    function closeLoginModal() {
-      document.getElementById("loginModal").classList.remove("open");
-    }
-
-    function verifyAdminLogin() {
-      const pass = document.getElementById("loginPassInput").value.trim();
-      if (pass === state.settings.adminPass) {
-        isAdmin = true;
-        document.body.classList.remove("viewer-mode");
-        closeLoginModal();
-        updateRoleUI();
-        renderAll();
-      } else {
-        alert("الرقم السري غير صحيح!");
-      }
-    }
-
-    function updateRoleUI() {
-      const badge = document.getElementById("roleBadge");
-      const btn = document.getElementById("toggleRoleBtn");
-      const devTag = document.getElementById("deviceRoleTag");
-      if (isAdmin) {
-        badge.textContent = "وضع المدير";
-        badge.classList.remove("viewer");
-        btn.textContent = "🔒 خروج المدير";
-        btn.className = "btn-ghost";
-        if (devTag) devTag.textContent = "جهاز تحكم المدير";
-      } else {
-        badge.textContent = "وضع الجمهور أولاً";
-        badge.classList.add("viewer");
-        btn.textContent = "🔑 دخول المدير";
-        btn.className = "btn-warning";
-        if (devTag) devTag.textContent = "جهاز مشاهدة";
-      }
-      updateUndoButton();
-    }
-
-    // المتابعة والمشاهدون
-    function toggleFollowContest() {
-      if (!state.isFollowing) {
-        state.isFollowing = true;
-        state.followersCount += 1;
-      } else {
-        state.isFollowing = false;
-        state.followersCount = Math.max(0, state.followersCount - 1);
-      }
-      saveState("تحديث عدد المتابعين");
-      renderStatsAndAudience();
-    }
-
-    // تسجيل المتسابقين
-    function registerPlayer() {
-      if (!isAdmin) return;
-      const input = document.getElementById("playerNameInput");
-      const name = input.value.trim();
-      if (!name) return;
-
-      const emptySlot = state.players.find(p => !p.name && p.status === "available");
-      if (!emptySlot) {
-        alert("جميع الأماكن المتاحة مسجلة بالفعل!");
-        return;
-      }
-      pushHistory();
-      emptySlot.name = name;
-      input.value = "";
-      addLog(`تم تسجيل المتسابق رقم (${emptySlot.number}): ${name}`);
-      saveState("تسجيل متسابق");
-      renderAll();
-    }
-
-    function removeLastPlayer() {
-      if (!isAdmin) return;
-      const lastFilled = [...state.players].reverse().find(p => p.name);
-      if (!lastFilled) return;
-      pushHistory();
-      addLog(`تم حذف تسجيل المتسابق رقم (${lastFilled.number}): ${lastFilled.name}`);
-      lastFilled.name = "";
-      lastFilled.kills = 0;
-      lastFilled.errors = 0;
-      lastFilled.passes = 0;
-      lastFilled.status = "available";
-      saveState("حذف آخر تسجيل");
-      renderAll();
-    }
-
-    function importNamesFromFile(event) {
-      if (!isAdmin) return;
-      const file = event.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const lines = e.target.result
-          .split(/\r?\n|,/)
-          .map(s => s.trim())
-          .filter(Boolean);
-        if (lines.length === 0) return;
-
-        pushHistory();
-        const replace = document.getElementById("replaceNamesCheck").checked;
-        if (replace) {
-          state.players.forEach((p, idx) => {
-            p.name = lines[idx] || "";
-            p.status = "available";
-            p.kills = 0;
-            p.errors = 0;
-            p.passes = 0;
+    // مزامنة حالة الفائزين مع قائمة اللاعبين
+    for (const pl of players) {
+      if (pl.status === "winner" && !winners.some(w => w.number === pl.number)) {
+        if (winners.length < maxWinners) {
+          winners.push({
+            number: pl.number,
+            name: pl.name || `لاعب #${pl.number}`,
+            kills: pl.kills
           });
         } else {
-          let i = 0;
-          for (const p of state.players) {
-            if (!p.name && i < lines.length) {
-              p.name = lines[i++];
+          pl.status = "available";
+        }
+      }
+    }
+
+    const contestClosed = Boolean(rawObj.contestClosed) || winners.length >= maxWinners;
+
+    const currentSelector =
+      rawObj.currentSelector !== null && rawObj.currentSelector !== undefined
+        ? clampInt(rawObj.currentSelector, 1, totalPlayers, null)
+        : null;
+    const selectorObj = currentSelector ? validPlayerMap.get(currentSelector) : null;
+    const safeSelector =
+      selectorObj && selectorObj.name && selectorObj.status === "available"
+        ? selectorObj.number
+        : null;
+
+    const currentTarget =
+      rawObj.currentTarget !== null && rawObj.currentTarget !== undefined
+        ? clampInt(rawObj.currentTarget, 1, totalPlayers, null)
+        : null;
+    const targetObj = currentTarget ? validPlayerMap.get(currentTarget) : null;
+    const safeTarget =
+      !contestClosed && targetObj && targetObj.name && targetObj.status === "available"
+        ? targetObj.number
+        : null;
+
+    let activeQuestion = null;
+    if (!contestClosed && safeTarget && rawObj.activeQuestion && typeof rawObj.activeQuestion === "object") {
+      const aq = rawObj.activeQuestion;
+      if (typeof aq.text === "string" && typeof aq.answer === "string" && aq.text.trim() && aq.answer.trim()) {
+        activeQuestion = {
+          id: Number.isFinite(Number(aq.id)) ? Number(aq.id) : 0,
+          text: aq.text.trim().slice(0, 500),
+          answer: aq.answer.trim().slice(0, 300),
+          level: ["easy", "medium", "hard"].includes(aq.level) ? aq.level : "easy"
+        };
+      }
+    }
+
+    const logs = Array.isArray(rawObj.logs)
+      ? rawObj.logs.filter(l => typeof l === "string").map(l => l.slice(0, 300)).slice(0, 100)
+      : base.logs;
+
+    return {
+      revision: clampInt(rawObj.revision, 1, 1000000000, 1),
+      contestClosed,
+      settings: {
+        killsToWin,
+        maxWinners,
+        totalPlayers,
+        cols,
+        maxErrors,
+        maxPasses,
+        timerSec,
+        orderedScreens,
+        adminPassHash,
+        cloudSyncUrl
+      },
+      sheetsConfig: {
+        url: typeof rawSheets.url === "string" ? rawSheets.url.trim().slice(0, 500) : "",
+        range: typeof rawSheets.range === "string" ? rawSheets.range.trim().slice(0, 100) : "",
+        intervalSec: clampInt(rawSheets.intervalSec, 5, 3600, 30),
+        autoSync: Boolean(rawSheets.autoSync),
+        lastSyncText: typeof rawSheets.lastSyncText === "string" ? rawSheets.lastSyncText.slice(0, 120) : "لم يتم التزامن بعد"
+      },
+      players,
+      questions: questions.length > 0 ? questions : base.questions,
+      usedQuestionIds,
+      winners,
+      logs: logs.length > 0 ? logs : base.logs,
+      selectionMode: rawObj.selectionMode === "manual" ? "manual" : "random",
+      currentSelector: safeSelector,
+      currentTarget: safeTarget,
+      activeQuestion,
+      timeLeft: activeQuestion ? clampInt(rawObj.timeLeft, 0, timerSec, timerSec) : timerSec,
+      timerRunning: Boolean(activeQuestion && rawObj.timerRunning),
+      answerRevealed: Boolean(activeQuestion && rawObj.answerRevealed)
+    };
+  }
+
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return createInitialState();
+      const parsed = JSON.parse(raw);
+      return sanitizeState(parsed);
+    } catch {
+      return createInitialState();
+    }
+  }
+
+  function saveState(broadcastMsg = null, bumpRevision = true) {
+    if (bumpRevision) {
+      state.revision = (Number(state.revision) || 0) + 1;
+    }
+    state = sanitizeState(state);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (err) {
+      console.warn("تعذر حفظ الحالة في localStorage:", err);
+    }
+    if (channel && broadcastMsg) {
+      channel.postMessage({
+        type: "STATE_UPDATE",
+        revision: state.revision,
+        msg: String(broadcastMsg).slice(0, 120),
+        state
+      });
+    }
+    if (isAdmin && state.settings.cloudSyncUrl) {
+      pushToCloudSync(broadcastMsg || "update");
+    }
+  }
+
+  function broadcastFullState(reason = "تحديث") {
+    if (!isAdmin) return;
+    addLog(`تمت مزامنة الحالة (${reason}).`);
+    saveState(reason, true);
+    renderAll();
+  }
+
+  async function pushToCloudSync(reason) {
+    if (!isAdmin || !state.settings.cloudSyncUrl) return;
+    try {
+      const payload = {
+        reason: String(reason).slice(0, 120),
+        revision: state.revision,
+        timestamp: new Date().toISOString(),
+        contestClosed: state.contestClosed,
+        winnersCount: state.winners.length,
+        playersCount: state.players.filter(p => p.name).length
+      };
+      await fetch(state.settings.cloudSyncUrl, {
+        method: "POST",
+        mode: "cors",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+    } catch (err) {
+      console.warn("تعذر التحقق من نجاح المزامنة السحابية (قد يتطلب إعداد CORS في الخادم):", err);
+    }
+  }
+
+  if (channel) {
+    channel.onmessage = (event) => {
+      const data = event.data;
+      if (!data || typeof data !== "object" || data.type !== "STATE_UPDATE" || !data.state) return;
+      const incoming = sanitizeState(data.state);
+      if (incoming.revision < state.revision) return;
+      state = incoming;
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      } catch {}
+      syncTimerWithState();
+      renderAll();
+    };
+  }
+
+  function pushHistory() {
+    if (!isAdmin) return;
+    historyStack.push(JSON.stringify(sanitizeState(state)));
+    if (historyStack.length > 25) historyStack.shift();
+    updateUndoButton();
+  }
+
+  function undoAction() {
+    if (!isAdmin || historyStack.length === 0) return;
+    try {
+      const prevRaw = JSON.parse(historyStack.pop());
+      state = sanitizeState(prevRaw);
+      state.revision = (Number(state.revision) || 0) + 1;
+      addLog("تم التراجع عن آخر إجراء.");
+      saveState("تراجع عن آخر إجراء", false);
+      syncTimerWithState();
+      updateUndoButton();
+      renderAll();
+    } catch (err) {
+      console.warn("تعذر استرجاع حالة التراجع:", err);
+    }
+  }
+
+  function updateUndoButton() {
+    const btn = document.getElementById("undoBtn");
+    if (btn) btn.disabled = !isAdmin || historyStack.length === 0;
+  }
+
+  function addLog(text) {
+    const time = new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    state.logs.unshift(`[${time}] ${String(text || "").trim()}`);
+    if (state.logs.length > 100) state.logs.pop();
+  }
+
+  // استيراد وتصدير نسخة احتياطية آمنة
+  function exportBackupJson() {
+    if (!isAdmin) return;
+    const safeBackup = {
+      schemaVersion: 2,
+      exportedAt: new Date().toISOString(),
+      state: sanitizeState(state)
+    };
+    const blob = new Blob([JSON.stringify(safeBackup, null, 2)], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `contest-backup-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function importBackupFromFile(event) {
+    if (!isAdmin) return;
+    const file = event.target && event.target.files ? event.target.files[0] : null;
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const parsed = JSON.parse(String(e.target.result || "{}"));
+        const candidate = parsed && typeof parsed === "object" && parsed.state ? parsed.state : parsed;
+        if (!candidate || typeof candidate !== "object") {
+          alert("ملف النسخة الاحتياطية غير صالح.");
+          return;
+        }
+        pushHistory();
+        state = sanitizeState(candidate);
+        state.revision = (Number(state.revision) || 0) + 1;
+        addLog("تم استيراد نسخة احتياطية بعد التحقق من البنية والمقاييس.");
+        saveState("استيراد نسخة احتياطية", false);
+        syncTimerWithState();
+        renderAll();
+      } catch {
+        alert("تعذر قراءة ملف JSON؛ تأكد من سلامة البنية.");
+      } finally {
+        event.target.value = "";
+      }
+    };
+    reader.readAsText(file, "UTF-8");
+  }
+
+  // صلاحيات المدير والجمهور
+  function handleRoleButton() {
+    if (isAdmin) {
+      isAdmin = false;
+      document.body.classList.add("viewer-mode");
+      updateRoleUI();
+      renderAll();
+    } else {
+      const input = document.getElementById("loginPassInput");
+      const modal = document.getElementById("loginModal");
+      if (input) input.value = "";
+      if (modal) modal.classList.add("open");
+      if (input) setTimeout(() => input.focus(), 50);
+    }
+  }
+
+  function closeLoginModal() {
+    const modal = document.getElementById("loginModal");
+    if (modal) modal.classList.remove("open");
+  }
+
+  async function verifyAdminLogin() {
+    const input = document.getElementById("loginPassInput");
+    const pass = input ? input.value.trim() : "";
+    if (!pass) return;
+    const enteredHash = await sha256Hex(pass);
+    if (enteredHash === state.settings.adminPassHash) {
+      isAdmin = true;
+      document.body.classList.remove("viewer-mode");
+      closeLoginModal();
+      updateRoleUI();
+      renderAll();
+    } else {
+      alert("الرقم السري غير صحيح!");
+    }
+  }
+
+  function updateRoleUI() {
+    const badge = document.getElementById("roleBadge");
+    const btn = document.getElementById("toggleRoleBtn");
+    const devTag = document.getElementById("deviceRoleTag");
+    if (isAdmin) {
+      if (badge) {
+        badge.textContent = "وضع المدير";
+        badge.classList.remove("viewer");
+      }
+      if (btn) {
+        btn.textContent = "🔒 خروج المدير";
+        btn.className = "btn-ghost";
+      }
+      if (devTag) devTag.textContent = "جهاز تحكم المدير";
+    } else {
+      if (badge) {
+        badge.textContent = "وضع الجمهور أولاً";
+        badge.classList.add("viewer");
+      }
+      if (btn) {
+        btn.textContent = "🔑 دخول المدير";
+        btn.className = "btn-warning";
+      }
+      if (devTag) devTag.textContent = "جهاز مشاهدة";
+    }
+    updateUndoButton();
+  }
+
+  // المتابعة المحلية لكل متصفح (غير مدمجة في الحالة العامة)
+  function toggleFollowContest() {
+    if (!localAudienceState.isFollowing) {
+      localAudienceState.isFollowing = true;
+      localAudienceState.localFollowers += 1;
+    } else {
+      localAudienceState.isFollowing = false;
+      localAudienceState.localFollowers = Math.max(0, localAudienceState.localFollowers - 1);
+    }
+    saveLocalAudienceState();
+    renderStatsAndAudience();
+  }
+
+  // تسجيل المتسابقين مع منع التكرار وتأكيد الحذف
+  function registerPlayer() {
+    if (!isAdmin) return;
+    const input = document.getElementById("playerNameInput");
+    const name = input ? input.value.trim().replace(/\s+/g, " ") : "";
+    if (!name) return;
+
+    const normNew = normalizeName(name);
+    const duplicate = state.players.find(p => p.name && normalizeName(p.name) === normNew);
+    if (duplicate) {
+      alert(`الاسم "${name}" مسجل مسبقاً للمتسابق رقم (${duplicate.number}). يرجى إدخال اسم مختلف.`);
+      return;
+    }
+
+    const emptySlot = state.players.find(p => !p.name && p.status === "available");
+    if (!emptySlot) {
+      alert("جميع الأماكن المتاحة مسجلة بالفعل!");
+      return;
+    }
+
+    pushHistory();
+    emptySlot.name = name;
+    if (input) input.value = "";
+    addLog(`تم تسجيل المتسابق رقم (${emptySlot.number}): ${name}`);
+    saveState("تسجيل متسابق");
+    renderAll();
+  }
+
+  function removeLastPlayer() {
+    if (!isAdmin) return;
+    const lastFilled = [...state.players].reverse().find(p => p.name);
+    if (!lastFilled) return;
+
+    const hasProgress = lastFilled.kills > 0 || lastFilled.errors > 0 || lastFilled.passes > 0 || lastFilled.status === "winner";
+    const msg = hasProgress
+      ? `تنبيه: المتسابق رقم (${lastFilled.number}) "${lastFilled.name}" لديه نقاط/حالة مسجلة (${lastFilled.status}). هل أنت متأكد من حذف تسجيله؟`
+      : `هل أنت متأكد من حذف تسجيل المتسابق رقم (${lastFilled.number}): "${lastFilled.name}"؟`;
+
+    if (!confirm(msg)) return;
+
+    pushHistory();
+    addLog(`تم حذف تسجيل المتسابق رقم (${lastFilled.number}): ${lastFilled.name}`);
+    lastFilled.name = "";
+    lastFilled.kills = 0;
+    lastFilled.errors = 0;
+    lastFilled.passes = 0;
+    lastFilled.status = "available";
+    state.winners = state.winners.filter(w => w.number !== lastFilled.number);
+    if (state.winners.length < state.settings.maxWinners) {
+      state.contestClosed = false;
+    }
+    if (state.currentSelector === lastFilled.number) state.currentSelector = null;
+    if (state.currentTarget === lastFilled.number) {
+      state.currentTarget = null;
+      state.activeQuestion = null;
+      state.timerRunning = false;
+      stopTimer();
+    }
+    saveState("حذف آخر تسجيل");
+    renderAll();
+  }
+
+  function parseCsvLine(line) {
+    const result = [];
+    let current = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (ch === "," && !inQuotes) {
+        result.push(current.trim());
+        current = "";
+      } else {
+        current += ch;
+      }
+    }
+    result.push(current.trim());
+    return result;
+  }
+
+  function importNamesFromFile(event) {
+    if (!isAdmin) return;
+    const file = event.target && event.target.files ? event.target.files[0] : null;
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const rawLines = String(e.target.result || "")
+        .split(/\r?\n/)
+        .flatMap(line => parseCsvLine(line))
+        .map(s => s.trim().replace(/\s+/g, " "))
+        .filter(Boolean);
+
+      if (rawLines.length === 0) return;
+
+      const uniqueNames = [];
+      const seen = new Set();
+      let skippedDupes = 0;
+      for (const n of rawLines) {
+        const key = normalizeName(n);
+        if (!seen.has(key)) {
+          seen.add(key);
+          uniqueNames.push(n);
+        } else {
+          skippedDupes++;
+        }
+      }
+
+      pushHistory();
+      const replaceCheck = document.getElementById("replaceNamesCheck");
+      const replace = Boolean(replaceCheck && replaceCheck.checked);
+
+      if (replace) {
+        state.players.forEach((p, idx) => {
+          p.name = uniqueNames[idx] || "";
+          p.status = "available";
+          p.kills = 0;
+          p.errors = 0;
+          p.passes = 0;
+        });
+        state.winners = [];
+        state.contestClosed = false;
+      } else {
+        const existingSeen = new Set(state.players.map(p => normalizeName(p.name)).filter(Boolean));
+        let i = 0;
+        for (const p of state.players) {
+          if (!p.name) {
+            while (i < uniqueNames.length && existingSeen.has(normalizeName(uniqueNames[i]))) {
+              i++;
+              skippedDupes++;
+            }
+            if (i < uniqueNames.length) {
+              const chosenName = uniqueNames[i++];
+              p.name = chosenName;
+              existingSeen.add(normalizeName(chosenName));
             }
           }
         }
-        addLog(`تم استيراد ${lines.length} اسماً من الملف.`);
-        saveState("استيراد أسماء");
-        renderAll();
-        event.target.value = "";
-      };
-      reader.readAsText(file, "UTF-8");
-    }
-
-    // مزامنة Google Sheets
-    function saveGoogleSheetsConfig(notify = false) {
-      state.sheetsConfig.url = document.getElementById("sheetsUrlInput").value.trim();
-      state.sheetsConfig.range = document.getElementById("sheetsRangeInput").value.trim();
-      state.sheetsConfig.intervalSec = Math.max(5, parseInt(document.getElementById("sheetsIntervalInput").value, 10) || 30);
-      state.sheetsConfig.autoSync = document.getElementById("sheetsAutoSyncCheck").checked;
-      saveState();
-      toggleGoogleSheetsAutoSync();
-      if (notify) {
-        document.getElementById("sheetsSyncStatus").textContent = "تم حفظ إعدادات Google Sheets.";
-      }
-    }
-
-    function buildSheetsCsvUrl(rawUrl, range) {
-      let url = rawUrl.trim();
-      const sheetMatch = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
-      if (sheetMatch && !url.includes("output=csv") && !url.includes("/gviz/tq")) {
-        const id = sheetMatch[1];
-        const gidMatch = url.match(/[#&?]gid=([0-9]+)/);
-        const gidParam = gidMatch ? `&gid=${gidMatch[1]}` : "";
-        const rangeParam = range ? `&range=${encodeURIComponent(range)}` : "";
-        return `https://docs.google.com/spreadsheets/d/${id}/export?format=csv${gidParam}${rangeParam}`;
-      }
-      return url;
-    }
-
-    async function syncNamesFromGoogleSheets(silent = false) {
-      saveGoogleSheetsConfig(false);
-      const statusEl = document.getElementById("sheetsSyncStatus");
-      if (!state.sheetsConfig.url) {
-        if (!silent) statusEl.textContent = "يرجى إدخال رابط شيت جوجل أولاً.";
-        return;
       }
 
-      const fetchUrl = buildSheetsCsvUrl(state.sheetsConfig.url, state.sheetsConfig.range);
-      if (!silent) statusEl.textContent = "جاري جلب الأسماء...";
+      addLog(`تم استيراد ${uniqueNames.length} اسماً فريداً (تم تجاهل ${skippedDupes} مكرراً).`);
+      saveState("استيراد أسماء");
+      renderAll();
+      event.target.value = "";
+    };
+    reader.readAsText(file, "UTF-8");
+  }
 
-      try {
-        const res = await fetch(fetchUrl);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const text = await res.text();
+  // مزامنة Google Sheets
+  function readSheetsFormValues() {
+    const urlEl = document.getElementById("sheetsUrlInput");
+    const rangeEl = document.getElementById("sheetsRangeInput");
+    const intervalEl = document.getElementById("sheetsIntervalInput");
+    const autoEl = document.getElementById("sheetsAutoSyncCheck");
+    return {
+      url: urlEl ? urlEl.value.trim() : state.sheetsConfig.url,
+      range: rangeEl ? rangeEl.value.trim() : state.sheetsConfig.range,
+      intervalSec: clampInt(intervalEl ? intervalEl.value : state.sheetsConfig.intervalSec, 5, 3600, 30),
+      autoSync: autoEl ? Boolean(autoEl.checked) : state.sheetsConfig.autoSync
+    };
+  }
 
-        let names = [];
-        const trimmed = text.trim();
-        if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
-          const json = JSON.parse(trimmed);
-          const rows = Array.isArray(json) ? json : (json.names || json.values || json.data || []);
-          names = rows.flat().map(v => String(v || "").trim()).filter(Boolean);
-        } else {
-          names = text
-            .split(/\r?\n/)
-            .map(line => line.split(",")[0].replace(/^"|"$/g, "").trim())
-            .filter(Boolean);
+  function saveGoogleSheetsConfig(notify = false) {
+    if (!isAdmin) return;
+    const cfg = readSheetsFormValues();
+    state.sheetsConfig.url = cfg.url;
+    state.sheetsConfig.range = cfg.range;
+    state.sheetsConfig.intervalSec = cfg.intervalSec;
+    state.sheetsConfig.autoSync = cfg.autoSync;
+    saveState();
+    toggleGoogleSheetsAutoSync(cfg);
+    const statusEl = document.getElementById("sheetsSyncStatus");
+    if (notify && statusEl) {
+      statusEl.textContent = "تم حفظ إعدادات Google Sheets.";
+    }
+  }
+
+  function buildSheetsCsvUrl(rawUrl, range) {
+    let url = rawUrl.trim();
+    const sheetMatch = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+    if (sheetMatch && !url.includes("output=csv") && !url.includes("/gviz/tq")) {
+      const id = sheetMatch[1];
+      const gidMatch = url.match(/[#&?]gid=([0-9]+)/);
+      const gidParam = gidMatch ? `&gid=${gidMatch[1]}` : "";
+      const rangeParam = range ? `&range=${encodeURIComponent(range)}` : "";
+      return `https://docs.google.com/spreadsheets/d/${id}/export?format=csv${gidParam}${rangeParam}`;
+    }
+    return url;
+  }
+
+  async function syncNamesFromGoogleSheets(silent = false) {
+    if (!isAdmin) return;
+    const cfg = readSheetsFormValues();
+    state.sheetsConfig.url = cfg.url;
+    state.sheetsConfig.range = cfg.range;
+    state.sheetsConfig.intervalSec = cfg.intervalSec;
+    state.sheetsConfig.autoSync = cfg.autoSync;
+    toggleGoogleSheetsAutoSync(cfg);
+
+    const statusEl = document.getElementById("sheetsSyncStatus");
+    if (!cfg.url) {
+      if (!silent && statusEl) statusEl.textContent = "يرجى إدخال رابط شيت جوجل أولاً.";
+      return;
+    }
+
+    const fetchUrl = buildSheetsCsvUrl(cfg.url, cfg.range);
+    if (!silent && statusEl) statusEl.textContent = "جاري جلب الأسماء...";
+
+    try {
+      const res = await fetch(fetchUrl);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const text = await res.text();
+
+      let rawNames = [];
+      const trimmed = text.trim();
+      if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+        const json = JSON.parse(trimmed);
+        const rows = Array.isArray(json) ? json : (json.names || json.values || json.data || []);
+        rawNames = rows.flat().map(v => String(v || "").trim()).filter(Boolean);
+      } else {
+        rawNames = trimmed
+          .split(/\r?\n/)
+          .map(line => (parseCsvLine(line)[0] || "").trim())
+          .filter(Boolean);
+      }
+
+      const uniqueNames = [];
+      const seen = new Set();
+      for (const n of rawNames) {
+        const key = normalizeName(n);
+        if (!seen.has(key)) {
+          seen.add(key);
+          uniqueNames.push(n);
         }
-
-        if (names.length === 0) throw new Error("لم يتم العثور على أسماء");
-
-        pushHistory();
-        state.players.forEach((p, idx) => {
-          if (idx < names.length) {
-            p.name = names[idx];
-          }
-        });
-
-        const nowStr = new Date().toLocaleTimeString("ar-EG");
-        state.sheetsConfig.lastSyncText = `تمت مزامنة ${names.length} اسماً (${nowStr})`;
-        statusEl.textContent = state.sheetsConfig.lastSyncText;
-        addLog(state.sheetsConfig.lastSyncText);
-        saveState("مزامنة الأسماء من Google Sheets");
-        renderAll();
-      } catch (err) {
-        const msg = `تعذر التزامن المباشر (تحقق من مشاركة الرابط أو CORS): ${err.message}`;
-        statusEl.textContent = msg;
-        if (!silent) console.warn(msg);
       }
-    }
 
-    function toggleGoogleSheetsAutoSync() {
-      if (sheetsSyncTimer) {
-        clearInterval(sheetsSyncTimer);
-        sheetsSyncTimer = null;
-      }
-      const enabled = document.getElementById("sheetsAutoSyncCheck").checked;
-      state.sheetsConfig.autoSync = enabled;
-      if (enabled) {
-        const sec = Math.max(5, parseInt(document.getElementById("sheetsIntervalInput").value, 10) || 30);
-        sheetsSyncTimer = setInterval(() => syncNamesFromGoogleSheets(true), sec * 1000);
-      }
-    }
+      if (uniqueNames.length === 0) throw new Error("لم يتم العثور على أسماء صالحة");
 
-    // اختيار الخصم والأسئلة
-    function changeSelectionMode() {
-      if (!isAdmin) return;
-      state.selectionMode = document.getElementById("selectionModeSelect").value;
-      saveState("تغيير نمط اختيار الخصم");
-      renderStage();
-      renderPlayersGrid();
-    }
-
-    function pickRandomTarget() {
-      if (!isAdmin) return;
-      const available = state.players.filter(p => p.status === "available");
-      if (available.length === 0) {
-        alert("لا يوجد متسابقون متاحون حالياً!");
-        return;
-      }
       pushHistory();
-      const chosen = available[Math.floor(Math.random() * available.length)];
-      state.currentTarget = chosen.number;
-      if (!state.currentSelector) {
-        state.currentSelector = chosen.number;
-      }
-      assignQuestionForTarget(chosen.number);
-    }
-
-    function handlePlayerTileClick(num) {
-      const player = state.players.find(p => p.number === num);
-      if (!player || !isAdmin) return;
-      if (player.status === "eliminated" || player.status === "winner") return;
-
-      if (state.selectionMode === "manual") {
-        pushHistory();
-        if (!state.currentSelector || state.currentSelector === num) {
-          state.currentSelector = num;
-          addLog(`تم تعيين اللاعب رقم (${num}) كمختار.`);
-        } else {
-          state.currentTarget = num;
-          assignQuestionForTarget(num);
-          return;
+      state.players.forEach((p, idx) => {
+        if (idx < uniqueNames.length) {
+          p.name = uniqueNames[idx];
         }
+      });
+
+      const nowStr = new Date().toLocaleTimeString("ar-EG");
+      state.sheetsConfig.lastSyncText = `تمت مزامنة ${uniqueNames.length} اسماً (${nowStr})`;
+      if (statusEl) statusEl.textContent = state.sheetsConfig.lastSyncText;
+      addLog(state.sheetsConfig.lastSyncText);
+      saveState("مزامنة الأسماء من Google Sheets");
+      renderAll();
+    } catch (err) {
+      const msg = `تعذر التزامن المباشر (تحقق من صلاحية المشاركة أو CORS أو نشر الشيت): ${err.message}`;
+      if (statusEl) statusEl.textContent = msg;
+      if (!silent) console.warn(msg);
+    }
+  }
+
+  function toggleGoogleSheetsAutoSync(overrideCfg = null) {
+    if (sheetsSyncTimer) {
+      clearInterval(sheetsSyncTimer);
+      sheetsSyncTimer = null;
+    }
+    const cfg = overrideCfg || readSheetsFormValues();
+    state.sheetsConfig.autoSync = Boolean(cfg.autoSync);
+    state.sheetsConfig.intervalSec = clampInt(cfg.intervalSec, 5, 3600, 30);
+    if (isAdmin && state.sheetsConfig.autoSync && state.sheetsConfig.url) {
+      sheetsSyncTimer = setInterval(() => syncNamesFromGoogleSheets(true), state.sheetsConfig.intervalSec * 1000);
+    }
+  }
+
+  function ensureValidSelector() {
+    if (!state.currentSelector) return null;
+    const sel = state.players.find(p => p.number === state.currentSelector);
+    if (!sel || !sel.name || sel.status !== "available") {
+      const fallback = state.players.find(p => p.name && p.status === "available");
+      state.currentSelector = fallback ? fallback.number : null;
+    }
+    return state.currentSelector;
+  }
+
+  // اختيار الخصم والأسئلة
+  function changeSelectionMode() {
+    if (!isAdmin) return;
+    const selEl = document.getElementById("selectionModeSelect");
+    state.selectionMode = selEl && selEl.value === "manual" ? "manual" : "random";
+    saveState("تغيير نمط اختيار الخصم");
+    renderStage();
+    renderPlayersGrid();
+  }
+
+  function pickRandomTarget() {
+    if (!isAdmin) return;
+    if (state.contestClosed || state.winners.length >= state.settings.maxWinners) {
+      state.contestClosed = true;
+      alert("اكتمل عدد الفائزين المحدد وتم إغلاق المسابقة.");
+      return;
+    }
+    const available = state.players.filter(p => p.name && p.status === "available");
+    if (available.length === 0) {
+      alert("لا يوجد متسابقون متاحون حالياً!");
+      return;
+    }
+    pushHistory();
+    const activeSel = ensureValidSelector();
+    const candidates = available.length > 1 && activeSel
+      ? available.filter(p => p.number !== activeSel)
+      : available;
+    const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+    state.currentTarget = chosen.number;
+    if (!activeSel) {
+      state.currentSelector = chosen.number;
+    }
+    assignQuestionForTarget(chosen.number);
+  }
+
+  function handlePlayerTileClick(num) {
+    if (!isAdmin) return;
+    if (state.contestClosed || state.winners.length >= state.settings.maxWinners) {
+      state.contestClosed = true;
+      return;
+    }
+    const player = state.players.find(p => p.number === num);
+    if (!player || !player.name || player.status !== "available") return;
+
+    ensureValidSelector();
+
+    if (state.selectionMode === "manual") {
+      pushHistory();
+      if (!state.currentSelector || state.currentSelector === num) {
+        state.currentSelector = num;
+        addLog(`تم تعيين اللاعب رقم (${num}) كمختار.`);
         saveState("تحديد المختار يدوياً");
         renderAll();
       } else {
-        pushHistory();
         state.currentTarget = num;
-        if (!state.currentSelector) state.currentSelector = num;
         assignQuestionForTarget(num);
       }
-    }
-
-    function assignQuestionForTarget(targetNum) {
-      const levelFilter = document.getElementById("levelSelector").value;
-      let pool = state.questions.filter(q => !state.usedQuestionIds.includes(q.id));
-      if (pool.length === 0) {
-        state.usedQuestionIds = [];
-        pool = [...state.questions];
-      }
-      if (levelFilter !== "all") {
-        const filtered = pool.filter(q => q.level === levelFilter);
-        if (filtered.length > 0) pool = filtered;
-      }
-      const q = pool[Math.floor(Math.random() * pool.length)];
-      state.activeQuestion = q;
-      if (!state.usedQuestionIds.includes(q.id)) {
-        state.usedQuestionIds.push(q.id);
-      }
-      state.answerRevealed = false;
-      state.timeLeft = state.settings.timerSec;
-      state.timerRunning = true;
-
-      addLog(`طُرح سؤال على المتسابق رقم (${targetNum}).`);
-      saveState("طرح سؤال جديد");
-      startTimer();
-      renderAll();
-    }
-
-    function revealAnswer() {
-      state.answerRevealed = !state.answerRevealed;
-      document.getElementById("answerBox").classList.toggle("visible", state.answerRevealed);
-    }
-
-    function handleAnswer(isCorrect) {
-      if (!isAdmin || !state.currentTarget) return;
-      stopTimer();
+    } else {
       pushHistory();
+      state.currentTarget = num;
+      if (!state.currentSelector) state.currentSelector = num;
+      assignQuestionForTarget(num);
+    }
+  }
 
-      const target = state.players.find(p => p.number === state.currentTarget);
-      const selector = state.players.find(p => p.number === state.currentSelector);
+  function assignQuestionForTarget(targetNum) {
+    if (state.contestClosed) return;
+    const levelEl = document.getElementById("levelSelector");
+    const levelFilter = levelEl ? levelEl.value : "all";
+    let pool = state.questions.filter(q => !state.usedQuestionIds.includes(q.id));
+    if (pool.length === 0) {
+      state.usedQuestionIds = [];
+      pool = [...state.questions];
+    }
+    if (levelFilter !== "all") {
+      const filtered = pool.filter(q => q.level === levelFilter);
+      if (filtered.length > 0) pool = filtered;
+    }
+    const q = pool[Math.floor(Math.random() * pool.length)];
+    state.activeQuestion = { ...q };
+    if (!state.usedQuestionIds.includes(q.id)) {
+      state.usedQuestionIds.push(q.id);
+    }
+    state.answerRevealed = false;
+    state.timeLeft = state.settings.timerSec;
+    state.timerRunning = true;
+    timerRemainingAtPause = null;
+    timerEndPerf = performance.now() + state.timeLeft * 1000;
 
-      if (isCorrect) {
-        if (selector && selector.number !== target.number && selector.status === "available") {
-          selector.kills += 1;
-          addLog(`إجابة صحيحة من (${target.number}) لصالح المختار (${selector.number}) - الإسقاطات: ${selector.kills}/${state.settings.killsToWin}`);
-          checkWinner(selector);
-        } else if (target) {
-          target.kills += 1;
-          addLog(`إجابة صحيحة للمتسابق رقم (${target.number}) - الإسقاطات: ${target.kills}/${state.settings.killsToWin}`);
-          checkWinner(target);
-        }
-        if (target && target.status === "available") {
-          state.currentSelector = target.number;
-        }
-      } else {
-        if (target) {
-          target.errors += 1;
-          addLog(`إجابة خاطئة من المتسابق رقم (${target.number}) - الأخطاء: ${target.errors}/${state.settings.maxErrors}`);
-          triggerShake();
-          if (target.errors >= state.settings.maxErrors) {
-            target.status = "eliminated";
-            addLog(`خروج المتسابق رقم (${target.number}) بسبب تجاوز الحد المسموح من الأخطاء.`);
+    addLog(`طُرح سؤال على المتسابق رقم (${targetNum}).`);
+    saveState("طرح سؤال جديد");
+    startTimer();
+    renderAll();
+  }
+
+  function revealAnswer() {
+    if (!state.activeQuestion) return;
+    state.answerRevealed = !state.answerRevealed;
+    const box = document.getElementById("answerBox");
+    if (box) box.classList.toggle("visible", state.answerRevealed);
+  }
+
+  function handleAnswer(isCorrect) {
+    if (!isAdmin || !state.currentTarget || state.contestClosed) return;
+    stopTimer();
+    pushHistory();
+
+    const target = state.players.find(p => p.number === state.currentTarget);
+    const activeSelNum = ensureValidSelector();
+    const selector = activeSelNum ? state.players.find(p => p.number === activeSelNum) : null;
+
+    if (isCorrect) {
+      if (selector && target && selector.number !== target.number && selector.status === "available") {
+        selector.kills += 1;
+        addLog(`إجابة صحيحة من (${target.number}) لصالح المختار (${selector.number}) - الإسقاطات: ${selector.kills}/${state.settings.killsToWin}`);
+        checkWinner(selector);
+      } else if (target && target.status === "available") {
+        target.kills += 1;
+        addLog(`إجابة صحيحة للمتسابق رقم (${target.number}) - الإسقاطات: ${target.kills}/${state.settings.killsToWin}`);
+        checkWinner(target);
+      }
+
+      if (!state.contestClosed && target && target.status === "available") {
+        state.currentSelector = target.number;
+      } else if (!state.contestClosed) {
+        ensureValidSelector();
+      }
+    } else {
+      if (target && target.status === "available") {
+        target.errors += 1;
+        addLog(`إجابة خاطئة من المتسابق رقم (${target.number}) - الأخطاء: ${target.errors}/${state.settings.maxErrors}`);
+        triggerShake();
+        if (target.errors >= state.settings.maxErrors) {
+          target.status = "eliminated";
+          addLog(`خروج المتسابق رقم (${target.number}) بسبب تجاوز الحد المسموح من الأخطاء.`);
+          if (state.currentSelector === target.number) {
+            ensureValidSelector();
           }
         }
       }
-
-      state.currentTarget = null;
-      state.activeQuestion = null;
-      state.timerRunning = false;
-      saveState(isCorrect ? "إجابة صحيحة" : "إجابة خاطئة");
-      renderAll();
     }
 
-    function handlePass() {
-      if (!isAdmin || !state.currentTarget) return;
-      stopTimer();
-      pushHistory();
-      const target = state.players.find(p => p.number === state.currentTarget);
-      if (target) {
-        target.passes += 1;
-        addLog(`اعتذار / تمرير من المتسابق رقم (${target.number}) (${target.passes}/${state.settings.maxPasses}).`);
-        if (target.passes > state.settings.maxPasses) {
-          target.status = "eliminated";
-          addLog(`استبعاد المتسابق رقم (${target.number}) لتجاوز عدد الاعتذارات المسموح.`);
-          triggerShake();
+    state.currentTarget = null;
+    state.activeQuestion = null;
+    state.answerRevealed = false;
+    state.timerRunning = false;
+    timerEndPerf = null;
+    timerRemainingAtPause = null;
+    saveState(isCorrect ? "إجابة صحيحة" : "إجابة خاطئة");
+    renderAll();
+  }
+
+  function handlePass() {
+    if (!isAdmin || !state.currentTarget || state.contestClosed) return;
+    stopTimer();
+    pushHistory();
+    const target = state.players.find(p => p.number === state.currentTarget);
+    if (target && target.status === "available") {
+      target.passes += 1;
+      addLog(`اعتذار / تمرير من المتسابق رقم (${target.number}) (${target.passes}/${state.settings.maxPasses}).`);
+      if (target.passes > state.settings.maxPasses) {
+        target.status = "eliminated";
+        addLog(`استبعاد المتسابق رقم (${target.number}) لتجاوز عدد الاعتذارات المسموح.`);
+        triggerShake();
+        if (state.currentSelector === target.number) {
+          ensureValidSelector();
         }
       }
-      state.currentTarget = null;
-      state.activeQuestion = null;
-      state.timerRunning = false;
-      saveState("اعتذار / تمرير");
-      renderAll();
     }
+    state.currentTarget = null;
+    state.activeQuestion = null;
+    state.answerRevealed = false;
+    state.timerRunning = false;
+    timerEndPerf = null;
+    timerRemainingAtPause = null;
+    saveState("اعتذار / تمرير");
+    renderAll();
+  }
 
-    function checkWinner(player) {
-      if (player.status === "winner") return;
-      if (player.kills >= state.settings.killsToWin && state.winners.length < state.settings.maxWinners) {
-        player.status = "winner";
-        state.winners.push({
-          number: player.number,
-          name: player.name || `لاعب #${player.number}`,
-          kills: player.kills
-        });
-        addLog(`🏆 فوز المتسابق رقم (${player.number}) ${player.name || ""} بالمركز #${state.winners.length}!`);
-        launchConfetti();
+  function checkWinner(player) {
+    if (!player || player.status === "winner" || state.contestClosed) return;
+    if (state.winners.length >= state.settings.maxWinners) {
+      state.contestClosed = true;
+      return;
+    }
+    if (player.kills >= state.settings.killsToWin) {
+      player.status = "winner";
+      state.winners.push({
+        number: player.number,
+        name: player.name || `لاعب #${player.number}`,
+        kills: player.kills
+      });
+      addLog(`🏆 فوز المتسابق رقم (${player.number}) ${player.name || ""} بالمركز #${state.winners.length}!`);
+      launchConfetti();
+
+      if (state.winners.length >= state.settings.maxWinners) {
+        state.contestClosed = true;
+        state.currentTarget = null;
+        state.currentSelector = null;
+        state.activeQuestion = null;
+        state.timerRunning = false;
+        stopTimer();
+        addLog("🔒 اكتمل العدد الأقصى للفائزين وتم إغلاق المسابقة بالكامل.");
       }
     }
+  }
 
-    // المؤقت والمؤثرات
-    function startTimer() {
-      stopTimer();
-      if (!state.timerRunning) return;
-      timerInterval = setInterval(() => {
-        if (!state.timerRunning) return;
-        state.timeLeft -= 1;
-        if (state.timeLeft <= 0) {
-          state.timeLeft = 0;
-          state.timerRunning = false;
-          stopTimer();
-        }
+  // المؤقت الموثوق عبر performance.now() وحفظ الحالة عند الانقضاء
+  function syncTimerWithState() {
+    stopTimer();
+    if (state.activeQuestion && state.timerRunning && state.timeLeft > 0) {
+      timerEndPerf = performance.now() + state.timeLeft * 1000;
+      startTimer();
+    } else if (state.activeQuestion && !state.timerRunning) {
+      timerRemainingAtPause = state.timeLeft;
+      timerEndPerf = null;
+    } else {
+      timerEndPerf = null;
+      timerRemainingAtPause = null;
+    }
+  }
+
+  function startTimer() {
+    stopTimer();
+    if (!state.timerRunning || !state.activeQuestion) return;
+    if (!timerEndPerf) {
+      timerEndPerf = performance.now() + Math.max(0, state.timeLeft) * 1000;
+    }
+    timerInterval = setInterval(() => {
+      if (!state.timerRunning || !timerEndPerf) return;
+      const remainingSec = Math.max(0, Math.ceil((timerEndPerf - performance.now()) / 1000));
+      const changed = remainingSec !== state.timeLeft;
+      state.timeLeft = remainingSec;
+
+      if (remainingSec <= 0) {
+        state.timeLeft = 0;
+        state.timerRunning = false;
+        timerEndPerf = null;
+        stopTimer();
         renderTimerOnly();
-      }, 1000);
-    }
-
-    function stopTimer() {
-      if (timerInterval) {
-        clearInterval(timerInterval);
-        timerInterval = null;
-      }
-    }
-
-    function toggleTimer() {
-      if (!isAdmin || !state.activeQuestion) return;
-      state.timerRunning = !state.timerRunning;
-      if (state.timerRunning) startTimer();
-      else stopTimer();
-      renderTimerOnly();
-    }
-
-    function renderTimerOnly() {
-      const el = document.getElementById("timerDisplay");
-      const btn = document.getElementById("timerToggleBtn");
-      if (!el) return;
-      el.textContent = state.timeLeft;
-      el.classList.toggle("urgent", state.timeLeft <= 5 && state.timeLeft > 0);
-      if (btn) btn.textContent = state.timerRunning ? "⏸️" : "▶️";
-    }
-
-    function triggerShake() {
-      document.body.classList.remove("shake-effect");
-      void document.body.offsetWidth;
-      document.body.classList.add("shake-effect");
-    }
-
-    function launchConfetti() {
-      const canvas = document.getElementById("confettiCanvas");
-      if (!canvas) return;
-      const ctx = canvas.getContext("2d");
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-      const colors = ["#eab308", "#3b82f6", "#10b981", "#f43f5e", "#a855f7"];
-      const pieces = Array.from({ length: 110 }, () => ({
-        x: Math.random() * canvas.width,
-        y: Math.random() * -canvas.height,
-        w: 7 + Math.random() * 6,
-        h: 4 + Math.random() * 5,
-        vy: 2.5 + Math.random() * 4,
-        vx: -2 + Math.random() * 4,
-        color: colors[Math.floor(Math.random() * colors.length)],
-        rot: Math.random() * 360
-      }));
-      let frames = 0;
-      function draw() {
-        frames++;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        pieces.forEach(p => {
-          p.x += p.vx;
-          p.y += p.vy;
-          p.rot += 5;
-          ctx.save();
-          ctx.translate(p.x, p.y);
-          ctx.rotate((p.rot * Math.PI) / 180);
-          ctx.fillStyle = p.color;
-          ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
-          ctx.restore();
-        });
-        if (frames < 140) requestAnimationFrame(draw);
-        else ctx.clearRect(0, 0, canvas.width, canvas.height);
-      }
-      draw();
-    }
-
-    // الشاشات المرتبة
-    function openDisplayWindow(screenNum = 1) {
-      const url = `${window.location.href.split("#")[0]}#screen=${screenNum}`;
-      window.open(url, `contest_screen_${screenNum}`, "noopener,noreferrer");
-    }
-
-    function updateOrderedScreensCount() {
-      if (!isAdmin) return;
-      const val = Math.max(1, Math.min(12, parseInt(document.getElementById("orderedScreensInput").value, 10) || 1));
-      pushHistory();
-      state.settings.orderedScreens = val;
-      saveState("تحديث عدد الشاشات المرتبة");
-      renderOrderedScreens();
-    }
-
-    function openAllOrderedScreens() {
-      for (let i = 1; i <= state.settings.orderedScreens; i++) {
-        openDisplayWindow(i);
-      }
-    }
-
-    function renderOrderedScreens() {
-      const container = document.getElementById("orderedScreensList");
-      const input = document.getElementById("orderedScreensInput");
-      if (!container) return;
-      if (input) input.value = state.settings.orderedScreens;
-      container.innerHTML = "";
-      for (let i = 1; i <= state.settings.orderedScreens; i++) {
-        const div = document.createElement("div");
-        div.className = "screen-card";
-        div.innerHTML = `
-          <div>
-            <strong>شاشة عرض #${i}</strong>
-            <span class="screen-status online" style="margin-right:6px;">● جاهزة</span>
-          </div>
-          <button class="btn-cyan" style="padding:5px 10px; font-size:0.78rem;" onclick="openDisplayWindow(${i})">فتح</button>
-        `;
-        container.appendChild(div);
-      }
-    }
-
-    // الإعدادات والأرشيف
-    function openSettings() {
-      if (!isAdmin) return;
-      document.getElementById("cfgKillsToWin").value = state.settings.killsToWin;
-      document.getElementById("cfgMaxWinners").value = state.settings.maxWinners;
-      document.getElementById("cfgTotalPlayers").value = state.settings.totalPlayers;
-      document.getElementById("cfgCols").value = state.settings.cols;
-      document.getElementById("cfgMaxErrors").value = state.settings.maxErrors;
-      document.getElementById("cfgMaxPasses").value = state.settings.maxPasses;
-      document.getElementById("cfgTimerSec").value = state.settings.timerSec;
-      document.getElementById("cfgOrderedScreens").value = state.settings.orderedScreens;
-      document.getElementById("cfgCloudSyncUrl").value = state.settings.cloudSyncUrl || "";
-      renderArchiveList();
-      document.getElementById("settingsModal").classList.add("open");
-    }
-
-    function closeSettings() {
-      document.getElementById("settingsModal").classList.remove("open");
-    }
-
-    function saveSettings() {
-      if (!isAdmin) return;
-      pushHistory();
-
-      const newTotal = Math.max(2, Math.min(100, parseInt(document.getElementById("cfgTotalPlayers").value, 10) || 15));
-      state.settings.killsToWin = Math.max(1, parseInt(document.getElementById("cfgKillsToWin").value, 10) || 3);
-      state.settings.maxWinners = Math.max(1, parseInt(document.getElementById("cfgMaxWinners").value, 10) || 3);
-      state.settings.cols = Math.max(2, Math.min(12, parseInt(document.getElementById("cfgCols").value, 10) || 5));
-      state.settings.maxErrors = Math.max(1, parseInt(document.getElementById("cfgMaxErrors").value, 10) || 2);
-      state.settings.maxPasses = Math.max(0, parseInt(document.getElementById("cfgMaxPasses").value, 10) || 1);
-      state.settings.timerSec = Math.max(5, parseInt(document.getElementById("cfgTimerSec").value, 10) || 30);
-      state.settings.orderedScreens = Math.max(1, Math.min(12, parseInt(document.getElementById("cfgOrderedScreens").value, 10) || 2));
-      state.settings.cloudSyncUrl = document.getElementById("cfgCloudSyncUrl").value.trim();
-
-      if (newTotal > state.players.length) {
-        for (let i = state.players.length + 1; i <= newTotal; i++) {
-          state.players.push({ number: i, name: "", status: "available", kills: 0, errors: 0, passes: 0 });
+        if (isAdmin) {
+          addLog(`انتهى وقت السؤال للمتسابق رقم (${state.currentTarget ?? "-"}).`);
+          saveState("انقضاء وقت المؤقت");
+        } else {
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitizeState(state)));
+          } catch {}
         }
-      } else if (newTotal < state.players.length) {
-        state.players = state.players.slice(0, newTotal);
-      }
-      state.settings.totalPlayers = newTotal;
-
-      addLog("تم حفظ وتطبيق إعدادات المسابقة الجديدة.");
-      saveState("تحديث الإعدادات");
-      closeSettings();
-      renderAll();
-    }
-
-    function changePassword() {
-      if (!isAdmin) return;
-      const np = document.getElementById("newAdminPass").value.trim();
-      if (!np) return;
-      state.settings.adminPass = np;
-      document.getElementById("newAdminPass").value = "";
-      saveState();
-      alert("تم تحديث الرقم السري للمدير بنجاح.");
-    }
-
-    function addQuestionToArchive() {
-      if (!isAdmin) return;
-      const text = document.getElementById("newQText").value.trim();
-      const answer = document.getElementById("newQAnswer").value.trim();
-      const level = document.getElementById("newQLevel").value;
-      if (!text || !answer) return;
-
-      pushHistory();
-      const nextId = state.questions.reduce((max, q) => Math.max(max, q.id), 0) + 1;
-      state.questions.push({ id: nextId, text, answer, level });
-      document.getElementById("newQText").value = "";
-      document.getElementById("newQAnswer").value = "";
-      addLog(`تمت إضافة سؤال جديد إلى الأرشيف (${level}).`);
-      saveState("إضافة سؤال للأرشيف");
-      renderArchiveList();
-      renderStatsAndAudience();
-    }
-
-    function deleteQuestionFromArchive(id) {
-      if (!isAdmin) return;
-      pushHistory();
-      state.questions = state.questions.filter(q => q.id !== id);
-      saveState("حذف سؤال من الأرشيف");
-      renderArchiveList();
-      renderStatsAndAudience();
-    }
-
-    function renderArchiveList() {
-      const filter = document.getElementById("archiveFilterSelect")?.value || "all";
-      const container = document.getElementById("archiveListContainer");
-      const countEl = document.getElementById("archiveTotalCount");
-      if (!container) return;
-      if (countEl) countEl.textContent = state.questions.length;
-
-      const list = filter === "all" ? state.questions : state.questions.filter(q => q.level === filter);
-      container.innerHTML = list.map(q => `
-        <div class="archive-item">
-          <div>
-            <strong>${q.text}</strong>
-            <div style="font-size:0.78rem; color:var(--text-muted);">الإجابة: ${q.answer} | المستوى: ${q.level}</div>
-          </div>
-          <button class="btn-danger" style="padding:4px 8px; font-size:0.75rem;" onclick="deleteQuestionFromArchive(${q.id})">حذف</button>
-        </div>
-      `).join("") || "<p style='color:var(--text-muted); font-size:0.85rem;'>لا توجد أسئلة مطابقة.</p>";
-    }
-
-    // النسخ الاحتياطي والتقارير
-    function exportBackupJSON() {
-      const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `contest_backup_${Date.now()}.json`;
-      a.click();
-    }
-
-    function importBackupJSON(event) {
-      if (!isAdmin) return;
-      const file = event.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const imported = JSON.parse(e.target.result);
-          pushHistory();
-          state = { ...createInitialState(), ...imported };
-          saveState("استعادة نسخة احتياطية");
-          renderAll();
-          alert("تمت استعادة النسخة الاحتياطية بنجاح.");
-        } catch {
-          alert("ملف النسخة الاحتياطية غير صالح.");
-        }
-        event.target.value = "";
-      };
-      reader.readAsText(file, "UTF-8");
-    }
-
-    function openReportsModal() {
-      const box = document.getElementById("reportPreviewBox");
-      const rows = state.players.map(p =>
-        `#${p.number} | ${p.name || "—"} | الحالة: ${p.status} | الإسقاطات: ${p.kills} | الأخطاء: ${p.errors} | الاعتذارات: ${p.passes}`
-      ).join("<br>");
-      box.innerHTML = rows || "لا توجد بيانات.";
-      document.getElementById("reportsModal").classList.add("open");
-    }
-
-    function closeReportsModal() {
-      document.getElementById("reportsModal").classList.remove("open");
-    }
-
-    function exportExcelCSV() {
-      const header = ["الرقم", "الاسم", "الحالة", "الإسقاطات", "الأخطاء", "الاعتذارات"];
-      const lines = [header.join(",")];
-      state.players.forEach(p => {
-        lines.push([
-          p.number,
-          `"${(p.name || "").replace(/"/g, '""')}"`,
-          p.status,
-          p.kills,
-          p.errors,
-          p.passes
-        ].join(","));
-      });
-      const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8;" });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `contest_report_${Date.now()}.csv`;
-      a.click();
-    }
-
-    function printPDFReport() {
-      window.print();
-    }
-
-    function resetContest() {
-      if (!isAdmin) return;
-      if (!confirm("هل أنت متأكد من بدء مسابقة جديدة وتصفير النتائج؟")) return;
-      pushHistory();
-      const keepNames = state.players.map(p => p.name);
-      const keepSettings = { ...state.settings };
-      const keepQuestions = [...state.questions];
-      const keepSheets = { ...state.sheetsConfig };
-      state = createInitialState();
-      state.settings = keepSettings;
-      state.questions = keepQuestions;
-      state.sheetsConfig = keepSheets;
-      state.players.forEach((p, idx) => {
-        p.name = keepNames[idx] || "";
-      });
-      addLog("تم بدء مسابقة جديدة.");
-      saveState("مسابقة جديدة");
-      renderAll();
-    }
-
-    // العرض والتصيير
-    function resetPlayerFilters() {
-      document.getElementById("playerStatusFilter").value = "all";
-      document.getElementById("playerSearchInput").value = "";
-      renderPlayersGrid();
-    }
-
-    function renderPlayersGrid() {
-      const grid = document.getElementById("playersGrid");
-      if (!grid) return;
-      grid.style.setProperty("--cols", state.settings.cols);
-
-      const statusFilter = document.getElementById("playerStatusFilter")?.value || "all";
-      const searchVal = (document.getElementById("playerSearchInput")?.value || "").trim().toLowerCase();
-
-      const filtered = state.players.filter(p => {
-        const matchStatus = statusFilter === "all" || p.status === statusFilter;
-        const matchSearch =
-          !searchVal ||
-          String(p.number).includes(searchVal) ||
-          (p.name && p.name.toLowerCase().includes(searchVal));
-        return matchStatus && matchSearch;
-      });
-
-      grid.innerHTML = "";
-      filtered.forEach(p => {
-        const tile = document.createElement("div");
-        let stateClass = "state-available";
-        if (p.status === "eliminated") stateClass = "state-eliminated";
-        else if (p.status === "winner") stateClass = "state-winner";
-        else if (p.number === state.currentTarget) stateClass = "state-target";
-        else if (p.number === state.currentSelector) stateClass = "state-selector";
-
-        const manualLocked = !isAdmin || (state.selectionMode === "manual" && p.status !== "available");
-        tile.className = `player-tile ${stateClass} ${manualLocked ? "manual-locked" : ""}`;
-        tile.onclick = () => handlePlayerTileClick(p.number);
-
-        tile.innerHTML = `
-          <div class="player-num">${p.number}</div>
-          <div class="player-name">${p.name || "غير مسجل"}</div>
-          <div class="player-badges">
-            <span class="mini-badge">🎯 ${p.kills}</span>
-            <span class="mini-badge err-badge">❌ ${p.errors}</span>
-          </div>
-        `;
-        grid.appendChild(tile);
-      });
-    }
-
-    function renderStage() {
-      const selDisp = document.getElementById("currentSelectorDisplay");
-      const statsDisp = document.getElementById("selectorStatsDisplay");
-      const instText = document.getElementById("selectionInstructionText");
-      const qCard = document.getElementById("questionCard");
-
-      const selectorObj = state.players.find(p => p.number === state.currentSelector);
-      const targetObj = state.players.find(p => p.number === state.currentTarget);
-
-      if (selectorObj) {
-        selDisp.textContent = `المختار الحالي: رقم (${selectorObj.number}) ${selectorObj.name || ""}`;
-        statsDisp.textContent = `الإسقاطات: ${selectorObj.kills} / ${state.settings.killsToWin} | الأخطاء: ${selectorObj.errors} / ${state.settings.maxErrors}`;
-      } else {
-        selDisp.textContent = "لم يتم تحديد مختار بعد";
-        statsDisp.textContent = "";
+        return;
       }
 
-      if (state.selectionMode === "manual") {
-        instText.textContent = "الوضع اليدوي: انقر على رقم المختار أولاً ثم انقر على رقم الخصم المراد سؤاله.";
-      } else {
-        instText.textContent = "الوضع العشوائي: اضغط (اختيار عشوائي) أو انقر على متسابق متاح لتوجيه السؤال.";
-      }
-
-      if (state.activeQuestion && targetObj) {
-        qCard.classList.add("active");
-        document.getElementById("targetPlayerLabel").textContent = `رقم (${targetObj.number}) ${targetObj.name || ""}`;
-        document.getElementById("questionText").textContent = state.activeQuestion.text;
-        document.getElementById("answerText").textContent = state.activeQuestion.answer;
-        document.getElementById("answerBox").classList.toggle("visible", state.answerRevealed);
-
-        const lvlBadge = document.getElementById("questionLevelBadge");
-        lvlBadge.className = `level-pill level-${state.activeQuestion.level}`;
-        lvlBadge.textContent =
-          state.activeQuestion.level === "easy" ? "🟢 سهل" :
-          state.activeQuestion.level === "medium" ? "🟡 متوسط" : "🔴 صعب";
-
+      if (changed) {
         renderTimerOnly();
-      } else {
-        qCard.classList.remove("active");
+      }
+    }, 200);
+  }
+
+  function stopTimer() {
+    if (timerInterval) {
+      clearInterval(timerInterval);
+      timerInterval = null;
+    }
+  }
+
+  function toggleTimer() {
+    if (!isAdmin || !state.activeQuestion || state.contestClosed) return;
+    if (state.timerRunning) {
+      if (timerEndPerf) {
+        state.timeLeft = Math.max(0, Math.ceil((timerEndPerf - performance.now()) / 1000));
+      }
+      timerRemainingAtPause = state.timeLeft;
+      state.timerRunning = false;
+      timerEndPerf = null;
+      stopTimer();
+      saveState("إيقاف المؤقت مؤقتاً");
+    } else {
+      const resumeSec = timerRemainingAtPause !== null ? timerRemainingAtPause : state.timeLeft;
+      if (resumeSec <= 0) return;
+      state.timeLeft = resumeSec;
+      state.timerRunning = true;
+      timerRemainingAtPause = null;
+      timerEndPerf = performance.now() + resumeSec * 1000;
+      startTimer();
+      saveState("استئناف المؤقت");
+    }
+    renderTimerOnly();
+  }
+
+  function renderTimerOnly() {
+    const el = document.getElementById("timerDisplay");
+    const btn = document.getElementById("timerToggleBtn");
+    if (!el) return;
+    el.textContent = String(state.timeLeft);
+    el.classList.toggle("urgent", state.timeLeft <= 5 && state.timeLeft > 0);
+    if (btn) btn.textContent = state.timerRunning ? "⏸️" : "▶️";
+  }
+
+  function triggerShake() {
+    document.body.classList.remove("shake-effect");
+    void document.body.offsetWidth;
+    document.body.classList.add("shake-effect");
+  }
+
+  function launchConfetti() {
+    const canvas = document.getElementById("confettiCanvas");
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    const colors = ["#eab308", "#3b82f6", "#10b981", "#f43f5e", "#a855f7"];
+    const pieces = Array.from({ length: 110 }, () => ({
+      x: Math.random() * canvas.width,
+      y: Math.random() * -canvas.height,
+      w: 7 + Math.random() * 6,
+      h: 4 + Math.random() * 5,
+      vy: 2.5 + Math.random() * 4,
+      vx: -2 + Math.random() * 4,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      rot: Math.random() * 360
+    }));
+    let frames = 0;
+    function draw() {
+      frames++;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      pieces.forEach(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.rot += 5;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate((p.rot * Math.PI) / 180);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+        ctx.restore();
+      });
+      if (frames < 140) requestAnimationFrame(draw);
+      else ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+    draw();
+  }
+
+  // الشاشات المرتبة
+  function openDisplayWindow(screenNum = 1) {
+    const safeNum = clampInt(screenNum, 1, 12, 1);
+    const url = `${window.location.href.split("#")[0]}#screen=${safeNum}`;
+    window.open(url, `contest_screen_${safeNum}`, "noopener,noreferrer");
+  }
+
+  function updateOrderedScreensCount() {
+    if (!isAdmin) return;
+    const input = document.getElementById("orderedScreensInput");
+    const val = clampInt(input ? input.value : state.settings.orderedScreens, 1, 12, 1);
+    pushHistory();
+    state.settings.orderedScreens = val;
+    saveState("تحديث عدد الشاشات المرتبة");
+    renderOrderedScreens();
+  }
+
+  function openAllOrderedScreens() {
+    for (let i = 1; i <= state.settings.orderedScreens; i++) {
+      openDisplayWindow(i);
+    }
+  }
+
+  function renderOrderedScreens() {
+    const container = document.getElementById("orderedScreensList");
+    const input = document.getElementById("orderedScreensInput");
+    if (!container) return;
+    if (input) input.value = String(state.settings.orderedScreens);
+    container.textContent = "";
+
+    for (let i = 1; i <= state.settings.orderedScreens; i++) {
+      const div = document.createElement("div");
+      div.className = "screen-card";
+
+      const infoWrap = document.createElement("div");
+      const titleEl = document.createElement("strong");
+      titleEl.textContent = `شاشة عرض #${i}`;
+      const statusSpan = document.createElement("span");
+      statusSpan.className = "screen-status online";
+      statusSpan.style.marginRight = "6px";
+      statusSpan.textContent = "● جاهزة";
+      infoWrap.appendChild(titleEl);
+      infoWrap.appendChild(statusSpan);
+
+      const openBtn = document.createElement("button");
+      openBtn.className = "btn-cyan";
+      openBtn.style.padding = "5px 10px";
+      openBtn.style.fontSize = "0.78rem";
+      openBtn.textContent = "فتح";
+      openBtn.addEventListener("click", () => openDisplayWindow(i));
+
+      div.appendChild(infoWrap);
+      div.appendChild(openBtn);
+      container.appendChild(div);
+    }
+  }
+
+  // الإعدادات والأرشيف
+  function setFieldValue(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.value = String(value);
+  }
+
+  function openSettings() {
+    if (!isAdmin) return;
+    setFieldValue("cfgKillsToWin", state.settings.killsToWin);
+    setFieldValue("cfgMaxWinners", state.settings.maxWinners);
+    setFieldValue("cfgTotalPlayers", state.settings.totalPlayers);
+    setFieldValue("cfgCols", state.settings.cols);
+    setFieldValue("cfgMaxErrors", state.settings.maxErrors);
+    setFieldValue("cfgMaxPasses", state.settings.maxPasses);
+    setFieldValue("cfgTimerSec", state.settings.timerSec);
+    setFieldValue("cfgOrderedScreens", state.settings.orderedScreens);
+    setFieldValue("cfgCloudSyncUrl", state.settings.cloudSyncUrl || "");
+    renderArchiveList();
+    const modal = document.getElementById("settingsModal");
+    if (modal) modal.classList.add("open");
+  }
+
+  function closeSettings() {
+    const modal = document.getElementById("settingsModal");
+    if (modal) modal.classList.remove("open");
+  }
+
+  function saveSettings() {
+    if (!isAdmin) return;
+    const rawTotal = parseInt(document.getElementById("cfgTotalPlayers")?.value, 10);
+    const newTotal = clampInt(rawTotal, 2, 100, state.settings.totalPlayers);
+
+    if (newTotal < state.players.length) {
+      const removedPlayers = state.players.slice(newTotal);
+      const hasImportantData = removedPlayers.some(
+        p => p.name || p.kills > 0 || p.errors > 0 || p.passes > 0 || p.status === "winner"
+      );
+      if (hasImportantData) {
+        const ok = confirm(
+          `تقليل عدد اللاعبين من ${state.players.length} إلى ${newTotal} سيحذف بيانات ${removedPlayers.length} لاعباً (بما فيهم المسجلون أو الفائزون). هل تريد المتابعة؟`
+        );
+        if (!ok) return;
       }
     }
 
-    function renderStatsAndAudience() {
-      const activeCount = state.players.filter(p => p.status === "available").length;
-      const elimCount = state.players.filter(p => p.status === "eliminated").length;
-      const remQuestions = Math.max(0, state.questions.length - state.usedQuestionIds.length);
+    pushHistory();
+    const newMaxWinners = clampInt(document.getElementById("cfgMaxWinners")?.value, 1, newTotal, state.settings.maxWinners);
+    state.settings.killsToWin = clampInt(document.getElementById("cfgKillsToWin")?.value, 1, 50, state.settings.killsToWin);
+    state.settings.maxWinners = newMaxWinners;
+    state.settings.cols = clampInt(document.getElementById("cfgCols")?.value, 2, 12, state.settings.cols);
+    state.settings.maxErrors = clampInt(document.getElementById("cfgMaxErrors")?.value, 1, 20, state.settings.maxErrors);
+    state.settings.maxPasses = clampInt(document.getElementById("cfgMaxPasses")?.value, 0, 20, state.settings.maxPasses);
+    state.settings.timerSec = clampInt(document.getElementById("cfgTimerSec")?.value, 5, 600, state.settings.timerSec);
+    state.settings.orderedScreens = clampInt(document.getElementById("cfgOrderedScreens")?.value, 1, 12, state.settings.orderedScreens);
 
-      document.getElementById("statActive").textContent = activeCount;
-      document.getElementById("statWinners").textContent = `${state.winners.length} / ${state.settings.maxWinners}`;
-      document.getElementById("statEliminated").textContent = elimCount;
-      document.getElementById("statQuestions").textContent = remQuestions;
-      document.getElementById("statFollowers").textContent = state.followersCount;
-      document.getElementById("inlineFollowersCount").textContent = state.followersCount;
-
-      const followBtn = document.getElementById("followBtn");
-      if (followBtn) {
-        followBtn.textContent = state.isFollowing ? "✓ متابَع" : "⭐ متابعة المسابقة";
+    const cloudInputVal = (document.getElementById("cfgCloudSyncUrl")?.value || "").trim();
+    if (!cloudInputVal) {
+      state.settings.cloudSyncUrl = "";
+    } else {
+      try {
+        const u = new URL(cloudInputVal);
+        state.settings.cloudSyncUrl = (u.protocol === "https:" || u.protocol === "http:") ? u.toString() : "";
+      } catch {
+        alert("رابط المزامنة السحابية غير صالح؛ تم تجاهله.");
       }
+    }
 
-      const emptyCount = state.players.filter(p => !p.name && p.status === "available").length;
-      const nextHint = document.getElementById("nextSlotHint");
-      if (nextHint) {
-        nextHint.textContent = `الأماكن الشاغرة للتسجيل: ${emptyCount} من أصل ${state.settings.totalPlayers}`;
+    if (newTotal > state.players.length) {
+      for (let i = state.players.length + 1; i <= newTotal; i++) {
+        state.players.push({ number: i, name: "", status: "available", kills: 0, errors: 0, passes: 0 });
       }
-
-      const winnersUl = document.getElementById("winnersList");
-      winnersUl.innerHTML = state.winners.length
-        ? state.winners.map((w, idx) => `<li><span>#${idx + 1} - ${w.name} (رقم ${w.number})</span><span>🎯 ${w.kills}</span></li>`).join("")
-        : "<li style='background:none; border:none; color:var(--text-muted); font-weight:400;'>لم يُعلن عن فائزين بعد.</li>";
-
-      const logUl = document.getElementById("logList");
-      logUl.innerHTML = state.logs.map(item => `<li>${item}</li>`).join("");
-
-      document.getElementById("dynamicRulesText").textContent =
-        `الفوز بـ (${state.settings.killsToWin}) إسقاطات | الحد الأقصى للفائزين: (${state.settings.maxWinners}) | الأخطاء المسموحة: (${state.settings.maxErrors}) | الاعتذارات: (${state.settings.maxPasses}) | وقت السؤال: (${state.settings.timerSec} ث)`;
+    } else if (newTotal < state.players.length) {
+      state.players = state.players.slice(0, newTotal);
     }
+    state.settings.totalPlayers = newTotal;
 
-    function renderSheetsInputs() {
-      const urlInp = document.getElementById("sheetsUrlInput");
-      const rngInp = document.getElementById("sheetsRangeInput");
-      const intInp = document.getElementById("sheetsIntervalInput");
-      const chkInp = document.getElementById("sheetsAutoSyncCheck");
-      const stEl = document.getElementById("sheetsSyncStatus");
-      if (!urlInp) return;
-
-      urlInp.value = state.sheetsConfig.url || "";
-      rngInp.value = state.sheetsConfig.range || "";
-      intInp.value = state.sheetsConfig.intervalSec || 30;
-      chkInp.checked = Boolean(state.sheetsConfig.autoSync);
-      stEl.textContent = state.sheetsConfig.lastSyncText || "لم يتم التزامن بعد";
-    }
-
-    function renderAll() {
-      updateRoleUI();
-      renderStatsAndAudience();
-      renderStage();
-      renderPlayersGrid();
-      renderOrderedScreens();
-      renderSheetsInputs();
-      if (state.timerRunning && !timerInterval) startTimer();
-    }
-
-    window.addEventListener("DOMContentLoaded", () => {
-      document.getElementById("selectionModeSelect").value = state.selectionMode || "random";
-      renderAll();
-      if (state.sheetsConfig.autoSync && state.sheetsConfig.url) {
-        toggleGoogleSheetsAutoSync();
+    // إعادة ضبط الفائزين وحالة إغلاق المسابقة إذا تغير maxWinners أو حذف فائز
+    const validNumbers = new Set(state.players.map(p => p.number));
+    state.winners = state.winners
+      .filter(w => validNumbers.has(w.number))
+      .slice(0, state.settings.maxWinners);
+    const winnerSet = new Set(state.winners.map(w => w.number));
+    state.players.forEach(p => {
+      if (p.status === "winner" && !winnerSet.has(p.number)) {
+        p.status = "available";
       }
     });
-  </script>
-</body>
+    state.contestClosed = state.winners.length >= state.settings.maxWinners;
+    if (state.contestClosed) {
+      state.currentTarget = null;
+      state.activeQuestion = null;
+      state.timerRunning = false;
+      stopTimer();
+    }
+
+    addLog("تم حفظ وتطبيق إعدادات المسابقة الجديدة.");
+    saveState("تحديث الإعدادات");
+    closeSettings();
+    renderAll();
+  }
+
+  async function changePassword() {
+    if (!isAdmin) return;
+    const passInput = document.getElementById("newAdminPass");
+    const np = passInput ? passInput.value.trim() : "";
+    if (!np || np.length < 4) {
+      alert("يرجى إدخال رقم سري لا يقل عن 4 خانات.");
+      return;
+    }
+    state.settings.adminPassHash = await sha256Hex(np);
+    if (passInput) passInput.value = "";
+    saveState();
+    alert("تم تحديث الرقم السري للمدير بنجاح.");
+  }
+
+  function addQuestionToArchive() {
+    if (!isAdmin) return;
+    const textEl = document.getElementById("newQText");
+    const ansEl = document.getElementById("newQAnswer");
+    const lvlEl = document.getElementById("newQLevel");
+    const text = textEl ? textEl.value.trim() : "";
+    const answer = ansEl ? ansEl.value.trim() : "";
+    const level = lvlEl && ["easy", "medium", "hard"].includes(lvlEl.value) ? lvlEl.value : "easy";
+    if (!text || !answer) return;
+
+    pushHistory();
+    const nextId = state.questions.reduce((max, q) => Math.max(max, Number(q.id) || 0), 0) + 1;
+    state.questions.push({ id: nextId, text, answer, level });
+    if (textEl) textEl.value = "";
+    if (ansEl) ansEl.value = "";
+    addLog(`تمت إضافة سؤال جديد إلى الأرشيف (${level}).`);
+    saveState("إضافة سؤال للأرشيف");
+    renderArchiveList();
+    renderStatsAndAudience();
+  }
+
+  function deleteQuestionFromArchive(id) {
+    if (!isAdmin) return;
+    pushHistory();
+    state.questions = state.questions.filter(q => q.id !== id);
+    state.usedQuestionIds = state.usedQuestionIds.filter(qid => qid !== id);
+    saveState("حذف سؤال من الأرشيف");
+    renderArchiveList();
+    renderStatsAndAudience();
+  }
+
+  function renderArchiveList() {
+    const filterEl = document.getElementById("archiveFilterSelect");
+    const filter = filterEl ? filterEl.value : "all";
+    const container = document.getElementById("archiveListContainer");
+    const countEl = document.getElementById("archiveTotalCount");
+    if (!container) return;
+    if (countEl) countEl.textContent = String(state.questions.length);
+
+    container.textContent = "";
+    const list = filter === "all" ? state.questions : state.questions.filter(q => q.level === filter);
+
+    list.forEach(q => {
+      const item = document.createElement("div");
+      item.className = "archive-item";
+
+      const info = document.createElement("div");
+      const qTitle = document.createElement("strong");
+      qTitle.textContent = q.text;
+      const meta = document.createElement("div");
+      meta.style.fontSize = "0.78rem";
+      meta.style.color = "var(--text-muted)";
+      meta.textContent = `الإجابة: ${q.answer} | المستوى: ${q.level}`;
+      info.appendChild(qTitle);
+      info.appendChild(meta);
+
+      const delBtn = document.createElement("button");
+      delBtn.className = "btn-danger";
+      delBtn.style.padding = "4px 8px";
+      delBtn.style.fontSize = "0.75rem";
+      delBtn.textContent = "حذف";
+      delBtn.addEventListener("click", () => deleteQuestionFromArchive(q.id));
+
+      item.appendChild(info);
+      item.appendChild(delBtn);
+      container.appendChild(item);
+    });
+  }
+
+  // دوال العرض الآمنة بـ textContent و DOM
+  function renderStatsAndAudience() {
+    const followersEl = document.getElementById("followersCount");
+    const followBtn = document.getElementById("followBtn");
+    if (followersEl) followersEl.textContent = String(localAudienceState.localFollowers);
+    if (followBtn) {
+      followBtn.textContent = localAudienceState.isFollowing ? "✓ متابَع (محلي)" : "➕ متابعة";
+    }
+
+    const totalEl = document.getElementById("statTotalPlayers");
+    const availEl = document.getElementById("statAvailablePlayers");
+    const elimEl = document.getElementById("statEliminatedPlayers");
+    const winEl = document.getElementById("statWinnersCount");
+
+    const availableCount = state.players.filter(p => p.status === "available").length;
+    const eliminatedCount = state.players.filter(p => p.status === "eliminated").length;
+
+    if (totalEl) totalEl.textContent = String(state.players.length);
+    if (availEl) availEl.textContent = String(availableCount);
+    if (elimEl) elimEl.textContent = String(eliminatedCount);
+    if (winEl) winEl.textContent = `${state.winners.length}/${state.settings.maxWinners}`;
+
+    const logsEl = document.getElementById("logsContainer");
+    if (logsEl) {
+      logsEl.textContent = "";
+      state.logs.forEach(entry => {
+        const div = document.createElement("div");
+        div.className = "log-entry";
+        div.textContent = entry;
+        logsEl.appendChild(div);
+      });
+    }
+  }
+
+  function renderPlayersGrid() {
+    const grid = document.getElementById("playersGrid");
+    if (!grid) return;
+    grid.style.gridTemplateColumns = `repeat(${state.settings.cols}, minmax(0, 1fr))`;
+    grid.textContent = "";
+
+    state.players.forEach(p => {
+      const tile = document.createElement("div");
+      tile.className = `player-tile status-${p.status}`;
+      if (state.currentSelector === p.number) tile.classList.add("is-selector");
+      if (state.currentTarget === p.number) tile.classList.add("is-target");
+
+      const numEl = document.createElement("div");
+      numEl.className = "player-num";
+      numEl.textContent = `#${p.number}`;
+
+      const nameEl = document.createElement("div");
+      nameEl.className = "player-name";
+      nameEl.textContent = p.name || "غير مسجل";
+
+      const metaEl = document.createElement("div");
+      metaEl.className = "player-meta";
+      metaEl.textContent = `✓${p.kills} | ✕${p.errors} | ↷${p.passes}`;
+
+      tile.appendChild(numEl);
+      tile.appendChild(nameEl);
+      tile.appendChild(metaEl);
+
+      if (isAdmin && p.name && p.status === "available" && !state.contestClosed) {
+        tile.style.cursor = "pointer";
+        tile.addEventListener("click", () => handlePlayerTileClick(p.number));
+      }
+
+      grid.appendChild(tile);
+    });
+  }
+
+  function renderStage() {
+    const modeSelect = document.getElementById("selectionModeSelect");
+    if (modeSelect) modeSelect.value = state.selectionMode;
+
+    const selBox = document.getElementById("currentSelectorLabel");
+    const tgtBox = document.getElementById("currentTargetLabel");
+    const qTextEl = document.getElementById("activeQuestionText");
+    const ansTextEl = document.getElementById("activeAnswerText");
+    const ansBox = document.getElementById("answerBox");
+
+    const selectorObj = state.players.find(p => p.number === state.currentSelector);
+    const targetObj = state.players.find(p => p.number === state.currentTarget);
+
+    if (selBox) {
+      selBox.textContent = selectorObj
+        ? `#${selectorObj.number} - ${selectorObj.name || "لاعب"}`
+        : state.contestClosed ? "المسابقة مغلقة" : "غير محدد";
+    }
+
+    if (tgtBox) {
+      tgtBox.textContent = targetObj
+        ? `#${targetObj.number} - ${targetObj.name || "لاعب"}`
+        : state.contestClosed ? "اكتمل الفائزون" : "بانتظار الاختيار";
+    }
+
+    if (qTextEl) {
+      if (state.contestClosed) {
+        qTextEl.textContent = `تم إغلاق المسابقة بعد وصول عدد الفائزين إلى (${state.winners.length}/${state.settings.maxWinners}).`;
+      } else if (state.activeQuestion) {
+        qTextEl.textContent = state.activeQuestion.text;
+      } else {
+        qTextEl.textContent = "لا يوجد سؤال نشط حالياً.";
+      }
+    }
+
+    if (ansTextEl) {
+      ansTextEl.textContent = state.activeQuestion ? state.activeQuestion.answer : "";
+    }
+    if (ansBox) {
+      ansBox.classList.toggle("visible", Boolean(state.activeQuestion && state.answerRevealed));
+    }
+
+    renderTimerOnly();
+  }
+
+  function renderWinnersBoard() {
+    const board = document.getElementById("winnersBoard");
+    if (!board) return;
+    board.textContent = "";
+
+    for (let i = 0; i < state.settings.maxWinners; i++) {
+      const w = state.winners[i];
+      const card = document.createElement("div");
+      card.className = `winner-slot ${w ? "filled" : ""}`;
+
+      const rank = document.createElement("span");
+      rank.className = "winner-rank";
+      rank.textContent = `المركز #${i + 1}`;
+
+      const label = document.createElement("span");
+      label.className = "winner-name";
+      label.textContent = w ? `${w.name} (#${w.number}) — ${w.kills} إسقاطات` : "شاغر";
+
+      card.appendChild(rank);
+      card.appendChild(label);
+      board.appendChild(card);
+    }
+  }
+
+  function renderAll() {
+    updateRoleUI();
+    renderStatsAndAudience();
+    renderPlayersGrid();
+    renderStage();
+    renderWinnersBoard();
+    renderOrderedScreens();
+  }
+
+  // تهيئة أولية
+  if (!isAdmin) {
+    document.body.classList.add("viewer-mode");
+  }
+  syncTimerWithState();
+  renderAll();
+</script>
 </html>
