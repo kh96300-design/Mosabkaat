@@ -25,12 +25,67 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Verify index.html exists
+      - name: Validate index.html structure and tags
         run: |
-          if [ ! -f "index.html" ]; then
-            echo "Error: index.html was not found in the repository root."
-            exit 1
-          fi
+          python3 - <<'EOF'
+          import re
+          import sys
+          from pathlib import Path
+
+          path = Path("index.html")
+          if not path.is_file():
+              print("ERROR: index.html was not found in repository root.", file=sys.stderr)
+              sys.exit(1)
+
+          html = path.read_text(encoding="utf-8", errors="replace")
+          if not html.strip():
+              print("ERROR: index.html is empty.", file=sys.stderr)
+              sys.exit(1)
+
+          required_markers = [
+              (r"<!doctype\s+html\s*>", "<!DOCTYPE html>"),
+              (r"<html\b[^>]*>", "<html ...>"),
+              (r"</html\s*>", "</html>"),
+              (r"<head\b[^>]*>", "<head>"),
+              (r"</head\s*>", "</head>"),
+              (r"<body\b[^>]*>", "<body>"),
+              (r"</body\s*>", "</body>"),
+          ]
+          for pattern, label in required_markers:
+              if not re.search(pattern, html, flags=re.IGNORECASE):
+                  print(f"ERROR: Missing required HTML tag/marker: {label}", file=sys.stderr)
+                  sys.exit(1)
+
+          # فحص توازن فتح وإغلاق الوسوم الرئيسية (مع تجاهل أي محتوى داخل <script> عند فحص وسوم DOM)
+          html_without_scripts = re.sub(
+              r"<script\b[^>]*>.*?</script\s*>",
+              "",
+              html,
+              flags=re.IGNORECASE | re.DOTALL,
+          )
+
+          for tag in ["html", "head", "body", "style"]:
+              opens = len(re.findall(rf"<{tag}\b(?![^>]*/>)[^>]*>", html_without_scripts, flags=re.IGNORECASE))
+              closes = len(re.findall(rf"</{tag}\s*>", html_without_scripts, flags=re.IGNORECASE))
+              if opens != closes:
+                  print(f"ERROR: Unbalanced <{tag}> tags (open={opens}, close={closes}).", file=sys.stderr)
+                  sys.exit(1)
+
+          script_opens = len(re.findall(r"<script\b(?![^>]*/>)[^>]*>", html, flags=re.IGNORECASE))
+          script_closes = len(re.findall(r"</script\s*>", html, flags=re.IGNORECASE))
+          if script_opens == 0 or script_opens != script_closes:
+              print(f"ERROR: Unbalanced or missing <script> tags (open={script_opens}, close={script_closes}).", file=sys.stderr)
+              sys.exit(1)
+
+          # التحقق من وجود عناصر الواجهة الأساسية المرتبطة بالكود
+          required_ids = ["playersGrid", "timerDisplay", "loginModal", "settingsModal"]
+          for element_id in required_ids:
+              if not re.search(rf"""id=["']{re.escape(element_id)}["']""", html_without_scripts):
+                  print(f"ERROR: Missing expected DOM element id='{element_id}' in index.html.", file=sys.stderr)
+                  sys.exit(1)
+
+          print("SUCCESS: index.html passed structure, tag balance, and required DOM checks.")
+          EOF
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
