@@ -641,7 +641,7 @@
 
           <div class="stage-box">
             <div style="font-size: 0.9rem; color: var(--text-muted);">المتسابق المختار ليختار الآن:</div>
-            <div class="selector-highlight" id="currentSelectorDisplay">لم يتم تحديد متسابق بعد</div>
+            <div class="selector-highlight" id="currentSelectorDisplay"></div>
             <div id="selectorStatsDisplay" style="font-size: 0.88rem; color: var(--gold); margin-bottom: 6px;"></div>
 
             <div class="selector-picker-row admin-only">
@@ -735,7 +735,7 @@
           <div class="panel-title">📝 تسجيل المتسابقين</div>
           <p id="nextSlotHint" style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px;"></p>
           <div class="input-group">
-            <input type="text" id="playerNameInput" placeholder="اكتب اسم المتسابق..." onkeydown="if(event.key==='Enter') registerPlayer()" />
+            <input type="text" id="playerNameInput" value="" placeholder="اكتب اسم المتسابق..." onkeydown="if(event.key==='Enter') registerPlayer()" />
             <button class="btn-primary" onclick="registerPlayer()">تسجيل</button>
           </div>
           <div style="display: flex; gap: 8px; margin-bottom: 12px;">
@@ -905,7 +905,7 @@
     let state = {
       isAdmin: false,
       adminPassword: "1234",
-      selectionMode: "manual", // "manual" | "random"
+      selectionMode: "manual",
       settings: {
         killsToWin: 3,
         maxWinners: 3,
@@ -1004,8 +1004,15 @@
       animate();
     }
 
+    function clearSelectionInput() {
+      const nameInput = document.getElementById("playerNameInput");
+      if (nameInput) nameInput.value = "";
+      const selDropdown = document.getElementById("manualSelectorSelect");
+      if (selDropdown) selDropdown.value = "";
+    }
+
     function init() {
-      const saved = localStorage.getItem("contest_manager_pro_v6");
+      const saved = localStorage.getItem("contest_manager_pro_v7");
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
@@ -1025,10 +1032,11 @@
         setupFreshGame();
       }
       renderAll();
+      clearSelectionInput();
     }
 
     function saveState() {
-      localStorage.setItem("contest_manager_pro_v6", JSON.stringify(state));
+      localStorage.setItem("contest_manager_pro_v7", JSON.stringify(state));
     }
 
     function pushHistory() {
@@ -1076,10 +1084,10 @@
       state.targetId = null;
       state.currentQuestion = null;
       state.logs = [];
-      // Do not lock to player #1 automatically; leave free for manual selection or random button
       state.selectorId = null;
-      addLog("بدأت مسابقة جديدة — اختر المتسابق الذي يبدأ الاختيار.");
+      addLog("بدأت مسابقة جديدة — خانة الاختيار فارغة لتحديد المتسابق.");
       saveState();
+      clearSelectionInput();
     }
 
     function setSelectorById(id, source = "manual") {
@@ -1168,7 +1176,6 @@
       return fallback.length > 0 ? fallback[0].id : null;
     }
 
-    // Handle clicking a player tile: sets selector if none selected yet, otherwise prepares target
     function handleTileClick(id) {
       if (!state.isAdmin || state.targetId !== null) return;
       const clicked = state.players.find(p => p.id === id && p.status === "available");
@@ -1180,7 +1187,7 @@
       }
 
       if (state.selectionMode !== "manual") {
-        alert("الاختيار اليدوي للخصم معطّل حالياً لأن النمط مضبوط على (عشوائي). يمكنك اختيار متسابق ليختار أو تغيير النمط إلى يدوي.");
+        alert("الاختيار اليدوي للخصم معطّل حالياً لأن النمط مضبوط على (عشوائي).");
         return;
       }
 
@@ -1453,6 +1460,7 @@
         }
         addLog(`تم استيراد ${idx} اسماً من الملف.`);
         event.target.value = "";
+        clearSelectionInput();
         saveState();
         renderAll();
       };
@@ -1526,7 +1534,6 @@
       const setSelBtn = document.getElementById("setSelectorBtn");
       if (setSelBtn) setSelBtn.disabled = state.targetId !== null;
 
-      // Populate manual selector dropdown
       const selDropdown = document.getElementById("manualSelectorSelect");
       if (selDropdown) {
         const availablePlayers = state.players.filter(p => p.status === "available");
@@ -1576,7 +1583,7 @@
         document.getElementById("selectorStatsDisplay").textContent =
           `الإسقاطات: ${selector.kills} / ${state.settings.killsToWin} | الاعتذارات المتبقية: ${state.settings.maxPasses - selector.passes}`;
       } else {
-        document.getElementById("currentSelectorDisplay").textContent = "لم يتم تحديد متسابق بعد";
+        document.getElementById("currentSelectorDisplay").textContent = "";
         document.getElementById("selectorStatsDisplay").textContent = "";
       }
 
@@ -1627,6 +1634,7 @@
       pushHistory();
       setupFreshGame();
       renderAll();
+      clearSelectionInput();
     }
 
     function openSettings() {
