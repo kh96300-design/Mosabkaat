@@ -1,1687 +1,247 @@
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>برنامج إدارة المسابقات التفاعلي - النسخة الاحترافية</title>
-  <style>
-    :root {
-      --bg-main: #0b1120;
-      --bg-card: #162032;
-      --border-color: #283548;
-      --text-main: #f8fafc;
-      --text-muted: #94a3b8;
-      --primary: #3b82f6;
-      --primary-hover: #2563eb;
-      --success: #10b981;
-      --success-bg: rgba(16, 185, 129, 0.15);
-      --danger: #ef4444;
-      --danger-bg: rgba(239, 68, 68, 0.15);
-      --warning: #f59e0b;
-      --warning-bg: rgba(245, 158, 11, 0.15);
-      --gold: #eab308;
-      --gold-bg: rgba(234, 179, 8, 0.18);
-      --purple: #8b5cf6;
-      --cols: 5;
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: system-ui, -apple-system, "Segoe UI", Tahoma, Arial, sans-serif;
-    }
-
-    body {
-      background-color: var(--bg-main);
-      color: var(--text-main);
-      line-height: 1.6;
-      padding: 16px;
-      min-height: 100vh;
-      overflow-x: hidden;
-    }
-
-    @keyframes screenShake {
-      0%, 100% { transform: translate(0, 0); }
-      20% { transform: translate(-8px, 4px); }
-      40% { transform: translate(8px, -4px); }
-      60% { transform: translate(-6px, -3px); }
-      80% { transform: translate(6px, 3px); }
-    }
-
-    body.shake-effect {
-      animation: screenShake 0.45s ease-in-out;
-      box-shadow: inset 0 0 60px rgba(239, 68, 68, 0.45);
-    }
-
-    #confettiCanvas {
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      z-index: 9999;
-    }
-
-    .container {
-      max-width: 1420px;
-      margin: 0 auto;
-    }
-
-    /* Header */
-    header {
-      background: var(--bg-card);
-      border: 1px solid var(--border-color);
-      border-radius: 14px;
-      padding: 18px 24px;
-      margin-bottom: 18px;
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      align-items: center;
-      gap: 16px;
-    }
-
-    .header-info h1 {
-      font-size: 1.45rem;
-      color: #fff;
-      margin-bottom: 4px;
-    }
-
-    .role-badge {
-      display: inline-block;
-      background: var(--primary);
-      color: #fff;
-      font-size: 0.8rem;
-      padding: 2px 12px;
-      border-radius: 999px;
-      margin-right: 8px;
-      vertical-align: middle;
-    }
-
-    .role-badge.viewer {
-      background: var(--warning);
-      color: #0b1120;
-    }
-
-    .dynamic-rules {
-      color: var(--text-muted);
-      font-size: 0.9rem;
-    }
-
-    .header-actions {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-
-    /* Buttons */
-    button {
-      cursor: pointer;
-      border: none;
-      border-radius: 8px;
-      padding: 9px 14px;
-      font-size: 0.88rem;
-      font-weight: 600;
-      transition: all 0.2s ease;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-    }
-
-    button:disabled {
-      opacity: 0.45;
-      cursor: not-allowed;
-    }
-
-    .btn-primary { background: var(--primary); color: #fff; }
-    .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
-    .btn-success { background: var(--success); color: #fff; }
-    .btn-success:hover:not(:disabled) { filter: brightness(1.1); }
-    .btn-danger { background: var(--danger); color: #fff; }
-    .btn-danger:hover:not(:disabled) { filter: brightness(1.1); }
-    .btn-warning { background: var(--warning); color: #0b1120; }
-    .btn-warning:hover:not(:disabled) { filter: brightness(1.1); }
-    .btn-purple { background: var(--purple); color: #fff; }
-    .btn-purple:hover:not(:disabled) { filter: brightness(1.1); }
-    .btn-ghost { background: #283548; color: #f8fafc; }
-    .btn-ghost:hover:not(:disabled) { background: #37475e; }
-
-    /* Stats Bar */
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: 12px;
-      margin-bottom: 18px;
-    }
-
-    .stat-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border-color);
-      border-radius: 12px;
-      padding: 14px;
-      text-align: center;
-    }
-
-    .stat-value {
-      font-size: 1.7rem;
-      font-weight: 800;
-      color: var(--primary);
-    }
-
-    .stat-card.gold .stat-value { color: var(--gold); }
-    .stat-card.danger .stat-value { color: var(--danger); }
-    .stat-card.success .stat-value { color: var(--success); }
-
-    .stat-label {
-      font-size: 0.85rem;
-      color: var(--text-muted);
-    }
-
-    /* Main Grid */
-    .main-grid {
-      display: grid;
-      grid-template-columns: 1fr 380px;
-      gap: 18px;
-    }
-
-    @media (max-width: 1024px) {
-      .main-grid { grid-template-columns: 1fr; }
-    }
-
-    .panel {
-      background: var(--bg-card);
-      border: 1px solid var(--border-color);
-      border-radius: 14px;
-      padding: 18px;
-      margin-bottom: 18px;
-    }
-
-    .panel-title {
-      font-size: 1.08rem;
-      font-weight: 700;
-      margin-bottom: 14px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid var(--border-color);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-
-    .filter-bar {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-bottom: 14px;
-      align-items: center;
-    }
-
-    .filter-bar select,
-    .filter-bar input {
-      width: auto;
-      min-width: 150px;
-      padding: 6px 10px;
-      font-size: 0.85rem;
-    }
-
-    /* Legend */
-    .legend {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-bottom: 14px;
-      font-size: 0.85rem;
-    }
-
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .dot {
-      width: 12px;
-      height: 12px;
-      border-radius: 3px;
-    }
-
-    /* Players Grid */
-    .players-grid {
-      display: grid;
-      grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
-      gap: 10px;
-    }
-
-    .player-tile {
-      background: #0b1120;
-      border: 2px solid var(--border-color);
-      border-radius: 12px;
-      padding: 12px 6px;
-      text-align: center;
-      cursor: pointer;
-      transition: transform 0.15s, border-color 0.2s, background 0.2s;
-      user-select: none;
-    }
-
-    .player-tile:hover:not(.disabled):not(.manual-locked) {
-      transform: translateY(-2px);
-      border-color: var(--primary);
-    }
-
-    .player-tile.manual-locked {
-      cursor: default;
-      opacity: 0.85;
-    }
-
-    .player-num {
-      font-size: 1.5rem;
-      font-weight: 800;
-      line-height: 1.2;
-    }
-
-    .player-name {
-      font-size: 0.82rem;
-      color: var(--text-muted);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      margin-top: 4px;
-    }
-
-    .player-badges {
-      display: flex;
-      justify-content: center;
-      flex-wrap: wrap;
-      gap: 4px;
-      margin-top: 6px;
-      font-size: 0.7rem;
-    }
-
-    .mini-badge {
-      padding: 2px 5px;
-      border-radius: 4px;
-      background: #283548;
-      color: #e2e8f0;
-    }
-
-    .mini-badge.err-badge {
-      background: rgba(239, 68, 68, 0.2);
-      color: #fca5a5;
-    }
-
-    /* Player States */
-    .state-available { border-color: #283548; }
-    .state-selector {
-      background: rgba(59, 130, 246, 0.2);
-      border-color: var(--primary);
-      box-shadow: 0 0 12px rgba(59, 130, 246, 0.35);
-    }
-    .state-target {
-      background: rgba(139, 92, 246, 0.22);
-      border-color: var(--purple);
-      box-shadow: 0 0 12px rgba(139, 92, 246, 0.35);
-    }
-    .state-eliminated {
-      background: rgba(239, 68, 68, 0.08);
-      border-color: rgba(239, 68, 68, 0.35);
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-    .state-eliminated .player-num {
-      text-decoration: line-through;
-      color: var(--danger);
-    }
-    .state-winner {
-      background: var(--gold-bg);
-      border-color: var(--gold);
-      cursor: not-allowed;
-    }
-    .state-winner .player-num { color: var(--gold); }
-
-    /* Stage & Question Card */
-    .stage-box {
-      background: #0b1120;
-      border: 1px solid var(--border-color);
-      border-radius: 12px;
-      padding: 16px;
-      text-align: center;
-      margin-bottom: 14px;
-    }
-
-    .selector-highlight {
-      font-size: 1.25rem;
-      font-weight: 800;
-      color: var(--primary);
-      margin: 6px 0;
-      min-height: 1.8rem;
-    }
-
-    .question-card {
-      background: linear-gradient(145deg, #162032, #0b1120);
-      border: 2px solid var(--purple);
-      border-radius: 14px;
-      padding: 18px;
-      margin-top: 14px;
-      display: none;
-    }
-
-    .question-card.active {
-      display: block;
-      animation: fadeIn 0.25s ease;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(6px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    .timer-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: rgba(0, 0, 0, 0.35);
-      padding: 8px 14px;
-      border-radius: 8px;
-      margin-bottom: 12px;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-
-    .level-pill {
-      padding: 2px 10px;
-      border-radius: 999px;
-      font-size: 0.78rem;
-      font-weight: 700;
-    }
-    .level-easy { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border: 1px solid #10b981; }
-    .level-medium { background: rgba(245, 158, 11, 0.2); color: #fcd34d; border: 1px solid #f59e0b; }
-    .level-hard { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid #ef4444; }
-
-    .timer-display {
-      font-size: 1.3rem;
-      font-weight: 800;
-      color: var(--warning);
-      font-variant-numeric: tabular-nums;
-    }
-
-    .timer-display.urgent {
-      color: var(--danger);
-      animation: pulse 0.8s infinite;
-    }
-
-    @keyframes pulse { 50% { opacity: 0.4; } }
-
-    .question-text {
-      font-size: 1.25rem;
-      font-weight: 700;
-      margin: 14px 0;
-      color: #fff;
-    }
-
-    .answer-box {
-      background: var(--success-bg);
-      border: 1px dashed var(--success);
-      color: #6ee7b7;
-      padding: 10px 14px;
-      border-radius: 8px;
-      margin-bottom: 14px;
-      font-weight: 600;
-      display: none;
-    }
-
-    .answer-box.visible { display: block; }
-
-    .judge-buttons {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-    }
-
-    /* Inputs */
-    .input-group {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 10px;
-    }
-
-    input[type="text"],
-    input[type="number"],
-    input[type="password"],
-    select,
-    textarea {
-      width: 100%;
-      background: #0b1120;
-      border: 1px solid var(--border-color);
-      color: #fff;
-      padding: 9px 12px;
-      border-radius: 8px;
-      font-size: 0.9rem;
-    }
-
-    input:focus, select:focus, textarea:focus {
-      outline: none;
-      border-color: var(--primary);
-    }
-
-    /* Winners & Logs */
-    .winners-list { list-style: none; }
-    .winners-list li {
-      background: var(--gold-bg);
-      border: 1px solid rgba(234, 179, 8, 0.4);
-      padding: 8px 12px;
-      border-radius: 8px;
-      margin-bottom: 6px;
-      display: flex;
-      justify-content: space-between;
-      font-weight: 700;
-      color: #fef08a;
-    }
-
-    .log-list {
-      max-height: 220px;
-      overflow-y: auto;
-      font-size: 0.84rem;
-      color: var(--text-muted);
-      list-style: none;
-    }
-
-    .log-list li {
-      padding: 6px 8px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    }
-
-    /* Modals */
-    .modal-backdrop {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.82);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 16px;
-      z-index: 1000;
-    }
-
-    .modal-backdrop.open { display: flex; }
-
-    .modal {
-      background: var(--bg-card);
-      border: 1px solid var(--border-color);
-      border-radius: 16px;
-      width: 100%;
-      max-width: 880px;
-      max-height: 90vh;
-      overflow-y: auto;
-      padding: 22px;
-    }
-
-    .settings-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-      gap: 12px;
-      margin-bottom: 16px;
-    }
-
-    .form-field label {
-      display: block;
-      font-size: 0.82rem;
-      color: var(--text-muted);
-      margin-bottom: 4px;
-    }
-
-    .archive-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
-      background: #0b1120;
-      padding: 8px 12px;
-      border-radius: 8px;
-      margin-bottom: 6px;
-      font-size: 0.85rem;
-    }
-
-    body.viewer-mode .admin-only { display: none !important; }
-  </style>
-</head>
-<body class="viewer-mode">
-  <canvas id="confettiCanvas"></canvas>
-
-  <div class="container">
-    <!-- Header -->
-    <header>
-      <div class="header-info">
-        <h1>
-          برنامج إدارة المسابقة
-          <span id="roleBadge" class="role-badge viewer">وضع الجمهور أولاً</span>
-        </h1>
-        <p id="dynamicRulesText" class="dynamic-rules"></p>
-      </div>
-      <div class="header-actions">
-        <button id="toggleRoleBtn" class="btn-warning" onclick="handleRoleButton()">🔑 دخول المدير</button>
-        <button class="btn-purple" onclick="openReportsModal()">📊 التقارير والتصدير</button>
-        <button class="btn-primary admin-only" onclick="openSettings()">⚙️ الإعدادات والأسئلة</button>
-        <button class="btn-ghost admin-only" onclick="undoAction()" id="undoBtn" disabled>↩️ تراجع</button>
-        <button class="btn-danger admin-only" onclick="resetContest()">🔄 مسابقة جديدة</button>
-      </div>
-    </header>
-
-    <!-- Stats -->
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-value" id="statActive">15</div>
-        <div class="stat-label">لاعبون في اللعبة</div>
-      </div>
-      <div class="stat-card gold">
-        <div class="stat-value" id="statWinners">0 / 3</div>
-        <div class="stat-label">الفائزون</div>
-      </div>
-      <div class="stat-card danger">
-        <div class="stat-value" id="statEliminated">0</div>
-        <div class="stat-label">منسحبون / مستبعدون</div>
-      </div>
-      <div class="stat-card success">
-        <div class="stat-value" id="statQuestions">0</div>
-        <div class="stat-label">أسئلة متبقية</div>
-      </div>
-    </div>
-
-    <!-- Main Grid -->
-    <div class="main-grid">
-      <!-- Right Column -->
-      <div>
-        <div class="panel">
-          <div class="panel-title">
-            <span>🎯 ساحة المواجهة والاختيار</span>
-            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;" class="admin-only">
-              <select id="selectionModeSelect" onchange="changeSelectionMode()" style="width: auto; padding: 6px 10px; font-size: 0.85rem;">
-                <option value="random">اختيار الخصم: عشوائي</option>
-                <option value="manual">اختيار الخصم: يدوي</option>
-              </select>
-              <select id="levelSelector" style="width: auto; padding: 6px 10px; font-size: 0.85rem;">
-                <option value="all">مستوى السؤال: عشوائي</option>
-                <option value="easy">🟢 سهل</option>
-                <option value="medium">🟡 متوسط</option>
-                <option value="hard">🔴 صعب</option>
-              </select>
-              <button class="btn-primary" onclick="pickRandomTarget()" id="randomTargetBtn">🎲 اختيار عشوائي</button>
-            </div>
-          </div>
-
-          <div class="stage-box">
-            <div class="selector-highlight" id="currentSelectorDisplay"></div>
-            <div id="selectorStatsDisplay" style="font-size: 0.88rem; color: var(--gold); margin-bottom: 6px;"></div>
-            <p id="selectionInstructionText" style="font-size: 0.86rem; color: var(--text-muted); margin-top: 6px;"></p>
-          </div>
-
-          <!-- Active Question Card -->
-          <div class="question-card" id="questionCard">
-            <div class="timer-bar">
-              <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                <span>المسؤول: <strong id="targetPlayerLabel" style="color: #c4b5fd;"></strong></span>
-                <span id="questionLevelBadge" class="level-pill level-easy">سهل</span>
-              </div>
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <span class="timer-display" id="timerDisplay">30</span>
-                <button class="btn-ghost admin-only" style="padding: 4px 8px; font-size: 0.8rem;" onclick="toggleTimer()" id="timerToggleBtn">⏸️</button>
-              </div>
-            </div>
-
-            <div class="question-text" id="questionText">نص السؤال هنا</div>
-
-            <div class="answer-box" id="answerBox">
-              الإجابة الصحيحة: <span id="answerText"></span>
-            </div>
-
-            <div style="margin-bottom: 12px;" class="admin-only">
-              <button class="btn-ghost" style="width: 100%;" onclick="revealAnswer()">👁️ إظهار / إخفاء الإجابة</button>
-            </div>
-
-            <div class="judge-buttons admin-only">
-              <button class="btn-success" onclick="handleAnswer(true)">✅ إجابة صحيحة (تثبيت)</button>
-              <button class="btn-danger" onclick="handleAnswer(false)">❌ إجابة خاطئة</button>
-              <button class="btn-warning" onclick="handlePass()">✋ اعتذار / تمرير</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Numbers Board -->
-        <div class="panel">
-          <div class="panel-title">
-            <span>🔢 لوحة الأرقام وتصفية المتسابقين</span>
-          </div>
-
-          <div class="filter-bar">
-            <select id="playerStatusFilter" onchange="renderPlayersGrid()">
-              <option value="all">تصفية: جميع المتسابقين</option>
-              <option value="available">المتاحون فقط</option>
-              <option value="eliminated">المستبعدون فقط</option>
-              <option value="winner">الفائزون فقط</option>
-            </select>
-            <input type="text" id="playerSearchInput" oninput="renderPlayersGrid()" placeholder="بحث بالاسم أو الرقم..." />
-            <button class="btn-ghost" onclick="resetPlayerFilters()" style="padding: 6px 10px; font-size: 0.82rem;">إعادة التصفية</button>
-          </div>
-
-          <div class="legend">
-            <div class="legend-item"><span class="dot" style="background:#283548;"></span> متاح</div>
-            <div class="legend-item"><span class="dot" style="background:var(--primary);"></span> يختار الآن</div>
-            <div class="legend-item"><span class="dot" style="background:var(--purple);"></span> الخصم المحدد</div>
-            <div class="legend-item"><span class="dot" style="background:var(--danger);"></span> منسحب</div>
-            <div class="legend-item"><span class="dot" style="background:var(--gold);"></span> فائز</div>
-          </div>
-
-          <div class="players-grid" id="playersGrid"></div>
-        </div>
-      </div>
-
-      <!-- Left Column -->
-      <div>
-        <div class="panel admin-only">
-          <div class="panel-title">📝 تسجيل المتسابقين</div>
-          <p id="nextSlotHint" style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px;"></p>
-          <div class="input-group">
-            <input type="text" id="playerNameInput" value="" placeholder="اكتب اسم المتسابق..." onkeydown="if(event.key==='Enter') registerPlayer()" />
-            <button class="btn-primary" onclick="registerPlayer()">تسجيل</button>
-          </div>
-          <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-            <button class="btn-ghost" style="flex:1; font-size:0.82rem;" onclick="removeLastPlayer()">حذف آخر تسجيل</button>
-          </div>
-
-          <div style="border-top: 1px solid var(--border-color); padding-top: 10px;">
-            <label style="font-size: 0.85rem; display: block; margin-bottom: 6px;">استيراد الأسماء (ملف txt أو csv):</label>
-            <input type="file" id="importNamesFile" accept=".txt,.csv" onchange="importNamesFromFile(event)" style="font-size: 0.82rem; margin-bottom: 6px;" />
-            <label style="font-size: 0.82rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px;">
-              <input type="checkbox" id="replaceNamesCheck" checked /> استبدال الأسماء الحالية
-            </label>
-          </div>
-        </div>
-
-        <div class="panel">
-          <div class="panel-title">🏆 لوحة الفائزين</div>
-          <ul class="winners-list" id="winnersList"></ul>
-        </div>
-
-        <div class="panel">
-          <div class="panel-title">📜 سجل الأحداث</div>
-          <ul class="log-list" id="logList"></ul>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Admin Login Modal -->
-  <div class="modal-backdrop" id="loginModal">
-    <div class="modal" style="max-width: 420px; text-align: center;">
-      <h2 style="margin-bottom: 8px;">🔐 بوابة دخول المدير</h2>
-      <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 16px;">
-        أدخل الرقم السري لتفعيل صلاحيات إدارة المسابقة والتحكم الكامل (الافتراضي: <code>1234</code>).
-      </p>
-      <input type="password" id="loginPassInput" placeholder="أدخل الرقم السري للمدير..." style="text-align: center; font-size: 1.1rem; margin-bottom: 14px;" onkeydown="if(event.key==='Enter') verifyAdminLogin()" />
-      <div style="display: flex; gap: 8px;">
-        <button class="btn-primary" style="flex: 2;" onclick="verifyAdminLogin()">🔓 دخول المدير</button>
-        <button class="btn-ghost" style="flex: 1;" onclick="closeLoginModal()">إلغاء</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Reports & Export Modal -->
-  <div class="modal-backdrop" id="reportsModal">
-    <div class="modal" style="max-width: 650px;">
-      <div class="panel-title">
-        <span>📊 التقارير وتصدير النتائج</span>
-        <button class="btn-ghost" onclick="closeReportsModal()">✕ إغلاق</button>
-      </div>
-      <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 16px;">
-        يمكنك تصدير كشف شامل بأسماء المتسابقين، الفائزين، عدد الإسقاطات، والأخطاء والاعتذارات المسجلة:
-      </p>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
-        <button class="btn-success" style="padding: 14px;" onclick="exportExcelCSV()">📗 تصدير ملف Excel (CSV)</button>
-        <button class="btn-danger" style="padding: 14px;" onclick="printPDFReport()">📕 طباعة / حفظ تقرير PDF</button>
-      </div>
-      <div id="reportPreviewBox" style="background: #0b1120; padding: 14px; border-radius: 10px; font-size: 0.85rem; max-height: 280px; overflow-y: auto;"></div>
-    </div>
-  </div>
-
-  <!-- Settings & Archive Modal -->
-  <div class="modal-backdrop" id="settingsModal">
-    <div class="modal">
-      <div class="panel-title">
-        <span>⚙️ الإعدادات وأرشيف الأسئلة والنسخ الاحتياطي</span>
-        <button class="btn-ghost" onclick="closeSettings()">✕ إغلاق</button>
-      </div>
-
-      <div class="settings-grid">
-        <div class="form-field">
-          <label>عدد الخصوم للفوز</label>
-          <input type="number" id="cfgKillsToWin" min="1" max="50" />
-        </div>
-        <div class="form-field">
-          <label>عدد الفائزين</label>
-          <input type="number" id="cfgMaxWinners" min="1" max="20" />
-        </div>
-        <div class="form-field">
-          <label>عدد اللاعبين</label>
-          <input type="number" id="cfgTotalPlayers" min="2" max="100" />
-        </div>
-        <div class="form-field">
-          <label>أرقام في كل صف</label>
-          <input type="number" id="cfgCols" min="2" max="12" />
-        </div>
-        <div class="form-field">
-          <label>الأخطاء المسموحة قبل الخروج</label>
-          <input type="number" id="cfgMaxErrors" min="1" max="10" />
-        </div>
-        <div class="form-field">
-          <label>الاعتذارات / المحاولات المسموحة</label>
-          <input type="number" id="cfgMaxPasses" min="0" max="10" />
-        </div>
-        <div class="form-field">
-          <label>زمن السؤال بالثواني</label>
-          <input type="number" id="cfgTimerSec" min="5" max="300" />
-        </div>
-      </div>
-      <button class="btn-success" onclick="saveSettings()" style="margin-bottom: 18px;">💾 حفظ الإعدادات وتطبيقها</button>
-
-      <!-- Security & Backup -->
-      <div style="border-top: 1px solid var(--border-color); padding-top: 14px; margin-bottom: 18px;">
-        <h4 style="margin-bottom: 8px;">🔐 الرقم السري للمدير والنسخ الاحتياطي</h4>
-        <div class="input-group">
-          <input type="password" id="newAdminPass" placeholder="الرقم السري الجديد للمدير" />
-          <button class="btn-warning" onclick="changePassword()">تحديث الرقم السري</button>
-        </div>
-        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          <button class="btn-primary" onclick="exportBackupJSON()">⬇️ تصدير نسخة احتياطية (JSON)</button>
-          <label class="btn-ghost" style="cursor: pointer;">
-            ⬆️ استعادة نسخة احتياطية
-            <input type="file" accept=".json" onchange="importBackupJSON(event)" style="display: none;" />
-          </label>
-        </div>
-      </div>
-
-      <!-- Question Archive -->
-      <div style="border-top: 1px solid var(--border-color); padding-top: 14px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
-          <h4>📚 أرشيف الأسئلة (<span id="archiveTotalCount">0</span> سؤالاً)</h4>
-          <select id="archiveFilterSelect" onchange="renderArchiveList()" style="width: auto; padding: 5px 10px; font-size: 0.82rem;">
-            <option value="all">عرض الكل</option>
-            <option value="easy">🟢 سهل</option>
-            <option value="medium">🟡 متوسط</option>
-            <option value="hard">🔴 صعب</option>
-          </select>
-        </div>
-        <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 8px;">
-          الصيغة: <code>السؤال | الإجابة | المستوى</code> (المستوى اختياري: سهل، متوسط، صعب):
-        </p>
-        <textarea id="bulkQuestionsInput" rows="3" placeholder="مثال: ما عاصمة سلطنة عمان؟ | مسقط | سهل"></textarea>
-        <div style="display: flex; gap: 8px; margin: 8px 0 14px; flex-wrap: wrap;">
-          <button class="btn-primary" onclick="addBulkQuestions()">➕ إضافة للأرشيف</button>
-          <button class="btn-ghost" onclick="restoreDefaultQuestions()">🔄 استعادة الأسئلة الافتراضية</button>
-          <button class="btn-danger" onclick="clearArchive()">🗑️ مسح الأرشيف</button>
-        </div>
-        <div id="archiveListContainer" style="max-height: 230px; overflow-y: auto;"></div>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    const DEFAULT_QUESTIONS = [
-      { q: "ما عاصمة سلطنة عمان؟", a: "مسقط", level: "easy" },
-      { q: "ما هو أطول نهر في العالم؟", a: "نهر النيل", level: "easy" },
-      { q: "كم عدد السور في القرآن الكريم؟", a: "114 سورة", level: "easy" },
-      { q: "ما هو الكوكب الأحمر؟", a: "كوكب المريخ", level: "easy" },
-      { q: "من هو مخترع الديناميت؟", a: "ألفرد نوبل", level: "medium" },
-      { q: "ما هي أصغر دولة في العالم من حيث المساحة؟", a: "دولة الفاتيكان", level: "easy" },
-      { q: "من هو العالم المسلم الملقب بالشيخ الرئيس؟", a: "ابن سينا", level: "medium" },
-      { q: "كم عدد أضلاع الشكل السداسي؟", a: "ستة أضلاع", level: "easy" },
-      { q: "ما هو الغاز الذي يشكل حوالي 78% من الغلاف الجوي؟", a: "النيتروجين", level: "medium" },
-      { q: "في أي عام هجري وقعت غزوة تبوك؟", a: "السنة التاسعة للهجرة", level: "medium" },
-      { q: "ما اسم السورة التي ذُكرت فيها البسملة مرتين؟", a: "سورة النمل", level: "medium" },
-      { q: "ما هو العظم الوحيد في جسم الإنسان الذي لا يرتبط بعظم آخر؟", a: "عظمة اللامي (عظمة الحنجرة)", level: "hard" },
-      { q: "ما اسم أول قمر صناعي أطلقه الاتحاد السوفييتي عام 1957؟", a: "سبوتنيك 1", level: "medium" },
-      { q: "ما اسم العاصمة العربية التي كانت تُعرف قديماً بفلادلفيا؟", a: "عمّان", level: "hard" },
-      { q: "من هو مؤسس علم الجبر؟", a: "الخوارزمي", level: "easy" },
-      { q: "ما اسم المضيق الذي يربط بحر مرمرة بالبحر الأسود؟", a: "مضيق البوسفور", level: "medium" },
-      { q: "ما اسم أول جامعة أنشئت في التاريخ الإسلامي؟", a: "جامعة القرويين", level: "medium" },
-      { q: "ما اسم العملية التي تتحول فيها المادة الصلبة مباشرة إلى غاز؟", a: "التسامي", level: "hard" },
-      { q: "ما هو الرمز الكيميائي للذهب؟", a: "Au", level: "easy" },
-      { q: "من هو صاحب رواية البؤساء؟", a: "فيكتور هوجو", level: "medium" }
-    ];
-
-    let state = {
-      isAdmin: false,
-      adminPassword: "1234",
-      selectionMode: "random",
-      settings: {
-        killsToWin: 3,
-        maxWinners: 3,
-        totalPlayers: 15,
-        cols: 5,
-        maxErrors: 1,
-        maxPasses: 3,
-        timerSec: 30
-      },
-      players: [],
-      selectorId: null,
-      targetId: null,
-      winners: [],
-      logs: [],
-      archive: [],
-      usedQuestionIndices: [],
-      currentQuestion: null
-    };
-
-    let historyStack = [];
-    let timerInterval = null;
-    let timeLeft = 30;
-    let timerRunning = false;
-
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    const audioCtx = AudioContextClass ? new AudioContextClass() : null;
-
-    function playTone(freq, type = "sine", duration = 0.2) {
-      if (!audioCtx) return;
+const STATE_PROPERTY_KEY = "CONTEST_SYNC_STATE_V1";
+const LAST_LOGS_SIG_KEY = "CONTEST_LAST_LOGS_SIG_V1";
+
+const SHEET_LOGS_NAME = "سجل_الأحداث";
+const SHEET_RESULTS_NAME = "النتائج_والمتسابقين";
+const SHEET_FOLLOWERS_NAME = "المتابعون_والمشاهدون";
+
+function doGet(e) {
+  try {
+    const action = (e && e.parameter && e.parameter.action) ? String(e.parameter.action) : "get_state";
+    const lock = LockService.getScriptLock();
+    lock.waitLock(5000);
+
+    const rawState = PropertiesService.getScriptProperties().getProperty(STATE_PROPERTY_KEY);
+    lock.releaseLock();
+
+    let parsedState = null;
+    if (rawState) {
       try {
-        if (audioCtx.state === "suspended") audioCtx.resume();
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = type;
-        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start();
-        osc.stop(audioCtx.currentTime + duration);
-      } catch (e) {}
-    }
-
-    function playWinFanfare() {
-      [523.25, 659.25, 783.99, 1046.5].forEach((freq, idx) => {
-        setTimeout(() => playTone(freq, "triangle", 0.3), idx * 120);
-      });
-      launchConfetti();
-    }
-
-    function triggerEliminationEffect() {
-      playTone(180, "sawtooth", 0.4);
-      document.body.classList.remove("shake-effect");
-      void document.body.offsetWidth;
-      document.body.classList.add("shake-effect");
-      setTimeout(() => document.body.classList.remove("shake-effect"), 500);
-    }
-
-    function launchConfetti() {
-      const canvas = document.getElementById("confettiCanvas");
-      if (!canvas || !canvas.getContext) return;
-      const ctx = canvas.getContext("2d");
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-      const colors = ["#eab308", "#10b981", "#3b82f6", "#ec4899", "#8b5cf6"];
-      const particles = Array.from({ length: 130 }, () => ({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height - canvas.height,
-        w: Math.random() * 10 + 6,
-        h: Math.random() * 6 + 4,
-        color: colors[Math.floor(Math.random() * colors.length)],
-        vy: Math.random() * 4 + 3,
-        vx: Math.random() * 4 - 2,
-        rot: Math.random() * 360
-      }));
-
-      let frames = 0;
-      function animate() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        particles.forEach(p => {
-          p.y += p.vy;
-          p.x += p.vx;
-          p.rot += 4;
-          ctx.save();
-          ctx.translate(p.x, p.y);
-          ctx.rotate((p.rot * Math.PI) / 180);
-          ctx.fillStyle = p.color;
-          ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
-          ctx.restore();
-        });
-        frames++;
-        if (frames < 150) requestAnimationFrame(animate);
-        else ctx.clearRect(0, 0, canvas.width, canvas.height);
+        parsedState = JSON.parse(rawState);
+      } catch (err) {
+        parsedState = null;
       }
-      animate();
     }
 
-    function clearSelectionInput() {
-      const nameInput = document.getElementById("playerNameInput");
-      if (nameInput) nameInput.value = "";
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        ok: true,
+        action: action,
+        state: parsedState,
+        serverTime: Date.now()
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (error) {
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        ok: false,
+        error: error.message
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function doPost(e) {
+  try {
+    if (!e || !e.postData || !e.postData.contents) {
+      return jsonResponse({ ok: false, error: "Empty payload" });
     }
 
-    function buildDefaultPlayers(total, oldPlayers = []) {
-      const list = [];
-      for (let i = 1; i <= total; i++) {
-        const existing = oldPlayers.find(p => p && p.id === i);
-        list.push({
-          id: i,
-          name: existing && existing.customName ? existing.name : `اللاعب ${i}`,
-          customName: Boolean(existing && existing.customName),
-          status: "available",
-          kills: 0,
-          errors: 0,
-          passes: 0
-        });
-      }
-      return list;
+    const body = JSON.parse(e.postData.contents);
+    const incomingState = body.state;
+    const reason = body.reason ? String(body.reason) : "تحديث";
+
+    if (!incomingState || typeof incomingState !== "object") {
+      return jsonResponse({ ok: false, error: "Invalid state object" });
     }
 
-    function init() {
-      state.isAdmin = false;
-      state.archive = [...DEFAULT_QUESTIONS];
-      setupFreshGame(false);
+    const lock = LockService.getScriptLock();
+    lock.waitLock(5000);
 
+    const props = PropertiesService.getScriptProperties();
+    const existingRaw = props.getProperty(STATE_PROPERTY_KEY);
+    let shouldSaveState = true;
+
+    if (existingRaw) {
       try {
-        const saved = localStorage.getItem("contest_manager_pro_v11");
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (parsed && typeof parsed === "object") {
-            state.adminPassword = parsed.adminPassword || "1234";
-            state.selectionMode = parsed.selectionMode || "random";
-            state.settings = { ...state.settings, ...(parsed.settings || {}) };
-            if (Array.isArray(parsed.archive) && parsed.archive.length > 0) {
-              state.archive = parsed.archive;
-            }
-            if (Array.isArray(parsed.players) && parsed.players.length === state.settings.totalPlayers) {
-              state.players = parsed.players;
-            } else {
-              state.players = buildDefaultPlayers(state.settings.totalPlayers);
-            }
-            state.winners = Array.isArray(parsed.winners) ? parsed.winners : [];
-            state.logs = Array.isArray(parsed.logs) ? parsed.logs : state.logs;
-            state.usedQuestionIndices = Array.isArray(parsed.usedQuestionIndices) ? parsed.usedQuestionIndices : [];
-            state.selectorId = parsed.selectorId || null;
-            state.targetId = parsed.targetId || null;
-            state.currentQuestion = parsed.currentQuestion || null;
-          }
+        const existingState = JSON.parse(existingRaw);
+        const oldTs = Number(existingState.lastUpdated || 0);
+        const newTs = Number(incomingState.lastUpdated || Date.now());
+        if (newTs < oldTs) {
+          shouldSaveState = false;
         }
-      } catch (e) {
-        state.archive = [...DEFAULT_QUESTIONS];
-        setupFreshGame(false);
-      }
-
-      // يبدأ البرنامج دائماً في وضع الجمهور أولاً
-      state.isAdmin = false;
-      renderAll();
-      clearSelectionInput();
-    }
-
-    function saveState() {
-      try {
-        const toSave = { ...state, isAdmin: false };
-        localStorage.setItem("contest_manager_pro_v11", JSON.stringify(toSave));
-      } catch (e) {}
-    }
-
-    function pushHistory() {
-      historyStack.push(JSON.stringify(state));
-      if (historyStack.length > 30) historyStack.shift();
-      const undoBtn = document.getElementById("undoBtn");
-      if (undoBtn) undoBtn.disabled = false;
-    }
-
-    function undoAction() {
-      if (historyStack.length === 0) return;
-      stopTimer();
-      const wasAdmin = state.isAdmin;
-      state = JSON.parse(historyStack.pop());
-      state.isAdmin = wasAdmin;
-      document.getElementById("undoBtn").disabled = historyStack.length === 0;
-      saveState();
-      renderAll();
-    }
-
-    function setupFreshGame(keepCustomNames = true) {
-      stopTimer();
-      const total = Math.max(2, parseInt(state.settings.totalPlayers, 10) || 15);
-      state.settings.totalPlayers = total;
-      state.players = buildDefaultPlayers(total, keepCustomNames ? state.players : []);
-      state.winners = [];
-      state.targetId = null;
-      state.currentQuestion = null;
-      state.logs = [];
-      state.selectorId = null;
-      addLog("بدأ العرض في وضع الجمهور — اضغط «دخول المدير» لإدارة المسابقة.");
-      saveState();
-      clearSelectionInput();
-    }
-
-    function addLog(msg) {
-      const time = new Date().toLocaleTimeString("ar-OM", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-      state.logs.unshift(`[${time}] ${msg}`);
-      if (state.logs.length > 80) state.logs.pop();
-    }
-
-    function handleRoleButton() {
-      if (state.isAdmin) {
-        state.isAdmin = false;
-        renderAll();
-      } else {
-        document.getElementById("loginPassInput").value = "";
-        document.getElementById("loginModal").classList.add("open");
-        setTimeout(() => document.getElementById("loginPassInput").focus(), 50);
+      } catch (err) {
+        shouldSaveState = true;
       }
     }
 
-    function verifyAdminLogin() {
-      const input = document.getElementById("loginPassInput").value;
-      if (input === state.adminPassword) {
-        state.isAdmin = true;
-        closeLoginModal();
-        renderAll();
-        playTone(660, "sine", 0.15);
-      } else {
-        alert("الرقم السري غير صحيح!");
-        playTone(200, "sawtooth", 0.25);
-      }
+    if (!incomingState.lastUpdated) {
+      incomingState.lastUpdated = Date.now();
     }
 
-    function closeLoginModal() {
-      document.getElementById("loginModal").classList.remove("open");
+    if (shouldSaveState) {
+      props.setProperty(STATE_PROPERTY_KEY, JSON.stringify(incomingState));
+      syncStateToSheets(incomingState, reason, props);
     }
 
-    function changeSelectionMode() {
-      if (!state.isAdmin) return;
-      const modeSelect = document.getElementById("selectionModeSelect");
-      state.selectionMode = modeSelect.value === "manual" ? "manual" : "random";
-      addLog(`تم تغيير نمط اختيار الخصم إلى: ${state.selectionMode === "random" ? "عشوائي" : "يدوي"}`);
-      saveState();
-      renderAll();
+    lock.releaseLock();
+
+    return jsonResponse({
+      ok: true,
+      saved: shouldSaveState,
+      lastUpdated: incomingState.lastUpdated
+    });
+  } catch (error) {
+    return jsonResponse({
+      ok: false,
+      error: error.message
+    });
+  }
+}
+
+function syncStateToSheets(stateObj, reason, props) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss) return;
+
+  const updatedAtStr = Utilities.formatDate(
+    new Date(Number(stateObj.lastUpdated || Date.now())),
+    Session.getScriptTimeZone() || "Asia/Muscat",
+    "yyyy-MM-dd HH:mm:ss"
+  );
+
+  writeLogsSheet(ss, stateObj, reason, updatedAtStr, props);
+  writeResultsSheet(ss, stateObj, updatedAtStr);
+  writeFollowersSheet(ss, stateObj, reason, updatedAtStr);
+}
+
+function getOrCreateSheet(ss, name, headers) {
+  let sheet = ss.getSheetByName(name);
+  if (!sheet) {
+    sheet = ss.insertSheet(name);
+    sheet.setRightToLeft(true);
+    sheet.appendRow(headers);
+    sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold");
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function writeLogsSheet(ss, stateObj, reason, updatedAtStr, props) {
+  const sheet = getOrCreateSheet(ss, SHEET_LOGS_NAME, [
+    "وقت التسجيل في الشيت",
+    "سبب المزامنة",
+    "نص الحدث"
+  ]);
+
+  const logs = Array.isArray(stateObj.logs) ? stateObj.logs : [];
+  if (logs.length === 0) {
+    props.setProperty(LAST_LOGS_SIG_KEY, "");
+    return;
+  }
+
+  // إذا بدأ سجل جديد بعد تصفير المسابقة، نعيد ضبط البصمة
+  const prevTop = props.getProperty(LAST_LOGS_SIG_KEY) || "";
+  const currentTop = String(logs[0] || "");
+
+  // نجمع الأحداث الجديدة التي لم تُسجل بعد بناءً على آخر حدث مسجل
+  let newEntries = [];
+  if (!prevTop) {
+    newEntries = logs.slice().reverse();
+  } else {
+    const idxInLogs = logs.indexOf(prevTop);
+    if (idxInLogs === -1) {
+      // في حال تم تصفير السجل أو بدء مسابقة جديدة
+      newEntries = logs.slice().reverse();
+    } else if (idxInLogs > 0) {
+      newEntries = logs.slice(0, idxInLogs).reverse();
     }
+  }
 
-    function getNextActiveSelector(afterId) {
-      const candidates = state.players.filter(p => p.status === "available" && p.id !== afterId);
-      if (candidates.length > 0) {
-        return candidates[Math.floor(Math.random() * candidates.length)].id;
-      }
-      const fallback = state.players.filter(p => p.status === "available");
-      return fallback.length > 0 ? fallback[0].id : null;
+  if (newEntries.length > 0) {
+    const rows = newEntries.map(entry => [updatedAtStr, reason, String(entry)]);
+    sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, 3).setValues(rows);
+  }
+
+  props.setProperty(LAST_LOGS_SIG_KEY, currentTop);
+}
+
+function writeResultsSheet(ss, stateObj, updatedAtStr) {
+  const sheet = getOrCreateSheet(ss, SHEET_RESULTS_NAME, [
+    "الرقم",
+    "اسم المتسابق",
+    "الحالة",
+    "الإسقاطات",
+    "الأخطاء",
+    "الاعتذارات",
+    "فائز؟",
+    "آخر تحديث"
+  ]);
+
+  const players = Array.isArray(stateObj.players) ? stateObj.players : [];
+  const winners = Array.isArray(stateObj.winners) ? stateObj.winners : [];
+  const winnerIds = new Set(winners.map(w => Number(w.id)));
+
+  // إعادة كتابة جدول النتائج المحدّث بشكل نظيف دون تكرار صفوف اللاعبين
+  const lastRow = sheet.getLastRow();
+  if (lastRow > 1) {
+    sheet.getRange(2, 1, lastRow - 1, 8).clearContent();
+  }
+
+  if (players.length > 0) {
+    const rows = players.map(p => {
+      let statusAr = "متاح";
+      if (p.status === "eliminated") statusAr = "مستبعد / منسحب";
+      else if (p.status === "winner") statusAr = "فائز";
+
+      const isWinner = winnerIds.has(Number(p.id)) || p.status === "winner" ? "نعم 🏆" : "لا";
+
+      return [
+        Number(p.id || 0),
+        String(p.name || ("متسابق #" + p.id)),
+        statusAr,
+        Number(p.kills || 0),
+        Number(p.errors || 0),
+        Number(p.passes || 0),
+        isWinner,
+        updatedAtStr
+      ];
+    });
+
+    sheet.getRange(2, 1, rows.length, 8).setValues(rows);
+  }
+}
+
+function writeFollowersSheet(ss, stateObj, reason, updatedAtStr) {
+  const sheet = getOrCreateSheet(ss, SHEET_FOLLOWERS_NAME, [
+    "وقت التحديث",
+    "إجمالي المتابعين",
+    "عدد الشاشات المرتبة",
+    "عدد الفائزين الحالي",
+    "ملاحظة / سبب التحديث"
+  ]);
+
+  const followersCount = Number(stateObj.followersCount || 0);
+  const screensCount = Number(stateObj.orderedScreensCount || 1);
+  const winnersCount = Array.isArray(stateObj.winners) ? stateObj.winners.length : 0;
+
+  // نضيف صفاً جديداً عندما يتغير عدد المتابعين أو عند تحديثات رئيسية
+  const lastRow = sheet.getLastRow();
+  let shouldAppend = true;
+  if (lastRow > 1) {
+    const prevFollowers = Number(sheet.getRange(lastRow, 2).getValue() || 0);
+    const prevReason = String(sheet.getRange(lastRow, 5).getValue() || "");
+    if (prevFollowers === followersCount && prevReason === reason) {
+      shouldAppend = false;
     }
-
-    function startQuestionAgainstTarget(id, source = "random") {
-      if (!state.isAdmin) return;
-      if (state.winners.length >= state.settings.maxWinners) {
-        alert("اكتمل عدد الفائزين في المسابقة!");
-        return;
-      }
-      if (state.targetId !== null) {
-        alert("يرجى حسم السؤال الحالي أولاً.");
-        return;
-      }
-
-      const target = state.players.find(p => p.id === id && p.status === "available");
-      if (!target) return;
-
-      const currentSel = state.players.find(p => p.id === state.selectorId && p.status === "available");
-      if (!currentSel || currentSel.id === target.id) {
-        const others = state.players.filter(p => p.status === "available" && p.id !== target.id);
-        state.selectorId = others.length > 0 ? others[Math.floor(Math.random() * others.length)].id : null;
-      }
-
-      const levelFilter = document.getElementById("levelSelector").value;
-      let pool = state.archive
-        .map((q, idx) => ({ ...q, idx }))
-        .filter(q => !state.usedQuestionIndices.includes(q.idx));
-
-      if (levelFilter !== "all") {
-        const filtered = pool.filter(q => q.level === levelFilter);
-        if (filtered.length > 0) pool = filtered;
-      }
-
-      if (pool.length === 0) {
-        if (state.archive.length === 0) {
-          alert("أرشيف الأسئلة فارغ! أضف أسئلة من الإعدادات.");
-          return;
-        }
-        state.usedQuestionIndices = [];
-        pool = state.archive.map((q, idx) => ({ ...q, idx }));
-      }
-
-      pushHistory();
-      const chosen = pool[Math.floor(Math.random() * pool.length)];
-      state.usedQuestionIndices.push(chosen.idx);
-      state.targetId = id;
-      state.currentQuestion = chosen;
-
-      const modeLabel = source === "random" ? "عشوائياً" : "يدوياً";
-      addLog(`تم اختيار الخصم (${target.id}) ${target.name} [${modeLabel}]`);
-      playTone(520, "sine", 0.15);
-      saveState();
-      renderAll();
-      startTimer();
-    }
-
-    function handleTileClick(id) {
-      if (!state.isAdmin || state.targetId !== null) return;
-      const clicked = state.players.find(p => p.id === id && p.status === "available");
-      if (!clicked) return;
-
-      if (state.selectionMode !== "manual") {
-        alert("الاختيار اليدوي معطّل حالياً لأن النمط مضبوط على (عشوائي). اضغط «اختيار عشوائي» أو غيّر النمط إلى يدوي.");
-        return;
-      }
-
-      startQuestionAgainstTarget(id, "manual");
-    }
-
-    function pickRandomTarget() {
-      if (!state.isAdmin || state.targetId !== null) return;
-      const candidates = state.players.filter(p => p.status === "available" && p.id !== state.selectorId);
-      const pool = candidates.length > 0 ? candidates : state.players.filter(p => p.status === "available");
-      if (pool.length === 0) {
-        alert("لا يوجد متسابقون متاحون حالياً!");
-        return;
-      }
-      const randomPlayer = pool[Math.floor(Math.random() * pool.length)];
-      startQuestionAgainstTarget(randomPlayer.id, "random");
-    }
-
-    function handleAnswer(isCorrect) {
-      if (!state.isAdmin || state.targetId === null) return;
-      pushHistory();
-      stopTimer();
-
-      const selector = state.players.find(p => p.id === state.selectorId);
-      const target = state.players.find(p => p.id === state.targetId);
-
-      if (isCorrect) {
-        playTone(780, "triangle", 0.25);
-        addLog(`✅ (${target.id}) ${target.name} أجاب إجابة صحيحة.`);
-        state.selectorId = target.id;
-      } else {
-        target.errors += 1;
-        if (target.errors >= state.settings.maxErrors) {
-          target.status = "eliminated";
-          if (selector && selector.status === "available") {
-            selector.kills += 1;
-          }
-          triggerEliminationEffect();
-          addLog(`❌ (${target.id}) ${target.name} أخطأ وتم استبعاده!`);
-
-          if (selector && selector.kills >= state.settings.killsToWin && selector.status === "available") {
-            selector.status = "winner";
-            state.winners.push({ id: selector.id, name: selector.name, kills: selector.kills });
-            playWinFanfare();
-            addLog(`🏆 مبروك! (${selector.id}) ${selector.name} حقق ${selector.kills} إسقاطات وفاز بالمركز ${state.winners.length}!`);
-            state.selectorId = getNextActiveSelector(selector.id);
-          }
-        } else {
-          playTone(260, "sawtooth", 0.25);
-          addLog(`⚠️ (${target.id}) ${target.name} أخطأ (خطأ ${target.errors} من ${state.settings.maxErrors}).`);
-        }
-      }
-
-      const remaining = state.players.filter(p => p.status === "available");
-      if (remaining.length === 1 && state.winners.length < state.settings.maxWinners) {
-        const last = remaining[0];
-        last.status = "winner";
-        state.winners.push({ id: last.id, name: last.name, kills: last.kills });
-        playWinFanfare();
-        addLog(`🏆 (${last.id}) ${last.name} فاز لبقائه كآخر متسابق!`);
-        state.selectorId = null;
-      }
-
-      state.targetId = null;
-      state.currentQuestion = null;
-      saveState();
-      renderAll();
-    }
-
-    function handlePass() {
-      if (!state.isAdmin || state.targetId === null) return;
-      const target = state.players.find(p => p.id === state.targetId);
-      if (target.passes >= state.settings.maxPasses) {
-        alert(`استنفد اللاعب ${target.name} جميع محاولات الاعتذار المسموحة (${state.settings.maxPasses})!`);
-        return;
-      }
-
-      pushHistory();
-      stopTimer();
-      target.passes += 1;
-      addLog(`✋ (${target.id}) ${target.name} اعتذر عن السؤال (${target.passes}/${state.settings.maxPasses}).`);
-      state.targetId = null;
-      state.currentQuestion = null;
-      saveState();
-      renderAll();
-    }
-
-    function revealAnswer() {
-      document.getElementById("answerBox").classList.toggle("visible");
-    }
-
-    function startTimer() {
-      stopTimer();
-      timeLeft = state.settings.timerSec;
-      timerRunning = true;
-      updateTimerUI();
-      timerInterval = setInterval(() => {
-        if (!timerRunning) return;
-        timeLeft--;
-        updateTimerUI();
-        if (timeLeft <= 5 && timeLeft > 0) playTone(440, "sine", 0.08);
-        if (timeLeft <= 0) {
-          stopTimer();
-          playTone(160, "sawtooth", 0.5);
-        }
-      }, 1000);
-    }
-
-    function stopTimer() {
-      clearInterval(timerInterval);
-      timerInterval = null;
-      timerRunning = false;
-    }
-
-    function toggleTimer() {
-      timerRunning = !timerRunning;
-      document.getElementById("timerToggleBtn").textContent = timerRunning ? "⏸️" : "▶️";
-    }
-
-    function updateTimerUI() {
-      const el = document.getElementById("timerDisplay");
-      el.textContent = timeLeft;
-      el.classList.toggle("urgent", timeLeft <= 5);
-    }
-
-    function registerPlayer() {
-      if (!state.isAdmin) return;
-      const input = document.getElementById("playerNameInput");
-      const name = input.value.trim();
-      if (!name) return;
-
-      const slot = state.players.find(p => !p.customName);
-      if (!slot) {
-        alert("تم تسجيل أسماء جميع اللاعبين!");
-        return;
-      }
-
-      pushHistory();
-      slot.name = name;
-      slot.customName = true;
-      input.value = "";
-      addLog(`تم تسجيل المتسابق (${slot.id}): ${name}`);
-      saveState();
-      renderAll();
-    }
-
-    function removeLastPlayer() {
-      if (!state.isAdmin) return;
-      const reversed = [...state.players].reverse();
-      const lastCustom = reversed.find(p => p.customName);
-      if (!lastCustom) return;
-
-      pushHistory();
-      lastCustom.name = `اللاعب ${lastCustom.id}`;
-      lastCustom.customName = false;
-      saveState();
-      renderAll();
-    }
-
-    function importNamesFromFile(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        const lines = e.target.result
-          .split(/\r?\n/)
-          .map(l => l.split(",")[0].trim())
-          .filter(Boolean);
-
-        if (lines.length === 0) return;
-        pushHistory();
-        const replace = document.getElementById("replaceNamesCheck").checked;
-        if (replace) {
-          state.players.forEach(p => {
-            p.name = `اللاعب ${p.id}`;
-            p.customName = false;
-          });
-        }
-
-        let idx = 0;
-        for (const p of state.players) {
-          if (!p.customName && idx < lines.length) {
-            p.name = lines[idx++];
-            p.customName = true;
-          }
-        }
-        addLog(`تم استيراد ${idx} اسماً من الملف.`);
-        event.target.value = "";
-        clearSelectionInput();
-        saveState();
-        renderAll();
-      };
-      reader.readAsText(file, "UTF-8");
-    }
-
-    function resetPlayerFilters() {
-      document.getElementById("playerStatusFilter").value = "all";
-      document.getElementById("playerSearchInput").value = "";
-      renderPlayersGrid();
-    }
-
-    function renderPlayersGrid() {
-      const grid = document.getElementById("playersGrid");
-      grid.innerHTML = "";
-
-      const statusFilter = document.getElementById("playerStatusFilter") ? document.getElementById("playerStatusFilter").value : "all";
-      const searchQuery = document.getElementById("playerSearchInput") ? document.getElementById("playerSearchInput").value.trim().toLowerCase() : "";
-
-      const filteredPlayers = state.players.filter(p => {
-        const matchesStatus = statusFilter === "all" || p.status === statusFilter;
-        const matchesSearch = !searchQuery || String(p.id).includes(searchQuery) || p.name.toLowerCase().includes(searchQuery);
-        return matchesStatus && matchesSearch;
-      });
-
-      filteredPlayers.forEach(p => {
-        const tile = document.createElement("div");
-        let stateClass = "state-available";
-        if (p.status === "eliminated") stateClass = "state-eliminated disabled";
-        else if (p.status === "winner") stateClass = "state-winner disabled";
-        else if (p.id === state.targetId) stateClass = "state-target";
-        else if (p.id === state.selectorId) stateClass = "state-selector";
-
-        const canClickTile = p.status === "available" && state.isAdmin && state.targetId === null;
-        const lockedClass = (p.status === "available" && state.isAdmin && state.targetId !== null) ? " manual-locked" : "";
-
-        tile.className = `player-tile ${stateClass}${lockedClass}`;
-        if (canClickTile) {
-          tile.onclick = () => handleTileClick(p.id);
-        }
-
-        tile.innerHTML = `
-          <div class="player-num">${p.id}</div>
-          <div class="player-name" title="${p.name}">${p.name}</div>
-          <div class="player-badges">
-            ${p.kills > 0 ? `<span class="mini-badge">⚔️ ${p.kills}</span>` : ""}
-            ${p.errors > 0 ? `<span class="mini-badge err-badge">❌ ${p.errors}</span>` : ""}
-            ${p.passes > 0 ? `<span class="mini-badge">✋ ${p.passes}</span>` : ""}
-          </div>
-        `;
-        grid.appendChild(tile);
-      });
-    }
-
-    function renderAll() {
-      document.body.classList.toggle("viewer-mode", !state.isAdmin);
-      document.documentElement.style.setProperty("--cols", state.settings.cols);
-
-      const modeSelect = document.getElementById("selectionModeSelect");
-      if (modeSelect) modeSelect.value = state.selectionMode;
-
-      const randomBtn = document.getElementById("randomTargetBtn");
-      if (randomBtn) {
-        randomBtn.disabled = state.targetId !== null;
-      }
-
-      const instructionEl = document.getElementById("selectionInstructionText");
-      if (instructionEl) {
-        instructionEl.textContent = state.isAdmin
-          ? "اضغط «اختيار عشوائي» لاختيار خصم عشوائي وطرح السؤال مباشرة."
-          : "وضع الجمهور مفعل — اضغط «🔑 دخول المدير» في الأعلى للتحكم.";
-      }
-
-      const badge = document.getElementById("roleBadge");
-      const roleBtn = document.getElementById("toggleRoleBtn");
-      if (state.isAdmin) {
-        badge.textContent = "وضع المدير (تحكم كامل)";
-        badge.classList.remove("viewer");
-        roleBtn.textContent = "🔒 خروج لوضع الجمهور";
-      } else {
-        badge.textContent = "وضع الجمهور أولاً";
-        badge.classList.add("viewer");
-        roleBtn.textContent = "🔑 دخول المدير";
-      }
-
-      document.getElementById("dynamicRulesText").textContent =
-        `الهدف: إسقاط ${state.settings.killsToWin} خصوم للفوز • عدد الفائزين: ${state.settings.maxWinners} • الأخطاء المسموحة: ${state.settings.maxErrors} • الاعتذارات: ${state.settings.maxPasses}`;
-
-      const activeCount = state.players.filter(p => p.status === "available").length;
-      const elimCount = state.players.filter(p => p.status === "eliminated").length;
-      const remQuestions = Math.max(0, state.archive.length - state.usedQuestionIndices.length);
-
-      document.getElementById("statActive").textContent = activeCount;
-      document.getElementById("statWinners").textContent = `${state.winners.length} / ${state.settings.maxWinners}`;
-      document.getElementById("statEliminated").textContent = elimCount;
-      document.getElementById("statQuestions").textContent = remQuestions;
-
-      const selector = state.players.find(p => p.id === state.selectorId);
-      if (selector && selector.status === "available") {
-        document.getElementById("currentSelectorDisplay").textContent = `#${selector.id} — ${selector.name}`;
-        document.getElementById("selectorStatsDisplay").textContent =
-          `الإسقاطات: ${selector.kills} / ${state.settings.killsToWin} | الاعتذارات المتبقية: ${state.settings.maxPasses - selector.passes}`;
-      } else {
-        document.getElementById("currentSelectorDisplay").textContent = "";
-        document.getElementById("selectorStatsDisplay").textContent = "";
-      }
-
-      const qCard = document.getElementById("questionCard");
-      if (state.targetId !== null && state.currentQuestion) {
-        const target = state.players.find(p => p.id === state.targetId);
-        qCard.classList.add("active");
-        document.getElementById("targetPlayerLabel").textContent = `#${target.id} ${target.name}`;
-        document.getElementById("questionText").textContent = state.currentQuestion.q;
-        document.getElementById("answerText").textContent = state.currentQuestion.a;
-        document.getElementById("answerBox").classList.remove("visible");
-
-        const lvlBadge = document.getElementById("questionLevelBadge");
-        const lvl = state.currentQuestion.level || "easy";
-        lvlBadge.className = `level-pill level-${lvl}`;
-        lvlBadge.textContent = lvl === "easy" ? "سهل" : lvl === "medium" ? "متوسط" : "صعب";
-      } else {
-        qCard.classList.remove("active");
-      }
-
-      renderPlayersGrid();
-
-      const nextSlot = state.players.find(p => !p.customName);
-      document.getElementById("nextSlotHint").textContent = nextSlot
-        ? `التسجيل القادم للرقم: #${nextSlot.id}`
-        : "اكتمل تسجيل جميع المقاعد.";
-
-      const wList = document.getElementById("winnersList");
-      wList.innerHTML = state.winners.length === 0
-        ? `<li style="background:transparent; border-color:var(--border-color); color:var(--text-muted); font-weight:normal;">لا يوجد فائزون بعد</li>`
-        : state.winners.map((w, i) => `<li><span>🥇 المركز ${i + 1}: #${w.id} ${w.name}</span><span>${w.kills} إسقاطات</span></li>`).join("");
-
-      document.getElementById("logList").innerHTML = state.logs.map(l => `<li>${l}</li>`).join("");
-    }
-
-    function resetContest() {
-      if (!state.isAdmin) return;
-      if (!confirm("هل أنت متأكد من بدء مسابقة جديدة وتصفير النتائج الحالية؟")) return;
-      pushHistory();
-      setupFreshGame(true);
-      renderAll();
-      clearSelectionInput();
-    }
-
-    function openSettings() {
-      if (!state.isAdmin) return;
-      document.getElementById("cfgKillsToWin").value = state.settings.killsToWin;
-      document.getElementById("cfgMaxWinners").value = state.settings.maxWinners;
-      document.getElementById("cfgTotalPlayers").value = state.settings.totalPlayers;
-      document.getElementById("cfgCols").value = state.settings.cols;
-      document.getElementById("cfgMaxErrors").value = state.settings.maxErrors;
-      document.getElementById("cfgMaxPasses").value = state.settings.maxPasses;
-      document.getElementById("cfgTimerSec").value = state.settings.timerSec;
-      renderArchiveList();
-      document.getElementById("settingsModal").classList.add("open");
-    }
-
-    function closeSettings() {
-      document.getElementById("settingsModal").classList.remove("open");
-    }
-
-    function saveSettings() {
-      pushHistory();
-      const oldTotal = state.settings.totalPlayers;
-      state.settings.killsToWin = Math.max(1, parseInt(document.getElementById("cfgKillsToWin").value, 10) || 3);
-      state.settings.maxWinners = Math.max(1, parseInt(document.getElementById("cfgMaxWinners").value, 10) || 3);
-      state.settings.totalPlayers = Math.max(2, parseInt(document.getElementById("cfgTotalPlayers").value, 10) || 15);
-      state.settings.cols = Math.max(2, parseInt(document.getElementById("cfgCols").value, 10) || 5);
-      state.settings.maxErrors = Math.max(1, parseInt(document.getElementById("cfgMaxErrors").value, 10) || 1);
-      state.settings.maxPasses = Math.max(0, parseInt(document.getElementById("cfgMaxPasses").value, 10) || 3);
-      state.settings.timerSec = Math.max(5, parseInt(document.getElementById("cfgTimerSec").value, 10) || 30);
-
-      if (oldTotal !== state.settings.totalPlayers) {
-        setupFreshGame(true);
-      }
-      saveState();
-      renderAll();
-      closeSettings();
-    }
-
-    function changePassword() {
-      const val = document.getElementById("newAdminPass").value.trim();
-      if (val.length < 3) {
-        alert("يرجى إدخال رقم سري لا يقل عن 3 خانات.");
-        return;
-      }
-      state.adminPassword = val;
-      document.getElementById("newAdminPass").value = "";
-      saveState();
-      alert("تم تحديث الرقم السري بنجاح!");
-    }
-
-    function renderArchiveList() {
-      const filter = document.getElementById("archiveFilterSelect").value;
-      document.getElementById("archiveTotalCount").textContent = state.archive.length;
-      const container = document.getElementById("archiveListContainer");
-
-      const items = state.archive
-        .map((item, index) => ({ ...item, index }))
-        .filter(item => filter === "all" || item.level === filter);
-
-      container.innerHTML = items.map(item => `
-        <div class="archive-item">
-          <div>
-            <strong>${item.q}</strong>
-            <div style="color: var(--success); font-size: 0.8rem;">الإجابة: ${item.a} (${item.level})</div>
-          </div>
-          <button class="btn-danger" style="padding: 4px 8px; font-size: 0.75rem;" onclick="deleteQuestion(${item.index})">حذف</button>
-        </div>
-      `).join("");
-    }
-
-    function addBulkQuestions() {
-      const raw = document.getElementById("bulkQuestionsInput").value.trim();
-      if (!raw) return;
-      const lines = raw.split(/\r?\n/).filter(Boolean);
-      let added = 0;
-
-      lines.forEach(line => {
-        const parts = line.split("|").map(s => s.trim());
-        if (parts.length >= 2 && parts[0] && parts[1]) {
-          let level = "easy";
-          if (parts[2]) {
-            if (parts[2].includes("متوسط") || parts[2] === "medium") level = "medium";
-            else if (parts[2].includes("صعب") || parts[2] === "hard") level = "hard";
-          }
-          state.archive.push({ q: parts[0], a: parts[1], level });
-          added++;
-        }
-      });
-
-      document.getElementById("bulkQuestionsInput").value = "";
-      saveState();
-      renderArchiveList();
-      renderAll();
-      alert(`تمت إضافة ${added} سؤالاً بنجاح.`);
-    }
-
-    function deleteQuestion(idx) {
-      state.archive.splice(idx, 1);
-      saveState();
-      renderArchiveList();
-      renderAll();
-    }
-
-    function restoreDefaultQuestions() {
-      state.archive = [...DEFAULT_QUESTIONS];
-      state.usedQuestionIndices = [];
-      saveState();
-      renderArchiveList();
-      renderAll();
-    }
-
-    function clearArchive() {
-      if (!confirm("هل تريد مسح جميع الأسئلة من الأرشيف؟")) return;
-      state.archive = [];
-      state.usedQuestionIndices = [];
-      saveState();
-      renderArchiveList();
-      renderAll();
-    }
-
-    function exportBackupJSON() {
-      const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `contest_backup_${new Date().toISOString().slice(0, 10)}.json`;
-      a.click();
-    }
-
-    function importBackupJSON(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        try {
-          const parsed = JSON.parse(e.target.result);
-          state = { ...state, ...parsed, isAdmin: true };
-          saveState();
-          renderAll();
-          closeSettings();
-          alert("تمت استعادة النسخة الاحتياطية بنجاح!");
-        } catch (err) {
-          alert("ملف النسخة الاحتياطية غير صالح!");
-        }
-      };
-      reader.readAsText(file, "UTF-8");
-    }
-
-    function openReportsModal() {
-      const preview = document.getElementById("reportPreviewBox");
-      const rows = state.players.map(p => {
-        const statusAr = p.status === "winner" ? "فائز 🏆" : p.status === "eliminated" ? "مستبعد ❌" : "متاح";
-        return `<div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #1e293b;">
-          <span>#${p.id} ${p.name}</span>
-          <span>${statusAr} | إسقاطات: ${p.kills} | أخطاء: ${p.errors}</span>
-        </div>`;
-      }).join("");
-      preview.innerHTML = rows;
-      document.getElementById("reportsModal").classList.add("open");
-    }
-
-    function closeReportsModal() {
-      document.getElementById("reportsModal").classList.remove("open");
-    }
-
-    function exportExcelCSV() {
-      let csv = "\uFEFFالرقم,الاسم,الحالة,الإسقاطات,الأخطاء,الاعتذارات\n";
-      state.players.forEach(p => {
-        const statusAr = p.status === "winner" ? "فائز" : p.status === "eliminated" ? "مستبعد" : "متاح";
-        csv += `${p.id},"${p.name}",${statusAr},${p.kills},${p.errors},${p.passes}\n`;
-      });
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `نتائج_المسابقة_${new Date().toISOString().slice(0, 10)}.csv`;
-      a.click();
-    }
-
-    function printPDFReport() {
-      window.print();
-    }
-
-    window.addEventListener("DOMContentLoaded", init);
-  </script>
-</body>
-</html>
+  }
+
+  if (shouldAppend) {
+    sheet.appendRow([updatedAtStr, followersCount, screensCount, winnersCount, reason]);
+  }
+}
+
+function jsonResponse(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
