@@ -529,6 +529,21 @@
       border-color: var(--primary);
     }
 
+    .sheets-sync-box {
+      background: #0b1120;
+      border: 1px solid rgba(6, 182, 212, 0.35);
+      border-radius: 10px;
+      padding: 12px;
+      margin-top: 12px;
+    }
+
+    .sheets-sync-status {
+      font-size: 0.8rem;
+      color: #67e8f9;
+      margin-top: 8px;
+      min-height: 1.2rem;
+    }
+
     .winners-list { list-style: none; }
     .winners-list li {
       background: var(--gold-bg);
@@ -645,7 +660,7 @@
         <div class="stat-label">منسحبون / مستبعدون</div>
       </div>
       <div class="stat-card success">
-        <div class="stat-value" id="statQuestions">20</div>
+        <div class="stat-value" id="statQuestions">10</div>
         <div class="stat-label">أسئلة متبقية</div>
       </div>
       <div class="stat-card cyan">
@@ -773,7 +788,7 @@
         </div>
 
         <div class="panel admin-only">
-          <div class="panel-title">📝 تسجيل المتسابقين</div>
+          <div class="panel-title">📝 تسجيل المتسابقين ومزامنة Google Sheets</div>
           <p id="nextSlotHint" style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px;"></p>
           <div class="input-group">
             <input type="text" id="playerNameInput" value="" placeholder="اكتب اسم المتسابق..." onkeydown="if(event.key==='Enter') registerPlayer()" />
@@ -789,6 +804,48 @@
             <label style="font-size: 0.82rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px;">
               <input type="checkbox" id="replaceNamesCheck" checked /> استبدال الأسماء الحالية
             </label>
+          </div>
+
+          <div class="sheets-sync-box">
+            <div style="font-size: 0.88rem; font-weight: 700; color: #67e8f9; margin-bottom: 6px;">
+              📊 تزامن قائمة الأسماء من Google Sheets
+            </div>
+            <input
+              type="url"
+              id="sheetsUrlInput"
+              placeholder="رابط شيت جوجل (CSV / pubhtml / edit أو Apps Script)"
+              style="margin-bottom: 8px; font-size: 0.83rem;"
+            />
+            <div style="display: grid; grid-template-columns: 1fr 95px; gap: 6px; margin-bottom: 8px;">
+              <input
+                type="text"
+                id="sheetsRangeInput"
+                placeholder="اسم الورقة أو النطاق (اختياري مثل: الأسماء أو A2:A30)"
+                style="font-size: 0.82rem;"
+              />
+              <input
+                type="number"
+                id="sheetsIntervalInput"
+                min="5"
+                max="3600"
+                value="30"
+                title="فترة التزامن التلقائي بالثواني"
+                style="font-size: 0.82rem;"
+              />
+            </div>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 8px;">
+              <button class="btn-cyan" style="flex: 1; font-size: 0.8rem; padding: 7px 10px;" onclick="syncNamesFromGoogleSheets(false)">
+                🔄 مزامنة الأسماء الآن
+              </button>
+              <button class="btn-ghost" style="font-size: 0.8rem; padding: 7px 10px;" onclick="saveGoogleSheetsConfig(true)">
+                💾 حفظ الرابط
+              </button>
+            </div>
+            <label style="font-size: 0.8rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px;">
+              <input type="checkbox" id="sheetsAutoSyncCheck" onchange="toggleGoogleSheetsAutoSync()" />
+              تفعيل التزامن التلقائي الدوري للأسماء من Google Sheets
+            </label>
+            <div class="sheets-sync-status" id="sheetsSyncStatus">لم يتم التزامن بعد</div>
           </div>
         </div>
 
@@ -945,30 +1002,36 @@
       { q: "ما العنصر الكيميائي الذي رمزه Au؟", a: "الذهب", level: "medium" },
       { q: "في أي قارة تقع دولة البرازيل؟", a: "أمريكا الجنوبية", level: "easy" },
       { q: "ما العملة الرسمية لليابان؟", a: "الين الياباني", level: "medium" },
-      { q: "كم عدد عظام جسم الإنسان البالغ تقريباً؟", a: "206 عظمات", level: "medium" },
-      { q: "ما أعمق نقطة في المحيطات؟", a: "خندق ماريانا", level: "hard" },
-      { q: "من هو العالم الذي وضع قوانين الحركة الثلاثة؟", a: "إسحاق نيوتن", level: "medium" },
-      { q: "ما أصغر دولة في العالم من حيث المساحة؟", a: "الفاتيكان", level: "easy" },
-      { q: "ما الغاز الأكثر وفرة في الغلاف الجوي للأرض؟", a: "النيتروجين", level: "medium" },
-      { q: "في أي عام هبط الإنسان لأول مرة على سطح القمر؟", a: "1969م", level: "medium" },
-      { q: "ما اسم البحر الذي يقع بين الأردن وفلسطين؟", a: "البحر الميت", level: "easy" },
-      { q: "من هو مخترع المصباح الكهربائي العملي الشهير؟", a: "توماس إديسون", level: "easy" },
-      { q: "ما الحيوان الثديي الوحيد القادر على الطيران الحقيقي؟", a: "الخفاش", level: "medium" },
-      { q: "ما عاصمة كندا؟", a: "أوتاوا", level: "hard" },
-      { q: "ما الكوكب المعروف بالكوكب الأحمر؟", a: "المريخ", level: "easy" }
+      { q: "كم عدد عظام جسم الإنسان البالغ تقريباً؟", a: "206 عظمات", level: "hard" }
     ];
 
-    let undoStack = [];
-    let timerInterval = null;
-    let timerPaused = false;
     let isAdmin = false;
+    let state = null;
+    let historyStack = [];
+    let timerInterval = null;
+    let sheetsSyncTimer = null;
+    let isSyncingSheets = false;
     let broadcastChannel = null;
 
-    function createInitialPlayers(count) {
-      const list = [];
+    try {
+      if ("BroadcastChannel" in window) {
+        broadcastChannel = new BroadcastChannel(CHANNEL_NAME);
+        broadcastChannel.onmessage = (event) => {
+          if (!event.data || event.data.senderId === CLIENT_ID) return;
+          if (event.data.type === "STATE_UPDATE" && event.data.state) {
+            state = normalizeState(event.data.state);
+            saveStateLocalOnly(state);
+            renderAll();
+          }
+        };
+      }
+    } catch (_) {}
+
+    function createDefaultPlayers(count) {
+      const players = [];
       for (let i = 1; i <= count; i++) {
-        list.push({
-          number: i,
+        players.push({
+          num: i,
           name: "",
           status: "available",
           kills: 0,
@@ -976,753 +1039,842 @@
           passes: 0
         });
       }
-      return list;
+      return players;
     }
 
     function createDefaultState() {
+      const totalPlayers = 15;
       return {
-        updatedAt: Date.now(),
-        adminPassword: "1234",
-        cloudSyncUrl: "",
-        followersCount: 0,
-        settings: {
+        adminPasswordHash: "1234",
+        config: {
           killsToWin: 3,
           maxWinners: 3,
-          totalPlayers: 15,
+          totalPlayers: totalPlayers,
           cols: 5,
           maxErrors: 2,
           maxPasses: 1,
           timerSec: 30,
-          orderedScreens: 2
+          orderedScreens: 2,
+          cloudSyncUrl: "",
+          sheetsSync: {
+            url: "",
+            range: "",
+            autoSync: false,
+            intervalSec: 30,
+            lastSyncAt: "",
+            lastStatus: "لم يتم التزامن بعد"
+          }
         },
         selectionMode: "random",
-        currentSelector: null,
-        currentTarget: null,
-        players: createInitialPlayers(15),
-        winners: [],
-        questionArchive: JSON.parse(JSON.stringify(DEFAULT_QUESTIONS)),
-        usedQuestionIndices: [],
+        currentSelector: 1,
+        targetPlayer: null,
         activeQuestion: null,
-        logs: ["بدأت المسابقة: قاعدة الأخطاء المسموحة مفعّلة، والمجيب يقوم مقام المختار عند الإجابة الصحيحة."]
+        timerRemaining: 30,
+        timerRunning: false,
+        answerVisible: false,
+        players: createDefaultPlayers(totalPlayers),
+        winners: [],
+        questionsArchive: [...DEFAULT_QUESTIONS],
+        usedQuestionIndexes: [],
+        followersCount: 0,
+        logs: ["تم تهيئة المسابقة بنجاح."]
       };
     }
 
-    let state = loadState();
+    function normalizeState(raw) {
+      const base = createDefaultState();
+      if (!raw || typeof raw !== "object") return base;
+      const cfg = Object.assign({}, base.config, raw.config || {});
+      cfg.sheetsSync = Object.assign({}, base.config.sheetsSync, (raw.config && raw.config.sheetsSync) || {});
+      const players = Array.isArray(raw.players) && raw.players.length > 0
+        ? raw.players.map((p, idx) => ({
+            num: typeof p.num === "number" ? p.num : idx + 1,
+            name: String(p.name || ""),
+            status: p.status || "available",
+            kills: Number(p.kills || 0),
+            errors: Number(p.errors || 0),
+            passes: Number(p.passes || 0)
+          }))
+        : createDefaultPlayers(cfg.totalPlayers);
 
-    function loadState() {
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          const base = createDefaultState();
-          return {
-            ...base,
-            ...parsed,
-            settings: { ...base.settings, ...(parsed.settings || {}) }
-          };
-        }
-      } catch (e) {
-        console.error("Failed to load state:", e);
-      }
-      return createDefaultState();
-    }
-
-    function addLog(msg) {
-      const time = new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-      state.logs.unshift(`[${time}] ${msg}`);
-      if (state.logs.length > 80) state.logs.pop();
-    }
-
-    function saveUndoSnapshot() {
-      undoStack.push(JSON.stringify({
-        selectionMode: state.selectionMode,
-        currentSelector: state.currentSelector,
-        currentTarget: state.currentTarget,
-        players: state.players,
-        winners: state.winners,
-        usedQuestionIndices: state.usedQuestionIndices,
-        activeQuestion: state.activeQuestion,
-        logs: state.logs
-      }));
-      if (undoStack.length > 25) undoStack.shift();
-      updateUndoButton();
-    }
-
-    function updateUndoButton() {
-      const btn = document.getElementById("undoBtn");
-      if (btn) btn.disabled = undoStack.length === 0;
-    }
-
-    function undoAction() {
-      if (!isAdmin || undoStack.length === 0) return;
-      const snap = JSON.parse(undoStack.pop());
-      Object.assign(state, snap);
-      state.updatedAt = Date.now();
-      clearInterval(timerInterval);
-      timerInterval = null;
-      addLog("تم التراجع عن آخر إجراء.");
-      commitState("تراجع عن إجراء");
-      updateUndoButton();
-    }
-
-    function commitState(reason = "تحديث الحالة") {
-      state.updatedAt = Date.now();
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      } catch (e) {
-        console.error("Storage error:", e);
-      }
-      if (broadcastChannel) {
-        broadcastChannel.postMessage({
-          type: "STATE_UPDATE",
-          sender: CLIENT_ID,
-          reason,
-          state
-        });
-      }
-      if (state.cloudSyncUrl && isAdmin) {
-        pushToCloud(reason);
-      }
-      renderAll();
-    }
-
-    function broadcastFullState(reason = "مزامنة كاملة") {
-      commitState(reason);
-      const pill = document.getElementById("syncStatusPill");
-      if (pill) {
-        pill.textContent = `✅ تمت المزامنة (${new Date().toLocaleTimeString("ar-EG")})`;
-        setTimeout(() => {
-          pill.textContent = "🔄 مزامنة محلية وتبويبات نشطة";
-        }, 2500);
-      }
-    }
-
-    async function pushToCloud(reason) {
-      if (!state.cloudSyncUrl) return;
-      try {
-        await fetch(state.cloudSyncUrl, {
-          method: "POST",
-          mode: "no-cors",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ reason, updatedAt: state.updatedAt, state })
-        });
-      } catch (e) {
-        console.warn("Cloud push skipped/failed:", e);
-      }
-    }
-
-    function initSyncChannel() {
-      if ("BroadcastChannel" in window) {
-        broadcastChannel = new BroadcastChannel(CHANNEL_NAME);
-        broadcastChannel.onmessage = (event) => {
-          const data = event.data;
-          if (!data || data.sender === CLIENT_ID) return;
-          if (data.type === "STATE_UPDATE" && data.state) {
-            if (!state.updatedAt || data.state.updatedAt >= state.updatedAt) {
-              const prevQ = state.activeQuestion ? `${state.activeQuestion.q}_${state.activeQuestion.target}` : null;
-              state = {
-                ...createDefaultState(),
-                ...data.state,
-                settings: { ...createDefaultState().settings, ...(data.state.settings || {}) }
-              };
-              const nextQ = state.activeQuestion ? `${state.activeQuestion.q}_${state.activeQuestion.target}` : null;
-              if (state.activeQuestion && prevQ !== nextQ) {
-                startTimer(state.activeQuestion.remaining ?? state.settings.timerSec);
-              } else if (!state.activeQuestion) {
-                clearInterval(timerInterval);
-                timerInterval = null;
-              }
-              renderAll();
-            }
-          }
-        };
-      }
-
-      window.addEventListener("storage", (e) => {
-        if (e.key === STORAGE_KEY && e.newValue) {
-          try {
-            const parsed = JSON.parse(e.newValue);
-            state = {
-              ...createDefaultState(),
-              ...parsed,
-              settings: { ...createDefaultState().settings, ...(parsed.settings || {}) }
-            };
-            renderAll();
-          } catch (_) {}
-        }
-        if (e.key === PRESENCE_KEY) {
-          updateLiveViewersCount();
-        }
+      return Object.assign({}, base, raw, {
+        config: cfg,
+        players: players,
+        winners: Array.isArray(raw.winners) ? raw.winners : [],
+        questionsArchive: Array.isArray(raw.questionsArchive) ? raw.questionsArchive : [...DEFAULT_QUESTIONS],
+        usedQuestionIndexes: Array.isArray(raw.usedQuestionIndexes) ? raw.usedQuestionIndexes : [],
+        logs: Array.isArray(raw.logs) ? raw.logs : []
       });
     }
 
-    function updatePresence() {
+    function saveStateLocalOnly(st) {
       try {
-        const now = Date.now();
-        const raw = JSON.parse(localStorage.getItem(PRESENCE_KEY) || "{}");
-        const activeMap = {};
-        Object.keys(raw).forEach((id) => {
-          if (now - raw[id].lastSeen < 12000) {
-            activeMap[id] = raw[id];
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(st));
+      } catch (_) {}
+    }
+
+    function saveState(pushHistory = false, reason = "تحديث") {
+      if (pushHistory && state) {
+        historyStack.push(JSON.stringify(state));
+        if (historyStack.length > 25) historyStack.shift();
+        updateUndoBtn();
+      }
+      saveStateLocalOnly(state);
+      broadcastFullState(reason);
+      renderAll();
+    }
+
+    function broadcastFullState(reason = "") {
+      if (broadcastChannel) {
+        try {
+          broadcastChannel.postMessage({
+            type: "STATE_UPDATE",
+            senderId: CLIENT_ID,
+            reason,
+            state
+          });
+        } catch (_) {}
+      }
+      if (state.config && state.config.cloudSyncUrl && isAdmin) {
+        fetch(state.config.cloudSyncUrl, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "syncState", reason, state })
+        }).catch(() => {});
+      }
+    }
+
+    function loadInitialState() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          state = normalizeState(JSON.parse(saved));
+        } else {
+          state = createDefaultState();
+        }
+      } catch (_) {
+        state = createDefaultState();
+      }
+    }
+
+    function addLog(text) {
+      const now = new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      state.logs.unshift(`[${now}] ${text}`);
+      if (state.logs.length > 80) state.logs.pop();
+    }
+
+    function updateUndoBtn() {
+      const btn = document.getElementById("undoBtn");
+      if (btn) btn.disabled = historyStack.length === 0;
+    }
+
+    function undoAction() {
+      if (!isAdmin || historyStack.length === 0) return;
+      const prev = historyStack.pop();
+      state = normalizeState(JSON.parse(prev));
+      updateUndoBtn();
+      saveState(false, "تراجع");
+    }
+
+    /* =========================================================================
+       تزامن قائمة الأسماء من Google Sheets
+       ========================================================================= */
+    function buildGoogleSheetsFetchUrl(rawUrl, rangeText) {
+      const trimmed = (rawUrl || "").trim();
+      if (!trimmed) return "";
+
+      // إذا كان الرابط يعتمد على Google Apps Script Web App
+      if (trimmed.includes("script.google.com")) {
+        const sep = trimmed.includes("?") ? "&" : "?";
+        const rangeParam = rangeText ? `&range=${encodeURIComponent(rangeText.trim())}` : "";
+        return `${trimmed}${sep}action=names${rangeParam}&t=${Date.now()}`;
+      }
+
+      // استخراج معرف الجدول من روابط Google Sheets القياسية
+      const sheetMatch = trimmed.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+      if (sheetMatch) {
+        const sheetId = sheetMatch[1];
+        const gidMatch = trimmed.match(/[?&]gid=(\d+)/);
+        const gid = gidMatch ? gidMatch[1] : "";
+
+        // دعم رابط النشر المباشر (pub / pubhtml)
+        if (trimmed.includes("/pub")) {
+          const basePub = trimmed.split("?")[0].replace(/\/pubhtml$/, "/pub");
+          const params = new URLSearchParams({ output: "csv", t: String(Date.now()) });
+          if (gid) params.set("gid", gid);
+          if (rangeText && rangeText.trim()) params.set("range", rangeText.trim());
+          return `${basePub}?${params.toString()}`;
+        }
+
+        // رابط التصدير المباشر لـ CSV من الجدول
+        const params = new URLSearchParams({ format: "csv", t: String(Date.now()) });
+        if (gid) params.set("gid", gid);
+        if (rangeText && rangeText.trim()) {
+          // إذا أدخل المستخدم اسم ورقة فقط دون نطاق خلايا، نمرره كـ sheet أو range حسب الصيغة
+          if (/^[A-Za-z]+\d*:[A-Za-z]+\d*$/.test(rangeText.trim())) {
+            params.set("range", rangeText.trim());
+          } else {
+            params.set("sheet", rangeText.trim());
           }
+        }
+        return `https://docs.google.com/spreadsheets/d/${sheetId}/export?${params.toString()}`;
+      }
+
+      return trimmed;
+    }
+
+    function parseDelimitedRow(line) {
+      const cells = [];
+      let current = "";
+      let inQuotes = false;
+
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') {
+          if (inQuotes && line[i + 1] === '"') {
+            current += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if ((ch === "," || ch === "\t") && !inQuotes) {
+          cells.push(current.trim());
+          current = "";
+        } else {
+          current += ch;
+        }
+      }
+      cells.push(current.trim());
+      return cells;
+    }
+
+    function extractNamesFromSheetsPayload(rawText) {
+      const text = String(rawText || "").replace(/^\uFEFF/, "").trim();
+      if (!text) return [];
+
+      // محاولة قراءة استجابة JSON (مثلاً من Google Apps Script)
+      if (text.startsWith("{") || text.startsWith("[")) {
+        const parsed = JSON.parse(text);
+        const list = Array.isArray(parsed)
+          ? parsed
+          : (Array.isArray(parsed.names) ? parsed.names : (Array.isArray(parsed.values) ? parsed.values.flat() : []));
+        return list
+          .map((item) => (typeof item === "object" && item !== null ? (item.name || item.label || "") : String(item || "")))
+          .map((s) => s.trim())
+          .filter(Boolean);
+      }
+
+      const headersToSkip = new Set(["الاسم", "اسم المتسابق", "المتسابق", "الاسماء", "الأسماء", "name", "names", "player", "players", "الرقم", "م"]);
+      const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+      const names = [];
+
+      for (const line of lines) {
+        const cells = parseDelimitedRow(line);
+        // اختيار أول خلية نصية ليست رقماً تسلسلياً فقط
+        let chosen = "";
+        for (let idx = 0; idx < cells.length; idx++) {
+          const val = (cells[idx] || "").replace(/^["']|["']$/g, "").trim();
+          if (!val) continue;
+          if (idx === 0 && /^\d+$/.test(val) && cells.length > 1) continue;
+          chosen = val;
+          break;
+        }
+        if (!chosen) continue;
+        if (headersToSkip.has(chosen.toLowerCase())) continue;
+        names.push(chosen);
+      }
+
+      return names;
+    }
+
+    function applyImportedNamesList(names, replaceExisting = true) {
+      if (!Array.isArray(names) || names.length === 0) return 0;
+
+      if (names.length > state.config.totalPlayers) {
+        state.config.totalPlayers = names.length;
+        state.players = createDefaultPlayers(names.length);
+      }
+
+      let appliedCount = 0;
+      if (replaceExisting) {
+        state.players.forEach((p, idx) => {
+          p.name = names[idx] ? names[idx] : "";
+          if (names[idx]) appliedCount++;
         });
-        activeMap[CLIENT_ID] = {
-          lastSeen: now,
-          role: isDedicatedScreen ? `شاشة ${screenSlotParam}` : (isAdmin ? "مدير" : "جمهور")
-        };
-        localStorage.setItem(PRESENCE_KEY, JSON.stringify(activeMap));
-        updateLiveViewersCount(activeMap);
-      } catch (_) {}
+      } else {
+        let nameCursor = 0;
+        for (let i = 0; i < state.players.length && nameCursor < names.length; i++) {
+          if (!state.players[i].name) {
+            state.players[i].name = names[nameCursor++];
+            appliedCount++;
+          }
+        }
+      }
+
+      return appliedCount;
     }
 
-    function updateLiveViewersCount(mapObj) {
-      let count = 1;
+    function saveGoogleSheetsConfig(showFeedback = true) {
+      if (!state) return;
+      const urlEl = document.getElementById("sheetsUrlInput");
+      const rangeEl = document.getElementById("sheetsRangeInput");
+      const intervalEl = document.getElementById("sheetsIntervalInput");
+      const autoEl = document.getElementById("sheetsAutoSyncCheck");
+
+      state.config.sheetsSync.url = urlEl ? urlEl.value.trim() : "";
+      state.config.sheetsSync.range = rangeEl ? rangeEl.value.trim() : "";
+      const sec = parseInt(intervalEl ? intervalEl.value : "30", 10);
+      state.config.sheetsSync.intervalSec = Number.isFinite(sec) && sec >= 5 ? sec : 30;
+      state.config.sheetsSync.autoSync = !!(autoEl && autoEl.checked);
+
+      saveStateLocalOnly(state);
+      configureGoogleSheetsAutoSyncTimer();
+      renderSheetsSyncUI();
+
+      if (showFeedback) {
+        addLog("تم حفظ إعدادات مزامنة قائمة الأسماء من Google Sheets.");
+        renderLogs();
+      }
+    }
+
+    function toggleGoogleSheetsAutoSync() {
+      saveGoogleSheetsConfig(false);
+      if (state.config.sheetsSync.autoSync && state.config.sheetsSync.url) {
+        syncNamesFromGoogleSheets(true);
+      }
+    }
+
+    function configureGoogleSheetsAutoSyncTimer() {
+      if (sheetsSyncTimer) {
+        clearInterval(sheetsSyncTimer);
+        sheetsSyncTimer = null;
+      }
+      if (state && state.config && state.config.sheetsSync && state.config.sheetsSync.autoSync && state.config.sheetsSync.url) {
+        const ms = Math.max(5, Number(state.config.sheetsSync.intervalSec) || 30) * 1000;
+        sheetsSyncTimer = setInterval(() => {
+          if (!isSyncingSheets) {
+            syncNamesFromGoogleSheets(true);
+          }
+        }, ms);
+      }
+    }
+
+    async function syncNamesFromGoogleSheets(silent = false) {
+      if (!isAdmin && !silent) {
+        alert("يرجى تسجيل الدخول كمدير أولاً لمزامنة الأسماء.");
+        return;
+      }
+
+      const urlInput = document.getElementById("sheetsUrlInput");
+      const rangeInput = document.getElementById("sheetsRangeInput");
+      const intervalInput = document.getElementById("sheetsIntervalInput");
+      const replaceCheck = document.getElementById("replaceNamesCheck");
+
+      const rawUrl = (urlInput ? urlInput.value : state.config.sheetsSync.url || "").trim();
+      const rangeVal = (rangeInput ? rangeInput.value : state.config.sheetsSync.range || "").trim();
+      const intervalVal = parseInt(intervalInput ? intervalInput.value : state.config.sheetsSync.intervalSec || 30, 10);
+
+      if (!rawUrl) {
+        if (!silent) alert("يرجى إدخال رابط جدول Google Sheets أولاً.");
+        return;
+      }
+
+      state.config.sheetsSync.url = rawUrl;
+      state.config.sheetsSync.range = rangeVal;
+      state.config.sheetsSync.intervalSec = Number.isFinite(intervalVal) && intervalVal >= 5 ? intervalVal : 30;
+
+      const fetchUrl = buildGoogleSheetsFetchUrl(rawUrl, rangeVal);
+      isSyncingSheets = true;
+      state.config.sheetsSync.lastStatus = "جاري جلب الأسماء من Google Sheets...";
+      renderSheetsSyncUI();
+
       try {
-        const now = Date.now();
-        const raw = mapObj || JSON.parse(localStorage.getItem(PRESENCE_KEY) || "{}");
-        const valid = Object.keys(raw).filter((id) => now - raw[id].lastSeen < 12000);
-        count = Math.max(1, valid.length);
-      } catch (_) {}
-      const el1 = document.getElementById("statLiveViewers");
-      const el2 = document.getElementById("inlineLiveViewers");
-      if (el1) el1.textContent = count;
-      if (el2) el2.textContent = count;
-    }
+        const response = await fetch(fetchUrl, { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        const payload = await response.text();
+        if (/<html[\s>]/i.test(payload) && !payload.includes("spreadsheets")) {
+          throw new Error("تأكد من مشاركة الجدول للعرض العام أو نشره كـ CSV");
+        }
 
-    function toggleFollowContest() {
-      const followed = localStorage.getItem(FOLLOW_FLAG_KEY) === "1";
-      if (!followed) {
-        localStorage.setItem(FOLLOW_FLAG_KEY, "1");
-        state.followersCount = (state.followersCount || 0) + 1;
-        addLog("انضم متابع جديد إلى المسابقة.");
-      } else {
-        localStorage.setItem(FOLLOW_FLAG_KEY, "0");
-        state.followersCount = Math.max(0, (state.followersCount || 0) - 1);
-        addLog("ألغى متابع متابعة المسابقة.");
-      }
-      commitState("تحديث عدد المتابعين");
-    }
+        const names = extractNamesFromSheetsPayload(payload);
+        if (names.length === 0) {
+          throw new Error("لم يتم العثور على أسماء صالحة في الجدول");
+        }
 
-    function updateFollowButtonUI() {
-      const btn = document.getElementById("followBtn");
-      const countEl = document.getElementById("statFollowers");
-      const inlineCountEl = document.getElementById("inlineFollowersCount");
-      const c = state.followersCount || 0;
-      if (countEl) countEl.textContent = c;
-      if (inlineCountEl) inlineCountEl.textContent = c;
-      if (!btn) return;
-      const followed = localStorage.getItem(FOLLOW_FLAG_KEY) === "1";
-      if (followed) {
-        btn.textContent = "✅ متابَع";
-        btn.className = "btn-success";
-      } else {
-        btn.textContent = "⭐ متابعة المسابقة";
-        btn.className = "btn-purple";
+        const replaceExisting = replaceCheck ? !!replaceCheck.checked : true;
+        const countApplied = applyImportedNamesList(names, replaceExisting);
+        const nowStr = new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
+        state.config.sheetsSync.lastSyncAt = nowStr;
+        state.config.sheetsSync.lastStatus = `تمت مزامنة ${countApplied} اسماً (${nowStr})`;
+        addLog(`تمت مزامنة ${countApplied} اسماً من Google Sheets.`);
+        saveState(true, "مزامنة الأسماء من Google Sheets");
+
+        if (!silent) {
+          alert(`تمت مزامنة ${countApplied} اسماً بنجاح من Google Sheets.`);
+        }
+      } catch (err) {
+        const msg = err && err.message ? err.message : "تعذر الاتصال بـ Google Sheets";
+        state.config.sheetsSync.lastStatus = `فشلت المزامنة: ${msg}`;
+        renderSheetsSyncUI();
+        if (!silent) {
+          alert(`تعذر مزامنة الأسماء من Google Sheets:\n${msg}`);
+        }
+      } finally {
+        isSyncingSheets = false;
       }
     }
 
+    function renderSheetsSyncUI() {
+      const urlEl = document.getElementById("sheetsUrlInput");
+      const rangeEl = document.getElementById("sheetsRangeInput");
+      const intervalEl = document.getElementById("sheetsIntervalInput");
+      const autoEl = document.getElementById("sheetsAutoSyncCheck");
+      const statusEl = document.getElementById("sheetsSyncStatus");
+
+      if (!state || !state.config || !state.config.sheetsSync) return;
+      const syncCfg = state.config.sheetsSync;
+
+      if (urlEl && document.activeElement !== urlEl) urlEl.value = syncCfg.url || "";
+      if (rangeEl && document.activeElement !== rangeEl) rangeEl.value = syncCfg.range || "";
+      if (intervalEl && document.activeElement !== intervalEl) intervalEl.value = syncCfg.intervalSec || 30;
+      if (autoEl && document.activeElement !== autoEl) autoEl.checked = !!syncCfg.autoSync;
+      if (statusEl) {
+        statusEl.textContent = syncCfg.lastStatus || "لم يتم التزامن بعد";
+      }
+    }
+
+    /* =========================================================================
+       إدارة الأدوار والمشاهدين والشاشات
+       ========================================================================= */
     function handleRoleButton() {
       if (isAdmin) {
         isAdmin = false;
-        applyRoleMode();
+        document.body.classList.add("viewer-mode");
+        renderAll();
       } else {
         openLoginModal();
       }
     }
 
     function openLoginModal() {
-      document.getElementById("loginPassInput").value = "";
-      document.getElementById("loginModal").classList.add("open");
-      setTimeout(() => document.getElementById("loginPassInput").focus(), 50);
+      const m = document.getElementById("loginModal");
+      const inp = document.getElementById("loginPassInput");
+      if (inp) inp.value = "";
+      if (m) m.classList.add("open");
+      setTimeout(() => inp && inp.focus(), 50);
     }
 
     function closeLoginModal() {
-      document.getElementById("loginModal").classList.remove("open");
+      const m = document.getElementById("loginModal");
+      if (m) m.classList.remove("open");
     }
 
     function verifyAdminLogin() {
-      const input = document.getElementById("loginPassInput").value.trim();
-      if (input === (state.adminPassword || "1234")) {
+      const inp = document.getElementById("loginPassInput");
+      const entered = (inp ? inp.value : "").trim();
+      if (entered === String(state.adminPasswordHash || "1234")) {
         isAdmin = true;
-        closeLoginModal();
-        applyRoleMode();
-      } else {
-        alert("الرقم السري غير صحيح!");
-      }
-    }
-
-    function applyRoleMode() {
-      const badge = document.getElementById("roleBadge");
-      const btn = document.getElementById("toggleRoleBtn");
-      const tag = document.getElementById("deviceRoleTag");
-
-      if (isDedicatedScreen) {
-        document.body.classList.add("viewer-mode");
-        badge.textContent = `شاشة عرض رقم ${screenSlotParam}`;
-        badge.className = "role-badge viewer";
-        btn.style.display = "none";
-        if (tag) tag.textContent = `شاشة عرض مستقلة #${screenSlotParam}`;
-        return;
-      }
-
-      if (isAdmin) {
         document.body.classList.remove("viewer-mode");
-        badge.textContent = "وضع المدير";
-        badge.className = "role-badge";
-        btn.textContent = "🔒 خروج للجمهور";
-        btn.className = "btn-ghost";
-        if (tag) tag.textContent = "جهاز إدارة وتحكم";
+        closeLoginModal();
+        addLog("تم تسجيل دخول المدير.");
+        renderAll();
       } else {
-        document.body.classList.add("viewer-mode");
-        badge.textContent = "وضع الجمهور أولاً";
-        badge.className = "role-badge viewer";
-        btn.textContent = "🔑 دخول المدير";
-        btn.className = "btn-warning";
-        if (tag) tag.textContent = "جهاز مشاهدة ومتابعة";
+        alert("الرقم السري غير صحيح.");
       }
-      updatePresence();
-      renderPlayersGrid();
     }
 
-    function openDisplayWindow(slotNum = 1) {
+    function changePassword() {
+      const inp = document.getElementById("newAdminPass");
+      const val = (inp ? inp.value : "").trim();
+      if (!val) return alert("يرجى إدخال رقم سري جديد.");
+      state.adminPasswordHash = val;
+      if (inp) inp.value = "";
+      saveState(true, "تغيير الرقم السري");
+      alert("تم تحديث الرقم السري للمدير بنجاح.");
+    }
+
+    function updatePresence() {
+      try {
+        const now = Date.now();
+        let map = {};
+        const raw = localStorage.getItem(PRESENCE_KEY);
+        if (raw) map = JSON.parse(raw);
+        map[CLIENT_ID] = { lastSeen: now, isScreen: isDedicatedScreen, slot: screenSlotParam || 0 };
+        Object.keys(map).forEach((k) => {
+          if (now - map[k].lastSeen > 12000) delete map[k];
+        });
+        localStorage.setItem(PRESENCE_KEY, JSON.stringify(map));
+
+        const activeClients = Object.values(map);
+        const liveCount = Math.max(1, activeClients.length);
+        const el1 = document.getElementById("statLiveViewers");
+        const el2 = document.getElementById("inlineLiveViewers");
+        if (el1) el1.textContent = liveCount;
+        if (el2) el2.textContent = liveCount;
+
+        renderOrderedScreens(activeClients);
+      } catch (_) {}
+    }
+
+    function renderOrderedScreens(activeClients = []) {
+      const list = document.getElementById("orderedScreensList");
+      if (!list) return;
+      const count = Math.max(1, Math.min(12, Number(state.config.orderedScreens) || 2));
+      list.innerHTML = "";
+      for (let i = 1; i <= count; i++) {
+        const online = activeClients.some((c) => c.isScreen && Number(c.slot) === i);
+        const row = document.createElement("div");
+        row.className = "screen-card";
+        row.innerHTML = `
+          <div>
+            <strong>شاشة رقم ${i}</strong>
+            <span class="screen-status ${online ? "online" : "standby"}">${online ? "🟢 متصلة" : "⚪ بانتظار الفتح"}</span>
+          </div>
+          <button class="btn-cyan" style="padding: 5px 10px; font-size: 0.78rem;" onclick="openDisplayWindow(${i})">فتح</button>
+        `;
+        list.appendChild(row);
+      }
+    }
+
+    function updateOrderedScreensCount() {
+      const inp = document.getElementById("orderedScreensInput");
+      const val = parseInt(inp ? inp.value : "2", 10);
+      if (!Number.isFinite(val) || val < 1) return;
+      state.config.orderedScreens = Math.min(12, val);
+      saveState(true, "تحديث عدد الشاشات");
+    }
+
+    function openDisplayWindow(slot = 1) {
       const url = new URL(window.location.href);
-      url.searchParams.set("screen", String(slotNum));
-      window.open(url.toString(), `contest_screen_${slotNum}`, "noopener,noreferrer,width=1280,height=800");
+      url.searchParams.set("screen", String(slot));
+      window.open(url.toString(), `contest_screen_${slot}`, "noopener");
     }
 
     function openAllOrderedScreens() {
-      const count = Math.min(12, Math.max(1, state.settings.orderedScreens || 2));
+      const count = Math.max(1, Math.min(12, Number(state.config.orderedScreens) || 2));
       for (let i = 1; i <= count; i++) {
         openDisplayWindow(i);
       }
     }
 
-    function updateOrderedScreensCount() {
-      if (!isAdmin) return;
-      const val = parseInt(document.getElementById("orderedScreensInput").value, 10);
-      if (!val || val < 1 || val > 12) {
-        alert("يرجى إدخال عدد شاشات بين 1 و 12.");
-        return;
+    function toggleFollowContest() {
+      let followed = localStorage.getItem(FOLLOW_FLAG_KEY) === "1";
+      if (!followed) {
+        state.followersCount = (Number(state.followersCount) || 0) + 1;
+        localStorage.setItem(FOLLOW_FLAG_KEY, "1");
+        addLog("انضم متابع جديد للمسابقة.");
+      } else {
+        state.followersCount = Math.max(0, (Number(state.followersCount) || 0) - 1);
+        localStorage.setItem(FOLLOW_FLAG_KEY, "0");
       }
-      state.settings.orderedScreens = val;
-      addLog(`تم تحديث عدد الشاشات المرتبة إلى ${val}.`);
-      commitState("تحديث عدد الشاشات");
+      saveState(false, "تحديث المتابعة");
     }
 
-    function renderOrderedScreensList() {
-      const list = document.getElementById("orderedScreensList");
-      const input = document.getElementById("orderedScreensInput");
-      const count = state.settings.orderedScreens || 2;
-      if (input && document.activeElement !== input) input.value = count;
-      if (!list) return;
-
-      let activeScreens = {};
-      try {
-        const now = Date.now();
-        const raw = JSON.parse(localStorage.getItem(PRESENCE_KEY) || "{}");
-        Object.values(raw).forEach((item) => {
-          if (now - item.lastSeen < 12000 && item.role && item.role.startsWith("شاشة ")) {
-            const num = parseInt(item.role.replace("شاشة ", ""), 10);
-            if (num) activeScreens[num] = true;
-          }
-        });
-      } catch (_) {}
-
-      list.innerHTML = "";
-      for (let i = 1; i <= count; i++) {
-        const online = !!activeScreens[i];
-        const card = document.createElement("div");
-        card.className = "screen-card";
-        card.innerHTML = `
-          <div>
-            <strong>شاشة #${i}</strong>
-            <span class="screen-status ${online ? "online" : "standby"}">${online ? "● متصلة" : "○ جاهزة"}</span>
-          </div>
-          <button class="btn-cyan" style="padding: 5px 10px; font-size: 0.78rem;" onclick="openDisplayWindow(${i})">فتح الشاشة</button>
-        `;
-        list.appendChild(card);
-      }
-    }
-
-    function getPlayerDisplayName(p) {
-      return p.name && p.name.trim() ? p.name.trim() : `رقم ${p.number}`;
-    }
-
+    /* =========================================================================
+       إدارة المتسابقين والمواجهة والأسئلة
+       ========================================================================= */
     function getAvailablePlayers() {
       return state.players.filter((p) => p.status === "available");
     }
 
-    function ensureValidSelector() {
-      if (state.winners.length >= state.settings.maxWinners) {
-        state.currentSelector = null;
-        state.currentTarget = null;
-        return;
-      }
-      const available = getAvailablePlayers();
-      if (available.length === 0) {
-        state.currentSelector = null;
-        return;
-      }
-      const current = state.players.find((p) => p.number === state.currentSelector);
-      if (!current || current.status !== "available") {
-        state.currentSelector = available[0].number;
-      }
+    function getPlayerByNum(num) {
+      return state.players.find((p) => p.num === num) || null;
     }
 
     function registerPlayer() {
       if (!isAdmin) return;
-      const input = document.getElementById("playerNameInput");
-      const name = input.value.trim();
+      const inp = document.getElementById("playerNameInput");
+      const name = (inp ? inp.value : "").trim();
       if (!name) return;
 
-      const emptySlot = state.players.find((p) => !p.name || !p.name.trim());
-      if (!emptySlot) {
-        alert("جميع الأرقام مسجلة بالفعل! يمكنك زيادة عدد اللاعبين من الإعدادات.");
-        return;
+      const emptySlot = state.players.find((p) => !p.name && p.status === "available");
+      if (emptySlot) {
+        emptySlot.name = name;
+        addLog(`تم تسجيل المتسابق "${name}" في الرقم ${emptySlot.num}.`);
+      } else {
+        const nextNum = state.players.length + 1;
+        state.config.totalPlayers = nextNum;
+        state.players.push({
+          num: nextNum,
+          name: name,
+          status: "available",
+          kills: 0,
+          errors: 0,
+          passes: 0
+        });
+        addLog(`تم إضافة متسابق جديد "${name}" بالرقم ${nextNum}.`);
       }
 
-      saveUndoSnapshot();
-      emptySlot.name = name;
-      addLog(`تم تسجيل المتسابق "${name}" في الرقم ${emptySlot.number}.`);
-      input.value = "";
-      commitState("تسجيل متسابق");
+      if (inp) inp.value = "";
+      saveState(true, "تسجيل متسابق");
     }
 
     function removeLastPlayer() {
       if (!isAdmin) return;
-      const filled = [...state.players].reverse().find((p) => p.name && p.name.trim());
-      if (!filled) return;
-      saveUndoSnapshot();
-      addLog(`تم حذف تسجيل المتسابق "${filled.name}" من الرقم ${filled.number}.`);
-      filled.name = "";
-      commitState("حذف آخر تسجيل");
+      for (let i = state.players.length - 1; i >= 0; i--) {
+        if (state.players[i].name) {
+          const removed = state.players[i].name;
+          state.players[i].name = "";
+          addLog(`تم حذف تسجيل "${removed}" من الرقم ${state.players[i].num}.`);
+          saveState(true, "حذف تسجيل");
+          return;
+        }
+      }
     }
 
     function importNamesFromFile(event) {
       if (!isAdmin) return;
-      const file = event.target.files[0];
+      const file = event.target.files && event.target.files[0];
       if (!file) return;
-      const replace = document.getElementById("replaceNamesCheck").checked;
+      const replaceExisting = !!(document.getElementById("replaceNamesCheck") && document.getElementById("replaceNamesCheck").checked);
 
       const reader = new FileReader();
       reader.onload = (e) => {
-        const lines = e.target.result
-          .split(/\r?\n/)
-          .flatMap((line) => line.split(","))
-          .map((s) => s.trim())
-          .filter(Boolean);
-
-        if (lines.length === 0) return;
-        saveUndoSnapshot();
-
-        if (replace) {
-          state.players.forEach((p) => { p.name = ""; });
+        const names = extractNamesFromSheetsPayload(e.target.result || "");
+        if (names.length === 0) {
+          alert("لم يتم العثور على أسماء في الملف.");
+          return;
         }
-
-        let idx = 0;
-        for (const p of state.players) {
-          if (idx >= lines.length) break;
-          if (replace || !p.name) {
-            p.name = lines[idx++];
-          }
-        }
-        addLog(`تم استيراد ${idx} اسم/أسماء من الملف.`);
+        const count = applyImportedNamesList(names, replaceExisting);
+        addLog(`تم استيراد ${count} اسماً من ملف ${file.name}.`);
+        saveState(true, "استيراد أسماء");
         event.target.value = "";
-        commitState("استيراد أسماء");
       };
       reader.readAsText(file, "UTF-8");
     }
 
     function changeSelectionMode() {
-      if (!isAdmin) return;
-      state.selectionMode = document.getElementById("selectionModeSelect").value;
-      state.currentTarget = null;
+      const sel = document.getElementById("selectionModeSelect");
+      if (!sel) return;
+      state.selectionMode = sel.value;
+      state.targetPlayer = null;
       state.activeQuestion = null;
-      clearInterval(timerInterval);
-      addLog(`تم تغيير طريقة اختيار الخصم إلى: ${state.selectionMode === "random" ? "عشوائي" : "يدوي"}.`);
-      commitState("تغيير نمط الاختيار");
+      stopTimer();
+      saveState(true, "تغيير وضع الاختيار");
     }
 
     function pickRandomTarget() {
       if (!isAdmin) return;
-      ensureValidSelector();
-      if (state.winners.length >= state.settings.maxWinners) {
-        alert("اكتمل عدد الفائزين!");
-        return;
-      }
-      const candidates = getAvailablePlayers().filter((p) => p.number !== state.currentSelector);
+      const selector = getPlayerByNum(state.currentSelector);
+      const candidates = getAvailablePlayers().filter((p) => p.num !== state.currentSelector);
       if (candidates.length === 0) {
         alert("لا يوجد خصوم متاحون للاختيار.");
         return;
       }
       const chosen = candidates[Math.floor(Math.random() * candidates.length)];
-      selectTargetPlayer(chosen.number);
+      startChallenge(selector, chosen);
     }
 
     function onPlayerTileClick(num) {
       if (!isAdmin) return;
-      if (state.selectionMode !== "manual") return;
-      if (state.activeQuestion) return;
-      const player = state.players.find((p) => p.number === num);
-      if (!player || player.status !== "available" || player.number === state.currentSelector) return;
-      selectTargetPlayer(num);
-    }
+      const clicked = getPlayerByNum(num);
+      if (!clicked || clicked.status !== "available") return;
 
-    function selectTargetPlayer(targetNum) {
-      ensureValidSelector();
-      const selector = state.players.find((p) => p.number === state.currentSelector);
-      const target = state.players.find((p) => p.number === targetNum);
-      if (!selector || !target) return;
-
-      const qObj = drawQuestion();
-      if (!qObj) {
-        alert("لا توجد أسئلة متاحة في الأرشيف! يرجى إضافة أسئلة من الإعدادات.");
-        return;
+      if (state.selectionMode === "manual") {
+        if (num === state.currentSelector) return;
+        const selector = getPlayerByNum(state.currentSelector);
+        startChallenge(selector, clicked);
+      } else {
+        state.currentSelector = num;
+        state.targetPlayer = null;
+        state.activeQuestion = null;
+        stopTimer();
+        addLog(`تم تعيين (${clicked.name || "رقم " + clicked.num}) كمختار حالياً.`);
+        saveState(true, "تحديد المختار");
       }
-
-      saveUndoSnapshot();
-      state.currentTarget = target.number;
-      state.activeQuestion = {
-        selector: selector.number,
-        target: target.number,
-        q: qObj.q,
-        a: qObj.a,
-        level: qObj.level || "easy",
-        showAnswer: false,
-        remaining: state.settings.timerSec
-      };
-
-      addLog(`اختار ${getPlayerDisplayName(selector)} المسؤول ${getPlayerDisplayName(target)} وطُرح سؤال (${qObj.level}).`);
-      startTimer(state.settings.timerSec);
-      commitState("بدء سؤال جديد");
     }
 
     function drawQuestion() {
-      const levelFilter = document.getElementById("levelSelector")?.value || "all";
-      const unusedIndices = [];
-      state.questionArchive.forEach((item, idx) => {
-        if (!state.usedQuestionIndices.includes(idx)) {
-          if (levelFilter === "all" || item.level === levelFilter) {
-            unusedIndices.push(idx);
-          }
-        }
-      });
+      const lvlEl = document.getElementById("levelSelector");
+      const chosenLevel = lvlEl ? lvlEl.value : "all";
+      const pool = state.questionsArchive
+        .map((item, idx) => ({ item, idx }))
+        .filter(({ item, idx }) => !state.usedQuestionIndexes.includes(idx) && (chosenLevel === "all" || item.level === chosenLevel));
 
-      let pool = unusedIndices;
       if (pool.length === 0) {
-        state.usedQuestionIndices = [];
-        state.questionArchive.forEach((item, idx) => {
-          if (levelFilter === "all" || item.level === levelFilter) {
-            unusedIndices.push(idx);
-          }
-        });
-        pool = unusedIndices.length > 0 ? unusedIndices : state.questionArchive.map((_, i) => i);
+        const fallback = state.questionsArchive
+          .map((item, idx) => ({ item, idx }))
+          .filter(({ idx }) => !state.usedQuestionIndexes.includes(idx));
+        if (fallback.length === 0) {
+          state.usedQuestionIndexes = [];
+          return drawQuestion();
+        }
+        const pick = fallback[Math.floor(Math.random() * fallback.length)];
+        state.usedQuestionIndexes.push(pick.idx);
+        return pick.item;
       }
 
-      if (pool.length === 0) return null;
-      const pickedIdx = pool[Math.floor(Math.random() * pool.length)];
-      state.usedQuestionIndices.push(pickedIdx);
-      return state.questionArchive[pickedIdx];
+      const pick = pool[Math.floor(Math.random() * pool.length)];
+      state.usedQuestionIndexes.push(pick.idx);
+      return pick.item;
     }
 
-    function startTimer(seconds) {
-      clearInterval(timerInterval);
-      timerPaused = false;
-      let rem = seconds;
-      if (state.activeQuestion) state.activeQuestion.remaining = rem;
-      updateTimerDisplay(rem);
+    function startChallenge(selector, target) {
+      if (!selector || !target) return;
+      state.currentSelector = selector.num;
+      state.targetPlayer = target.num;
+      state.activeQuestion = drawQuestion();
+      state.timerRemaining = Number(state.config.timerSec) || 30;
+      state.timerRunning = true;
+      state.answerVisible = false;
+      addLog(`${selector.name || "رقم " + selector.num} يختار الخصم (${target.name || "رقم " + target.num}).`);
+      saveState(true, "بدء تحدٍ");
+      startTimer();
+    }
 
+    function startTimer() {
+      stopTimer();
+      if (!state.timerRunning) return;
       timerInterval = setInterval(() => {
-        if (timerPaused || !state.activeQuestion) return;
-        rem -= 1;
-        state.activeQuestion.remaining = Math.max(0, rem);
-        updateTimerDisplay(state.activeQuestion.remaining);
-        if (rem <= 0) {
-          clearInterval(timerInterval);
-          timerInterval = null;
+        if (!state.timerRunning) return;
+        if (state.timerRemaining > 0) {
+          state.timerRemaining -= 1;
+          renderTimerOnly();
+        } else {
+          stopTimer();
+          state.timerRunning = false;
+          saveState(false, "انتهى الوقت");
         }
       }, 1000);
     }
 
-    function toggleTimer() {
-      if (!isAdmin || !state.activeQuestion) return;
-      timerPaused = !timerPaused;
-      const btn = document.getElementById("timerToggleBtn");
-      if (btn) btn.textContent = timerPaused ? "▶️" : "⏸️";
+    function stopTimer() {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
     }
 
-    function updateTimerDisplay(sec) {
-      const el = document.getElementById("timerDisplay");
-      if (!el) return;
-      el.textContent = sec;
-      if (sec <= 7) el.classList.add("urgent");
-      else el.classList.remove("urgent");
+    function toggleTimer() {
+      if (!isAdmin) return;
+      state.timerRunning = !state.timerRunning;
+      if (state.timerRunning) startTimer();
+      else stopTimer();
+      saveState(false, "تبديل المؤقت");
     }
 
     function revealAnswer() {
-      if (!isAdmin || !state.activeQuestion) return;
-      state.activeQuestion.showAnswer = !state.activeQuestion.showAnswer;
-      commitState("إظهار/إخفاء الإجابة");
+      state.answerVisible = !state.answerVisible;
+      saveState(false, "إظهار الإجابة");
+    }
+
+    function advanceSelectorToNextAvailable(preferredNum = null) {
+      const avail = getAvailablePlayers();
+      if (avail.length === 0) {
+        state.currentSelector = null;
+        return;
+      }
+      if (preferredNum) {
+        const pref = avail.find((p) => p.num === preferredNum);
+        if (pref) {
+          state.currentSelector = pref.num;
+          return;
+        }
+      }
+      const idx = avail.findIndex((p) => p.num > (state.currentSelector || 0));
+      state.currentSelector = idx >= 0 ? avail[idx].num : avail[0].num;
     }
 
     function handleAnswer(isCorrect) {
-      if (!isAdmin || !state.activeQuestion) return;
-      clearInterval(timerInterval);
-      timerInterval = null;
-
-      saveUndoSnapshot();
-      const selector = state.players.find((p) => p.number === state.activeQuestion.selector);
-      const target = state.players.find((p) => p.number === state.activeQuestion.target);
+      if (!isAdmin || !state.targetPlayer) return;
+      stopTimer();
+      const selector = getPlayerByNum(state.currentSelector);
+      const target = getPlayerByNum(state.targetPlayer);
 
       if (isCorrect) {
-        if (selector && selector.status === "available") {
+        if (selector && target) {
           selector.kills += 1;
-          addLog(`احتُسب إسقاط لـ ${getPlayerDisplayName(selector)} (${selector.kills}/${state.settings.killsToWin}).`);
-          if (selector.kills >= state.settings.killsToWin && state.winners.length < state.settings.maxWinners) {
+          target.status = "eliminated";
+          addLog(`إجابة صحيحة! (${selector.name || "رقم " + selector.num}) أسقط (${target.name || "رقم " + target.num}) [${selector.kills}/${state.config.killsToWin}].`);
+
+          if (selector.kills >= state.config.killsToWin && state.winners.length < state.config.maxWinners) {
             selector.status = "winner";
-            state.winners.push({
-              number: selector.number,
-              name: getPlayerDisplayName(selector),
-              kills: selector.kills
-            });
-            addLog(`🏆 فاز ${getPlayerDisplayName(selector)} وتأهل للوحة الفائزين!`);
-            launchConfetti();
-          }
-        }
-
-        if (target && target.status === "available") {
-          state.currentSelector = target.number;
-          addLog(`✅ إجابة صحيحة من ${getPlayerDisplayName(target)} — يبقى ويقوم مقام المختار الآن.`);
-        }
-
-        state.activeQuestion = null;
-        state.currentTarget = null;
-        ensureValidSelector();
-        commitState("إجابة صحيحة - انتقال دور الاختيار للمسؤول");
-      } else {
-        triggerShake();
-        state.activeQuestion = null;
-        state.currentTarget = null;
-
-        if (target) {
-          target.errors = (target.errors || 0) + 1;
-          const maxErr = Math.max(1, state.settings.maxErrors || 2);
-
-          if (target.errors >= maxErr) {
-            target.status = "eliminated";
-            addLog(`❌ خرج ${getPlayerDisplayName(target)} لبلوغه حد الأخطاء المسموحة (${target.errors}/${maxErr}).`);
+            state.winners.push({ num: selector.num, name: selector.name || `رقم ${selector.num}`, kills: selector.kills });
+            addLog(`🏆 فاز (${selector.name || "رقم " + selector.num}) بالمسابقة!`);
+            triggerConfetti();
+            advanceSelectorToNextAvailable();
           } else {
-            addLog(`❌ أخطأ ${getPlayerDisplayName(target)} (${target.errors}/${maxErr} أخطاء مسموحة).`);
+            state.currentSelector = target.num;
+            target.status = "available";
+            advanceSelectorToNextAvailable(target.num);
           }
         }
-
-        ensureValidSelector();
-        commitState("إجابة خاطئة وتطبيق حد الأخطاء");
+      } else {
+        if (target) {
+          target.errors += 1;
+          triggerShake();
+          addLog(`إجابة خاطئة من (${target.name || "رقم " + target.num}) - أخطاء: ${target.errors}/${state.config.maxErrors}.`);
+          if (target.errors >= state.config.maxErrors) {
+            target.status = "eliminated";
+            addLog(`❌ خروج (${target.name || "رقم " + target.num}) لتجاوز الحد المسموح من الأخطاء.`);
+            if (state.currentSelector === target.num) advanceSelectorToNextAvailable();
+          }
+        }
       }
+
+      state.targetPlayer = null;
+      state.activeQuestion = null;
+      state.timerRunning = false;
+      state.answerVisible = false;
+      saveState(true, "تقييم الإجابة");
     }
 
     function handlePass() {
-      if (!isAdmin || !state.activeQuestion) return;
-      clearInterval(timerInterval);
-      timerInterval = null;
-
-      saveUndoSnapshot();
-      const target = state.players.find((p) => p.number === state.activeQuestion.target);
+      if (!isAdmin || !state.targetPlayer) return;
+      stopTimer();
+      const target = getPlayerByNum(state.targetPlayer);
       if (target) {
         target.passes += 1;
-        addLog(`اعتذر ${getPlayerDisplayName(target)} عن السؤال (${target.passes}/${state.settings.maxPasses}).`);
-        if (target.passes > state.settings.maxPasses) {
+        addLog(`✋ اعتذار / تمرير من (${target.name || "رقم " + target.num}) [${target.passes}/${state.config.maxPasses}].`);
+        if (target.passes > state.config.maxPasses) {
           target.status = "eliminated";
-          addLog(`خرج ${getPlayerDisplayName(target)} لتجاوز عدد الاعتذارات المسموح.`);
+          addLog(`خروج (${target.name || "رقم " + target.num}) لتجاوز الاعتذارات المسموحة.`);
+          if (state.currentSelector === target.num) advanceSelectorToNextAvailable();
         }
       }
-
+      state.targetPlayer = null;
       state.activeQuestion = null;
-      state.currentTarget = null;
-      ensureValidSelector();
-      commitState("اعتذار/تمرير");
-    }
-
-    function triggerShake() {
-      document.body.classList.remove("shake-effect");
-      void document.body.offsetWidth;
-      document.body.classList.add("shake-effect");
-      setTimeout(() => document.body.classList.remove("shake-effect"), 500);
-    }
-
-    function launchConfetti() {
-      const canvas = document.getElementById("confettiCanvas");
-      if (!canvas) return;
-      const ctx = canvas.getContext("2d");
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-      const colors = ["#eab308", "#3b82f6", "#10b981", "#ef4444", "#8b5cf6"];
-      const particles = Array.from({ length: 90 }, () => ({
-        x: Math.random() * canvas.width,
-        y: Math.random() * -canvas.height,
-        w: 8 + Math.random() * 6,
-        h: 5 + Math.random() * 5,
-        vy: 3 + Math.random() * 4,
-        vx: (Math.random() - 0.5) * 3,
-        color: colors[Math.floor(Math.random() * colors.length)],
-        rot: Math.random() * Math.PI * 2
-      }));
-
-      let frames = 0;
-      function step() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        particles.forEach((p) => {
-          p.x += p.vx;
-          p.y += p.vy;
-          p.rot += 0.08;
-          ctx.save();
-          ctx.translate(p.x, p.y);
-          ctx.rotate(p.rot);
-          ctx.fillStyle = p.color;
-          ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
-          ctx.restore();
-        });
-        frames++;
-        if (frames < 120) requestAnimationFrame(step);
-        else ctx.clearRect(0, 0, canvas.width, canvas.height);
-      }
-      requestAnimationFrame(step);
-    }
-
-    function resetPlayerFilters() {
-      document.getElementById("playerStatusFilter").value = "all";
-      document.getElementById("playerSearchInput").value = "";
-      renderPlayersGrid();
+      state.timerRunning = false;
+      state.answerVisible = false;
+      saveState(true, "تمرير السؤال");
     }
 
     function resetContest() {
       if (!isAdmin) return;
-      if (!confirm("هل أنت متأكد من بدء مسابقة جديدة وتصفير النتائج الحالية؟")) return;
-      saveUndoSnapshot();
-      const fresh = createInitialPlayers(state.settings.totalPlayers);
-      state.players = fresh;
-      state.winners = [];
-      state.currentSelector = fresh.length > 0 ? fresh[0].number : null;
-      state.currentTarget = null;
-      state.activeQuestion = null;
-      state.usedQuestionIndices = [];
-      clearInterval(timerInterval);
-      addLog("تم بدء مسابقة جديدة بالكامل.");
-      commitState("مسابقة جديدة");
+      if (!confirm("هل أنت متأكد من بدء مسابقة جديدة وتصفير النتائج؟")) return;
+      const keepSheets = Object.assign({}, state.config.sheetsSync);
+      const keepCloud = state.config.cloudSyncUrl;
+      const keepArchive = [...state.questionsArchive];
+      const keepPass = state.adminPasswordHash;
+
+      state = createDefaultState();
+      state.adminPasswordHash = keepPass;
+      state.config.cloudSyncUrl = keepCloud;
+      state.config.sheetsSync = keepSheets;
+      state.questionsArchive = keepArchive;
+      historyStack = [];
+      updateUndoBtn();
+      saveState(false, "مسابقة جديدة");
     }
 
+    /* =========================================================================
+       الإعدادات والأسئلة والتقارير
+       ========================================================================= */
     function openSettings() {
       if (!isAdmin) return;
-      const s = state.settings;
-      document.getElementById("cfgKillsToWin").value = s.killsToWin;
-      document.getElementById("cfgMaxWinners").value = s.maxWinners;
-      document.getElementById("cfgTotalPlayers").value = s.totalPlayers;
-      document.getElementById("cfgCols").value = s.cols;
-      document.getElementById("cfgMaxErrors").value = s.maxErrors;
-      document.getElementById("cfgMaxPasses").value = s.maxPasses;
-      document.getElementById("cfgTimerSec").value = s.timerSec;
-      document.getElementById("cfgOrderedScreens").value = s.orderedScreens;
-      document.getElementById("cfgCloudSyncUrl").value = state.cloudSyncUrl || "";
+      document.getElementById("cfgKillsToWin").value = state.config.killsToWin;
+      document.getElementById("cfgMaxWinners").value = state.config.maxWinners;
+      document.getElementById("cfgTotalPlayers").value = state.config.totalPlayers;
+      document.getElementById("cfgCols").value = state.config.cols;
+      document.getElementById("cfgMaxErrors").value = state.config.maxErrors;
+      document.getElementById("cfgMaxPasses").value = state.config.maxPasses;
+      document.getElementById("cfgTimerSec").value = state.config.timerSec;
+      document.getElementById("cfgOrderedScreens").value = state.config.orderedScreens;
+      document.getElementById("cfgCloudSyncUrl").value = state.config.cloudSyncUrl || "";
       renderArchiveList();
       document.getElementById("settingsModal").classList.add("open");
     }
@@ -1732,57 +1884,112 @@
     }
 
     function saveSettings() {
-      if (!isAdmin) return;
-      saveUndoSnapshot();
-      const s = state.settings;
-      const prevTotal = s.totalPlayers;
+      state.config.killsToWin = Math.max(1, parseInt(document.getElementById("cfgKillsToWin").value, 10) || 3);
+      state.config.maxWinners = Math.max(1, parseInt(document.getElementById("cfgMaxWinners").value, 10) || 3);
+      const newTotal = Math.max(2, parseInt(document.getElementById("cfgTotalPlayers").value, 10) || 15);
+      state.config.cols = Math.max(2, Math.min(12, parseInt(document.getElementById("cfgCols").value, 10) || 5));
+      state.config.maxErrors = Math.max(1, parseInt(document.getElementById("cfgMaxErrors").value, 10) || 2);
+      state.config.maxPasses = Math.max(0, parseInt(document.getElementById("cfgMaxPasses").value, 10) || 1);
+      state.config.timerSec = Math.max(5, parseInt(document.getElementById("cfgTimerSec").value, 10) || 30);
+      state.config.orderedScreens = Math.max(1, Math.min(12, parseInt(document.getElementById("cfgOrderedScreens").value, 10) || 2));
+      state.config.cloudSyncUrl = (document.getElementById("cfgCloudSyncUrl").value || "").trim();
 
-      s.killsToWin = Math.max(1, parseInt(document.getElementById("cfgKillsToWin").value, 10) || 3);
-      s.maxWinners = Math.max(1, parseInt(document.getElementById("cfgMaxWinners").value, 10) || 3);
-      s.totalPlayers = Math.min(100, Math.max(2, parseInt(document.getElementById("cfgTotalPlayers").value, 10) || 15));
-      s.cols = Math.min(12, Math.max(2, parseInt(document.getElementById("cfgCols").value, 10) || 5));
-      s.maxErrors = Math.max(1, parseInt(document.getElementById("cfgMaxErrors").value, 10) || 2);
-      s.maxPasses = Math.max(0, parseInt(document.getElementById("cfgMaxPasses").value, 10) || 1);
-      s.timerSec = Math.max(5, parseInt(document.getElementById("cfgTimerSec").value, 10) || 30);
-      s.orderedScreens = Math.min(12, Math.max(1, parseInt(document.getElementById("cfgOrderedScreens").value, 10) || 2));
-      state.cloudSyncUrl = document.getElementById("cfgCloudSyncUrl").value.trim();
-
-      if (s.totalPlayers > prevTotal) {
-        for (let i = prevTotal + 1; i <= s.totalPlayers; i++) {
-          state.players.push({ number: i, name: "", status: "available", kills: 0, errors: 0, passes: 0 });
+      if (newTotal !== state.config.totalPlayers) {
+        state.config.totalPlayers = newTotal;
+        if (newTotal > state.players.length) {
+          for (let i = state.players.length + 1; i <= newTotal; i++) {
+            state.players.push({ num: i, name: "", status: "available", kills: 0, errors: 0, passes: 0 });
+          }
+        } else {
+          state.players = state.players.slice(0, newTotal);
         }
-      } else if (s.totalPlayers < prevTotal) {
-        state.players = state.players.slice(0, s.totalPlayers);
       }
 
-      state.players.forEach((p) => {
-        if (p.status === "available" && (p.errors || 0) >= s.maxErrors) {
-          p.status = "eliminated";
-        }
-      });
-
-      ensureValidSelector();
-      addLog("تم حفظ إعدادات المسابقة وتحديثها.");
+      addLog("تم تحديث إعدادات المسابقة.");
       closeSettings();
-      commitState("حفظ الإعدادات");
+      saveState(true, "حفظ الإعدادات");
     }
 
-    function changePassword() {
-      if (!isAdmin) return;
-      const pass = document.getElementById("newAdminPass").value.trim();
-      if (pass.length < 3) {
-        alert("يرجى إدخال رقم سري مكون من 3 أحرف أو أرقام على الأقل.");
-        return;
+    function parseLevelLabel(rawLvl) {
+      const v = (rawLvl || "").trim().toLowerCase();
+      if (v === "hard" || v === "صعب") return "hard";
+      if (v === "medium" || v === "متوسط") return "medium";
+      return "easy";
+    }
+
+    function addBulkQuestions() {
+      const ta = document.getElementById("bulkQuestionsInput");
+      const lines = (ta ? ta.value : "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+      let added = 0;
+      for (const line of lines) {
+        const parts = line.split("|").map((p) => p.trim());
+        if (parts.length >= 2 && parts[0] && parts[1]) {
+          state.questionsArchive.push({
+            q: parts[0],
+            a: parts[1],
+            level: parseLevelLabel(parts[2])
+          });
+          added++;
+        }
       }
-      state.adminPassword = pass;
-      document.getElementById("newAdminPass").value = "";
-      addLog("تم تحديث الرقم السري للمدير.");
-      commitState("تحديث الرقم السري");
-      alert("تم تحديث الرقم السري بنجاح.");
+      if (added > 0) {
+        if (ta) ta.value = "";
+        addLog(`تمت إضافة ${added} سؤالاً إلى الأرشيف.`);
+        saveState(true, "إضافة أسئلة");
+        renderArchiveList();
+      } else {
+        alert("يرجى كتابة الأسئلة بالصيغة: السؤال | الإجابة | المستوى");
+      }
+    }
+
+    function restoreDefaultQuestions() {
+      state.questionsArchive = [...DEFAULT_QUESTIONS];
+      state.usedQuestionIndexes = [];
+      saveState(true, "استعادة الأسئلة الافتراضية");
+      renderArchiveList();
+    }
+
+    function clearArchive() {
+      if (!confirm("هل تريد مسح جميع الأسئلة من الأرشيف؟")) return;
+      state.questionsArchive = [];
+      state.usedQuestionIndexes = [];
+      saveState(true, "مسح الأرشيف");
+      renderArchiveList();
+    }
+
+    function deleteArchiveQuestion(index) {
+      state.questionsArchive.splice(index, 1);
+      saveState(true, "حذف سؤال");
+      renderArchiveList();
+    }
+
+    function renderArchiveList() {
+      const container = document.getElementById("archiveListContainer");
+      const totalEl = document.getElementById("archiveTotalCount");
+      const filterSel = document.getElementById("archiveFilterSelect");
+      if (!container) return;
+
+      const filterLvl = filterSel ? filterSel.value : "all";
+      if (totalEl) totalEl.textContent = state.questionsArchive.length;
+
+      container.innerHTML = "";
+      state.questionsArchive.forEach((item, idx) => {
+        if (filterLvl !== "all" && item.level !== filterLvl) return;
+        const div = document.createElement("div");
+        div.className = "archive-item";
+        div.innerHTML = `
+          <div>
+            <strong>${item.q}</strong>
+            <div style="font-size:0.78rem; color:var(--text-muted);">الإجابة: ${item.a} | المستوى: ${item.level}</div>
+          </div>
+          <button class="btn-danger" style="padding:4px 8px; font-size:0.76rem;" onclick="deleteArchiveQuestion(${idx})">حذف</button>
+        `;
+        container.appendChild(div);
+      });
     }
 
     function exportBackupJSON() {
-      const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json;charset=utf-8" });
+      const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -1792,116 +1999,32 @@
     }
 
     function importBackupJSON(event) {
-      if (!isAdmin) return;
-      const file = event.target.files[0];
+      const file = event.target.files && event.target.files[0];
       if (!file) return;
       const reader = new FileReader();
       reader.onload = (e) => {
         try {
           const parsed = JSON.parse(e.target.result);
-          saveUndoSnapshot();
-          state = {
-            ...createDefaultState(),
-            ...parsed,
-            settings: { ...createDefaultState().settings, ...(parsed.settings || {}) }
-          };
-          addLog("تمت استعادة النسخة الاحتياطية بنجاح.");
-          commitState("استعادة نسخة احتياطية");
+          state = normalizeState(parsed);
+          saveState(true, "استعادة نسخة احتياطية");
           renderArchiveList();
-        } catch (err) {
+          alert("تمت استعادة النسخة الاحتياطية بنجاح.");
+        } catch (_) {
           alert("ملف النسخة الاحتياطية غير صالح.");
         }
+        event.target.value = "";
       };
       reader.readAsText(file, "UTF-8");
     }
 
-    function normalizeLevel(raw) {
-      if (!raw) return "easy";
-      const val = raw.trim().toLowerCase();
-      if (val.includes("صعب") || val === "hard") return "hard";
-      if (val.includes("متوسط") || val === "medium") return "medium";
-      return "easy";
-    }
-
-    function addBulkQuestions() {
-      if (!isAdmin) return;
-      const text = document.getElementById("bulkQuestionsInput").value;
-      const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-      let added = 0;
-
-      lines.forEach((line) => {
-        const parts = line.split("|").map((p) => p.trim());
-        if (parts.length >= 2 && parts[0] && parts[1]) {
-          state.questionArchive.push({
-            q: parts[0],
-            a: parts[1],
-            level: normalizeLevel(parts[2] || "easy")
-          });
-          added++;
-        }
-      });
-
-      if (added > 0) {
-        document.getElementById("bulkQuestionsInput").value = "";
-        addLog(`تمت إضافة ${added} سؤال/أسئلة إلى الأرشيف.`);
-        commitState("إضافة أسئلة");
-        renderArchiveList();
-      }
-    }
-
-    function restoreDefaultQuestions() {
-      if (!isAdmin) return;
-      state.questionArchive = JSON.parse(JSON.stringify(DEFAULT_QUESTIONS));
-      state.usedQuestionIndices = [];
-      addLog("تمت استعادة الأسئلة الافتراضية.");
-      commitState("استعادة الأسئلة الافتراضية");
-      renderArchiveList();
-    }
-
-    function clearArchive() {
-      if (!isAdmin) return;
-      if (!confirm("هل تريد مسح جميع الأسئلة من الأرشيف؟")) return;
-      state.questionArchive = [];
-      state.usedQuestionIndices = [];
-      addLog("تم مسح أرشيف الأسئلة.");
-      commitState("مسح الأرشيف");
-      renderArchiveList();
-    }
-
-    function deleteQuestionItem(index) {
-      if (!isAdmin) return;
-      state.questionArchive.splice(index, 1);
-      state.usedQuestionIndices = state.usedQuestionIndices.filter((i) => i !== index);
-      commitState("حذف سؤال");
-      renderArchiveList();
-    }
-
-    function renderArchiveList() {
-      const container = document.getElementById("archiveListContainer");
-      const countEl = document.getElementById("archiveTotalCount");
-      const filter = document.getElementById("archiveFilterSelect")?.value || "all";
-      if (countEl) countEl.textContent = state.questionArchive.length;
-      if (!container) return;
-
-      container.innerHTML = "";
-      state.questionArchive.forEach((item, idx) => {
-        if (filter !== "all" && item.level !== filter) return;
-        const levelLabel = item.level === "hard" ? "🔴 صعب" : item.level === "medium" ? "🟡 متوسط" : "🟢 سهل";
-        const div = document.createElement("div");
-        div.className = "archive-item";
-        div.innerHTML = `
-          <div>
-            <strong>${idx + 1}.</strong> ${escapeHtml(item.q)} — <span style="color:#6ee7b7;">${escapeHtml(item.a)}</span>
-            <span style="margin-right:6px; font-size:0.78rem; color:var(--text-muted);">(${levelLabel})</span>
-          </div>
-          <button class="btn-danger" style="padding:4px 8px; font-size:0.75rem;" onclick="deleteQuestionItem(${idx})">حذف</button>
-        `;
-        container.appendChild(div);
-      });
-    }
-
     function openReportsModal() {
-      renderReportPreview();
+      const box = document.getElementById("reportPreviewBox");
+      if (box) {
+        const rows = state.players.map((p) =>
+          `<div>#${p.num} - <strong>${p.name || "بدون اسم"}</strong> | الحالة: ${p.status} | الإسقاطات: ${p.kills} | الأخطاء: ${p.errors} | الاعتذارات: ${p.passes}</div>`
+        );
+        box.innerHTML = rows.join("");
+      }
       document.getElementById("reportsModal").classList.add("open");
     }
 
@@ -1909,45 +2032,18 @@
       document.getElementById("reportsModal").classList.remove("open");
     }
 
-    function renderReportPreview() {
-      const box = document.getElementById("reportPreviewBox");
-      if (!box) return;
-      const rows = state.players.map((p) => {
-        const statusAr = p.status === "winner" ? "فائز" : p.status === "eliminated" ? "مستبعد" : "متاح";
-        return `<tr>
-          <td style="padding:6px; border-bottom:1px solid #283548;">${p.number}</td>
-          <td style="padding:6px; border-bottom:1px solid #283548;">${escapeHtml(getPlayerDisplayName(p))}</td>
-          <td style="padding:6px; border-bottom:1px solid #283548;">${statusAr}</td>
-          <td style="padding:6px; border-bottom:1px solid #283548;">${p.kills}</td>
-          <td style="padding:6px; border-bottom:1px solid #283548;">${p.errors} / ${state.settings.maxErrors}</td>
-          <td style="padding:6px; border-bottom:1px solid #283548;">${p.passes}</td>
-        </tr>`;
-      }).join("");
-
-      box.innerHTML = `
-        <table style="width:100%; border-collapse:collapse; text-align:right;">
-          <thead>
-            <tr style="color:var(--text-muted);">
-              <th style="padding:6px;">الرقم</th>
-              <th style="padding:6px;">الاسم</th>
-              <th style="padding:6px;">الحالة</th>
-              <th style="padding:6px;">الإسقاطات</th>
-              <th style="padding:6px;">الأخطاء / الحد</th>
-              <th style="padding:6px;">الاعتذارات</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-      `;
-    }
-
     function exportExcelCSV() {
-      const headers = ["الرقم", "الاسم", "الحالة", "عدد الإسقاطات", "الأخطاء", "الحد المسموح للأخطاء", "الاعتذارات"];
-      const lines = [headers.join(",")];
+      const header = ["الرقم", "الاسم", "الحالة", "الإسقاطات", "الأخطاء", "الاعتذارات"];
+      const lines = [header.join(",")];
       state.players.forEach((p) => {
-        const statusAr = p.status === "winner" ? "فائز" : p.status === "eliminated" ? "مستبعد" : "متاح";
-        const row = [p.number, `"${getPlayerDisplayName(p).replace(/"/g, '""')}"`, statusAr, p.kills, p.errors, state.settings.maxErrors, p.passes];
-        lines.push(row.join(","));
+        lines.push([
+          p.num,
+          `"${(p.name || "").replace(/"/g, '""')}"`,
+          p.status,
+          p.kills,
+          p.errors,
+          p.passes
+        ].join(","));
       });
       const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
@@ -1959,176 +2055,268 @@
     }
 
     function printPDFReport() {
-      const win = window.open("", "_blank");
-      if (!win) return;
-      const rowsHtml = state.players.map((p) => {
-        const statusAr = p.status === "winner" ? "فائز" : p.status === "eliminated" ? "مستبعد" : "متاح";
-        return `<tr><td>${p.number}</td><td>${escapeHtml(getPlayerDisplayName(p))}</td><td>${statusAr}</td><td>${p.kills}</td><td>${p.errors} / ${state.settings.maxErrors}</td><td>${p.passes}</td></tr>`;
-      }).join("");
-
-      win.document.write(`
-        <html lang="ar" dir="rtl"><head><title>تقرير المسابقة</title>
-        <style>body{font-family:Tahoma,Arial,sans-serif;padding:24px;}table{width:100%;border-collapse:collapse;margin-top:16px;}th,td{border:1px solid #ccc;padding:8px;text-align:right;}th{background:#f1f5f9;}</style>
-        </head><body>
-        <h2>تقرير نتائج المسابقة</h2>
-        <p>عدد الفائزين: ${state.winners.length} / ${state.settings.maxWinners} | حد الأخطاء المسموحة: ${state.settings.maxErrors} | عدد المتابعين: ${state.followersCount || 0}</p>
-        <table><thead><tr><th>الرقم</th><th>الاسم</th><th>الحالة</th><th>الإسقاطات</th><th>الأخطاء / الحد</th><th>الاعتذارات</th></tr></thead><tbody>${rowsHtml}</tbody></table>
-        </body></html>
-      `);
-      win.document.close();
-      win.focus();
-      win.print();
+      window.print();
     }
 
-    function escapeHtml(str) {
-      return String(str || "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;");
+    /* =========================================================================
+       التأثيرات البصرية والرسم
+       ========================================================================= */
+    function triggerShake() {
+      document.body.classList.remove("shake-effect");
+      void document.body.offsetWidth;
+      document.body.classList.add("shake-effect");
+      setTimeout(() => document.body.classList.remove("shake-effect"), 500);
     }
 
-    function renderAll() {
-      document.documentElement.style.setProperty("--cols", state.settings.cols || 5);
-      ensureValidSelector();
+    function triggerConfetti() {
+      const canvas = document.getElementById("confettiCanvas");
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      const colors = ["#eab308", "#3b82f6", "#10b981", "#ef4444", "#8b5cf6"];
+      const pieces = Array.from({ length: 90 }, () => ({
+        x: Math.random() * canvas.width,
+        y: Math.random() * -canvas.height,
+        r: 4 + Math.random() * 6,
+        vy: 2 + Math.random() * 4,
+        vx: (Math.random() - 0.5) * 3,
+        color: colors[Math.floor(Math.random() * colors.length)]
+      }));
 
-      document.getElementById("dynamicRulesText").textContent =
-        `المجيب يقوم مقام المختار عند الإجابة الصحيحة • الأخطاء المسموحة قبل الخروج: ${state.settings.maxErrors} • الفوز بتحقيق ${state.settings.killsToWin} إسقاطات • وقت السؤال: ${state.settings.timerSec} ثانية`;
-
-      const activeCount = getAvailablePlayers().length;
-      const elimCount = state.players.filter((p) => p.status === "eliminated").length;
-      const remainingQ = Math.max(0, state.questionArchive.length - state.usedQuestionIndices.length);
-
-      document.getElementById("statActive").textContent = activeCount;
-      document.getElementById("statWinners").textContent = `${state.winners.length} / ${state.settings.maxWinners}`;
-      document.getElementById("statEliminated").textContent = elimCount;
-      document.getElementById("statQuestions").textContent = remainingQ;
-
-      const modeSel = document.getElementById("selectionModeSelect");
-      if (modeSel && modeSel.value !== state.selectionMode) modeSel.value = state.selectionMode;
-
-      const selectorObj = state.players.find((p) => p.number === state.currentSelector);
-      const selectorEl = document.getElementById("currentSelectorDisplay");
-      const statsEl = document.getElementById("selectorStatsDisplay");
-      const instrEl = document.getElementById("selectionInstructionText");
-
-      if (state.winners.length >= state.settings.maxWinners) {
-        selectorEl.textContent = "🎉 اكتملت قائمة الفائزين!";
-        statsEl.textContent = "";
-        instrEl.textContent = "تهانينا للفائزين المتأهلين.";
-      } else if (selectorObj) {
-        selectorEl.textContent = `المتسابق الذي يختار الآن: ${getPlayerDisplayName(selectorObj)}`;
-        statsEl.textContent = `إسقاطاته: ${selectorObj.kills} / ${state.settings.killsToWin} | أخطاؤه: ${selectorObj.errors} / ${state.settings.maxErrors} | اعتذاراته: ${selectorObj.passes}`;
-        instrEl.textContent = state.selectionMode === "manual"
-          ? "اختر خصماً متاحاً من لوحة الأرقام بالضغط عليه."
-          : "اضغط على زر «اختيار عشوائي» لتحديد الخصم وطرح السؤال.";
-      } else {
-        selectorEl.textContent = "لا يوجد متسابق متاح حالياً";
-        statsEl.textContent = "";
-        instrEl.textContent = "";
+      let frames = 0;
+      function step() {
+        frames++;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        pieces.forEach((p) => {
+          p.x += p.vx;
+          p.y += p.vy;
+          ctx.fillStyle = p.color;
+          ctx.fillRect(p.x, p.y, p.r, p.r * 0.6);
+        });
+        if (frames < 140) requestAnimationFrame(step);
+        else ctx.clearRect(0, 0, canvas.width, canvas.height);
       }
+      step();
+    }
 
-      const qCard = document.getElementById("questionCard");
-      if (state.activeQuestion) {
-        qCard.classList.add("active");
-        const targetObj = state.players.find((p) => p.number === state.activeQuestion.target);
-        document.getElementById("targetPlayerLabel").textContent = targetObj ? getPlayerDisplayName(targetObj) : `رقم ${state.activeQuestion.target}`;
-        document.getElementById("questionText").textContent = state.activeQuestion.q;
-        document.getElementById("answerText").textContent = state.activeQuestion.a;
-
-        const badge = document.getElementById("questionLevelBadge");
-        const lvl = state.activeQuestion.level || "easy";
-        badge.className = `level-pill level-${lvl}`;
-        badge.textContent = lvl === "hard" ? "🔴 صعب" : lvl === "medium" ? "🟡 متوسط" : "🟢 سهل";
-
-        const ansBox = document.getElementById("answerBox");
-        if (state.activeQuestion.showAnswer) ansBox.classList.add("visible");
-        else ansBox.classList.remove("visible");
-
-        updateTimerDisplay(state.activeQuestion.remaining ?? state.settings.timerSec);
-      } else {
-        qCard.classList.remove("active");
-      }
-
-      const nextSlot = state.players.find((p) => !p.name || !p.name.trim());
-      const hintEl = document.getElementById("nextSlotHint");
-      if (hintEl) {
-        hintEl.textContent = nextSlot ? `الرقم التالي المتاح للتسجيل: ${nextSlot.number}` : "تم تعبئة جميع الأرقام المتاحة.";
-      }
-
+    function resetPlayerFilters() {
+      const st = document.getElementById("playerStatusFilter");
+      const q = document.getElementById("playerSearchInput");
+      if (st) st.value = "all";
+      if (q) q.value = "";
       renderPlayersGrid();
-      renderWinnersList();
-      renderLogsList();
-      renderOrderedScreensList();
-      updateFollowButtonUI();
-      updateUndoButton();
     }
 
     function renderPlayersGrid() {
       const grid = document.getElementById("playersGrid");
       if (!grid) return;
+      grid.style.setProperty("--cols", String(state.config.cols || 5));
 
-      const statusFilter = document.getElementById("playerStatusFilter")?.value || "all";
-      const searchText = (document.getElementById("playerSearchInput")?.value || "").trim().toLowerCase();
+      const statusFilter = (document.getElementById("playerStatusFilter") || {}).value || "all";
+      const searchText = ((document.getElementById("playerSearchInput") || {}).value || "").trim().toLowerCase();
 
       grid.innerHTML = "";
       state.players.forEach((p) => {
         if (statusFilter !== "all" && p.status !== statusFilter) return;
-        const labelName = getPlayerDisplayName(p);
-        if (searchText && !labelName.toLowerCase().includes(searchText) && !String(p.number).includes(searchText)) {
-          return;
-        }
+        const matchNum = String(p.num).includes(searchText);
+        const matchName = (p.name || "").toLowerCase().includes(searchText);
+        if (searchText && !matchNum && !matchName) return;
 
-        const tile = document.createElement("div");
         let stateClass = "state-available";
         if (p.status === "eliminated") stateClass = "state-eliminated";
         else if (p.status === "winner") stateClass = "state-winner";
-        else if (p.number === state.currentTarget) stateClass = "state-target";
-        else if (p.number === state.currentSelector) stateClass = "state-selector";
+        else if (state.targetPlayer === p.num) stateClass = "state-target";
+        else if (state.currentSelector === p.num) stateClass = "state-selector";
 
-        const isManualSelectable = isAdmin && state.selectionMode === "manual" && !state.activeQuestion && p.status === "available" && p.number !== state.currentSelector;
-        tile.className = `player-tile ${stateClass} ${isAdmin && state.selectionMode === "manual" && !isManualSelectable ? "manual-locked" : ""}`;
-
-        if (isManualSelectable) {
-          tile.onclick = () => onPlayerTileClick(p.number);
-        }
-
+        const tile = document.createElement("div");
+        tile.className = `player-tile ${stateClass} ${!isAdmin ? "manual-locked" : ""}`;
+        tile.onclick = () => onPlayerTileClick(p.num);
         tile.innerHTML = `
-          <div class="player-num">${p.number}</div>
-          <div class="player-name" title="${escapeHtml(labelName)}">${escapeHtml(labelName)}</div>
+          <div class="player-num">${p.num}</div>
+          <div class="player-name">${p.name || "متسابق " + p.num}</div>
           <div class="player-badges">
             <span class="mini-badge">⚔️ ${p.kills}</span>
-            ${p.errors > 0 ? `<span class="mini-badge err-badge">❌ ${p.errors}/${state.settings.maxErrors}</span>` : ""}
-            ${p.passes > 0 ? `<span class="mini-badge">✋ ${p.passes}</span>` : ""}
+            <span class="mini-badge err-badge">❌ ${p.errors}</span>
           </div>
         `;
         grid.appendChild(tile);
       });
     }
 
-    function renderWinnersList() {
-      const list = document.getElementById("winnersList");
-      if (!list) return;
-      if (state.winners.length === 0) {
-        list.innerHTML = `<li style="background:none;border:none;color:var(--text-muted);font-weight:400;">لم يتأهل أي فائز بعد.</li>`;
-        return;
+    function renderTimerOnly() {
+      const el = document.getElementById("timerDisplay");
+      if (!el) return;
+      el.textContent = String(state.timerRemaining);
+      el.classList.toggle("urgent", state.timerRemaining <= 5);
+    }
+
+    function renderStageAndQuestion() {
+      const selEl = document.getElementById("currentSelectorDisplay");
+      const statsEl = document.getElementById("selectorStatsDisplay");
+      const instEl = document.getElementById("selectionInstructionText");
+      const modeSel = document.getElementById("selectionModeSelect");
+
+      if (modeSel) modeSel.value = state.selectionMode || "random";
+
+      const selector = getPlayerByNum(state.currentSelector);
+      if (selEl) {
+        selEl.textContent = selector
+          ? `المختار الحالي: ${selector.name || "رقم " + selector.num} (#${selector.num})`
+          : "لا يوجد مختار حالياً";
       }
-      list.innerHTML = state.winners
-        .map((w, i) => `<li><span>#${i + 1} — ${escapeHtml(w.name)} (رقم ${w.number})</span><span>${w.kills} إسقاطات</span></li>`)
-        .join("");
+      if (statsEl) {
+        statsEl.textContent = selector
+          ? `الإسقاطات: ${selector.kills} / ${state.config.killsToWin} | الأخطاء: ${selector.errors} / ${state.config.maxErrors}`
+          : "";
+      }
+      if (instEl) {
+        instEl.textContent = state.selectionMode === "manual"
+          ? "وضع الاختيار اليدوي: اضغط على رقم الخصم المطلوب من اللوحة لبدء التحدي."
+          : "وضع الاختيار العشوائي: اضغط على (اختيار عشوائي) لتحديد الخصم وسحب سؤال.";
+      }
+
+      const card = document.getElementById("questionCard");
+      if (!card) return;
+      if (state.activeQuestion && state.targetPlayer) {
+        card.classList.add("active");
+        const target = getPlayerByNum(state.targetPlayer);
+        const tLabel = document.getElementById("targetPlayerLabel");
+        const qText = document.getElementById("questionText");
+        const aText = document.getElementById("answerText");
+        const aBox = document.getElementById("answerBox");
+        const lvlBadge = document.getElementById("questionLevelBadge");
+        const tBtn = document.getElementById("timerToggleBtn");
+
+        if (tLabel) tLabel.textContent = target ? (target.name || `رقم ${target.num}`) : "";
+        if (qText) qText.textContent = state.activeQuestion.q;
+        if (aText) aText.textContent = state.activeQuestion.a;
+        if (aBox) aBox.classList.toggle("visible", !!state.answerVisible);
+        if (tBtn) tBtn.textContent = state.timerRunning ? "⏸️" : "▶️";
+
+        const lvl = state.activeQuestion.level || "easy";
+        if (lvlBadge) {
+          lvlBadge.className = `level-pill level-${lvl}`;
+          lvlBadge.textContent = lvl === "hard" ? "🔴 صعب" : (lvl === "medium" ? "🟡 متوسط" : "🟢 سهل");
+        }
+        renderTimerOnly();
+      } else {
+        card.classList.remove("active");
+      }
     }
 
-    function renderLogsList() {
-      const list = document.getElementById("logList");
-      if (!list) return;
-      list.innerHTML = state.logs.map((entry) => `<li>${escapeHtml(entry)}</li>`).join("");
+    function renderStatsAndWinners() {
+      const activeCount = state.players.filter((p) => p.status === "available").length;
+      const elimCount = state.players.filter((p) => p.status === "eliminated").length;
+      const remQuestions = Math.max(0, state.questionsArchive.length - state.usedQuestionIndexes.length);
+
+      const sAct = document.getElementById("statActive");
+      const sWin = document.getElementById("statWinners");
+      const sElim = document.getElementById("statEliminated");
+      const sQ = document.getElementById("statQuestions");
+      const sFol = document.getElementById("statFollowers");
+      const iFol = document.getElementById("inlineFollowersCount");
+      const fBtn = document.getElementById("followBtn");
+      const rules = document.getElementById("dynamicRulesText");
+
+      if (sAct) sAct.textContent = activeCount;
+      if (sWin) sWin.textContent = `${state.winners.length} / ${state.config.maxWinners}`;
+      if (sElim) sElim.textContent = elimCount;
+      if (sQ) sQ.textContent = remQuestions;
+      if (sFol) sFol.textContent = state.followersCount || 0;
+      if (iFol) iFol.textContent = state.followersCount || 0;
+
+      const followed = localStorage.getItem(FOLLOW_FLAG_KEY) === "1";
+      if (fBtn) fBtn.textContent = followed ? "✓ متابَع" : "⭐ متابعة المسابقة";
+
+      if (rules) {
+        rules.textContent = `الفوز بإسقاط ${state.config.killsToWin} خصوم • عدد الفائزين: ${state.config.maxWinners} • الحد الأقصى للأخطاء: ${state.config.maxErrors} • زمن السؤال: ${state.config.timerSec} ثانية`;
+      }
+
+      const wList = document.getElementById("winnersList");
+      if (wList) {
+        wList.innerHTML = "";
+        if (state.winners.length === 0) {
+          wList.innerHTML = `<li style="background:none; border:none; color:var(--text-muted); font-weight:400;">لم يُحسم أي فائز بعد.</li>`;
+        } else {
+          state.winners.forEach((w, idx) => {
+            const li = document.createElement("li");
+            li.innerHTML = `<span>#${idx + 1} - ${w.name}</span><span>⚔️ ${w.kills}</span>`;
+            wList.appendChild(li);
+          });
+        }
+      }
     }
 
-    initSyncChannel();
-    applyRoleMode();
+    function renderLogs() {
+      const logEl = document.getElementById("logList");
+      if (!logEl) return;
+      logEl.innerHTML = "";
+      state.logs.forEach((entry) => {
+        const li = document.createElement("li");
+        li.textContent = entry;
+        logEl.appendChild(li);
+      });
+    }
+
+    function renderRoleHeader() {
+      const badge = document.getElementById("roleBadge");
+      const btn = document.getElementById("toggleRoleBtn");
+      const devTag = document.getElementById("deviceRoleTag");
+      const syncPill = document.getElementById("syncStatusPill");
+      const screensInp = document.getElementById("orderedScreensInput");
+
+      if (badge) {
+        badge.textContent = isDedicatedScreen
+          ? `شاشة عرض رقم ${screenSlotParam}`
+          : (isAdmin ? "وضع المدير" : "وضع الجمهور أولاً");
+        badge.className = isAdmin ? "role-badge" : "role-badge viewer";
+      }
+      if (btn) {
+        btn.textContent = isAdmin ? "🔒 خروج المدير" : "🔑 دخول المدير";
+      }
+      if (devTag) {
+        devTag.textContent = isAdmin ? "جهاز إدارة" : "جهاز مشاهدة";
+      }
+      if (syncPill) {
+        syncPill.textContent = state.config.sheetsSync && state.config.sheetsSync.autoSync
+          ? "🔄 مزامنة تلقائية نشطة (Google Sheets)"
+          : "🔄 مزامنة محلية وتبويبات نشطة";
+      }
+      if (screensInp && document.activeElement !== screensInp) {
+        screensInp.value = state.config.orderedScreens || 2;
+      }
+    }
+
+    function renderAll() {
+      renderRoleHeader();
+      renderStatsAndWinners();
+      renderStageAndQuestion();
+      renderPlayersGrid();
+      renderSheetsSyncUI();
+      renderLogs();
+      updatePresence();
+      updateUndoBtn();
+    }
+
+    window.addEventListener("storage", (e) => {
+      if (e.key === STORAGE_KEY && e.newValue) {
+        try {
+          state = normalizeState(JSON.parse(e.newValue));
+          renderAll();
+        } catch (_) {}
+      } else if (e.key === PRESENCE_KEY) {
+        updatePresence();
+      }
+    });
+
+    loadInitialState();
+    configureGoogleSheetsAutoSyncTimer();
     renderAll();
-    updatePresence();
     setInterval(updatePresence, 4000);
+    if (state.config.sheetsSync && state.config.sheetsSync.autoSync && state.config.sheetsSync.url) {
+      syncNamesFromGoogleSheets(true);
+    }
   </script>
 </body>
 </html>
