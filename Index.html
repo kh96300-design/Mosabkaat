@@ -41,7 +41,6 @@
       overflow-x: hidden;
     }
 
-    /* Screen Shake Effect on Elimination */
     @keyframes screenShake {
       0%, 100% { transform: translate(0, 0); }
       20% { transform: translate(-8px, 4px); }
@@ -655,7 +654,7 @@
 
           <div style="border-top: 1px solid var(--border-color); padding-top: 10px;">
             <label style="font-size: 0.85rem; display: block; margin-bottom: 6px;">استيراد الأسماء (ملف txt أو csv):</label>
-            <input type="file" id="importNamesFile" accept=".txt,.csv" style="font-size: 0.82rem; margin-bottom: 6px;" />
+            <input type="file" id="importNamesFile" accept=".txt,.csv" onchange="importNamesFromFile(event)" style="font-size: 0.82rem; margin-bottom: 6px;" />
             <label style="font-size: 0.82rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px;">
               <input type="checkbox" id="replaceNamesCheck" checked /> استبدال الأسماء الحالية
             </label>
@@ -841,8 +840,11 @@
     let timerRunning = false;
 
     // --- Audio & Visual Effects ---
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    const audioCtx = AudioContextClass ? new AudioContextClass() : null;
+
     function playTone(freq, type = "sine", duration = 0.2) {
+      if (!audioCtx) return;
       try {
         if (audioCtx.state === "suspended") audioCtx.resume();
         const osc = audioCtx.createOscillator();
@@ -918,7 +920,7 @@
         try {
           const parsed = JSON.parse(saved);
           state = { ...state, ...parsed, settings: { ...state.settings, ...(parsed.settings || {}) } };
-          state.isAdmin = false; // Always require password on page load
+          state.isAdmin = false;
         } catch (e) {
           state.archive = [...DEFAULT_QUESTIONS];
           setupFreshGame();
@@ -962,53 +964,48 @@
           id: i,
           name: existing && existing.customName ? existing.name : `اللاعب ${i}`,
           customName: existing ? existing.customName : false,
-          status: "available",
+          status: "available", // available | eliminated | winner
           kills: 0,
-          errorsUsed: 0,
-          passesUsed: 0
+          errors: 0,
+          passes: 0
         });
       }
       state.selectorId = 1;
       state.targetId = null;
       state.winners = [];
-      state.usedQuestionIndices = [];
       state.currentQuestion = null;
-      state.logs = [`بدأت مسابقة جديدة — اللاعب 1 يبدأ الاختيار.`];
-      historyStack = [];
-      document.getElementById("undoBtn").disabled = true;
+      state.logs = [];
+      addLog("بدأت مسابقة جديدة!");
       saveState();
     }
 
-    function resetContest() {
-      if (!confirm("هل أنت متأكد من بدء مسابقة جديدة وتصفير النتائج؟")) return;
-      setupFreshGame();
-      renderAll();
+    function addLog(msg) {
+      const time = new Date().toLocaleTimeString("ar-OM", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      state.logs.unshift(`[${time}] ${msg}`);
+      if (state.logs.length > 80) state.logs.pop();
     }
 
-    // --- Password & Role Management ---
+    // --- Admin Auth ---
     function handleRoleButton() {
       if (state.isAdmin) {
         state.isAdmin = false;
-        saveState();
         renderAll();
       } else {
         document.getElementById("loginPassInput").value = "";
         document.getElementById("loginModal").classList.add("open");
-        setTimeout(() => document.getElementById("loginPassInput").focus(), 100);
       }
     }
 
     function verifyAdminLogin() {
-      const val = document.getElementById("loginPassInput").value;
-      if (val === state.adminPassword) {
+      const input = document.getElementById("loginPassInput").value;
+      if (input === state.adminPassword) {
         state.isAdmin = true;
         closeLoginModal();
-        saveState();
         renderAll();
-        playTone(620, "sine", 0.15);
+        playTone(660, "sine", 0.15);
       } else {
         alert("الرقم السري غير صحيح!");
-        document.getElementById("loginPassInput").value = "";
+        playTone(200, "sawtooth", 0.25);
       }
     }
 
@@ -1016,137 +1013,78 @@
       document.getElementById("loginModal").classList.remove("open");
     }
 
-    function changePassword() {
-      const val = document.getElementById("newAdminPass").value.trim();
-      if (!val) return alert("يرجى إدخال رقم سري صالح.");
-      state.adminPassword = val;
-      document.getElementById("newAdminPass").value = "";
-      saveState();
-      alert("تم تحديث الرقم السري للمدير بنجاح.");
+    // --- Game Flow ---
+    function getNextActiveSelector(afterId) {
+      const active = state.players.filter(p => p.status === "available");
+      if (active.length === 0) return null;
+      const next = active.find(p => p.id > afterId);
+      return next ? next.id : active[0].id;
     }
 
-    // --- Player Registration & Import ---
-    function registerPlayer() {
-      const input = document.getElementById("playerNameInput");
-      const name = input.value.trim();
-      if (!name) return;
-
-      const slot = state.players.find(p => !p.customName);
-      if (!slot) return alert("تم تسجيل أسماء جميع المقاعد المتاحة!");
-      pushHistory();
-      slot.name = name;
-      slot.customName = true;
-      input.value = "";
-      addLog(`تم تسجيل المتسابق (${name}) في الرقم ${slot.id}.`);
-      saveState();
-      renderAll();
-    }
-
-    function removeLastPlayer() {
-      const last = [...state.players].reverse().find(p => p.customName);
-      if (!last) return;
-      pushHistory();
-      last.name = `اللاعب ${last.id}`;
-      last.customName = false;
-      addLog(`تم حذف تسجيل الرقم ${last.id}.`);
-      saveState();
-      renderAll();
-    }
-
-    document.getElementById("importNamesFile").addEventListener("change", function (e) {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = function (evt) {
-        const lines = evt.target.result
-          .split(/\r?\n/)
-          .map(l => l.split(",")[0].trim())
-          .filter(Boolean);
-
-        if (lines.length === 0) return alert("الملف فارغ!");
-        pushHistory();
-        const replace = document.getElementById("replaceNamesCheck").checked;
-        let idx = 0;
-        for (let p of state.players) {
-          if (replace || !p.customName) {
-            if (idx < lines.length) {
-              p.name = lines[idx++];
-              p.customName = true;
-            }
-          }
-        }
-        addLog(`تم استيراد ${idx} اسم من الملف بنجاح.`);
-        saveState();
-        renderAll();
-        e.target.value = "";
-      };
-      reader.readAsText(file, "UTF-8");
-    });
-
-    // --- Core Game Logic ---
     function selectTarget(id) {
       if (!state.isAdmin) return;
-      if (state.targetId !== null) return alert("يرجى حسم السؤال الحالي أولاً!");
-      const target = state.players.find(p => p.id === id);
-      if (!target || target.status !== "available" || target.id === state.selectorId) return;
-
-      pushHistory();
-      state.targetId = id;
-      const selector = state.players.find(p => p.id === state.selectorId);
-      addLog(`${selector.name} (#${selector.id}) اختار ${target.name} (#${target.id}).`);
-
-      drawQuestion();
-      startTimer();
-      playTone(520, "triangle", 0.15);
-      saveState();
-      renderAll();
-    }
-
-    function pickRandomTarget() {
-      if (state.targetId !== null) return;
-      const candidates = state.players.filter(p => p.status === "available" && p.id !== state.selectorId);
-      if (candidates.length === 0) return alert("لا يوجد خصوم متاحون حالياً!");
-      const chosen = candidates[Math.floor(Math.random() * candidates.length)];
-      selectTarget(chosen.id);
-    }
-
-    function drawQuestion() {
-      const selectedLevel = document.getElementById("levelSelector").value;
-      let availableIndices = state.archive
-        .map((item, i) => ({ item, i }))
-        .filter(({ item, i }) => {
-          const unused = !state.usedQuestionIndices.includes(i);
-          const matchLevel = selectedLevel === "all" || (item.level || "medium") === selectedLevel;
-          return unused && matchLevel;
-        })
-        .map(obj => obj.i);
-
-      if (availableIndices.length === 0) {
-        availableIndices = state.archive
-          .map((_, i) => i)
-          .filter(i => !state.usedQuestionIndices.includes(i));
+      if (state.winners.length >= state.settings.maxWinners) {
+        alert("اكتمل عدد الفائزين في المسابقة!");
+        return;
       }
-
-      if (availableIndices.length === 0) {
-        state.currentQuestion = {
-          q: "انتهت أسئلة الأرشيف! (يمكن للمدير طرح سؤال شفهي وتقييم الإجابة)",
-          a: "تقييم مباشر من مدير المسابقة",
-          level: "medium"
-        };
+      if (state.targetId !== null) {
+        alert("يرجى حسم السؤال الحالي أولاً قبل اختيار لاعب آخر.");
         return;
       }
 
-      const randIdx = availableIndices[Math.floor(Math.random() * availableIndices.length)];
-      state.usedQuestionIndices.push(randIdx);
-      state.currentQuestion = state.archive[randIdx];
+      const target = state.players.find(p => p.id === id);
+      if (!target || target.status !== "available") return;
+      if (id === state.selectorId) {
+        alert("لا يمكن للاعب أن يختار نفسه!");
+        return;
+      }
+
+      const levelFilter = document.getElementById("levelSelector").value;
+      let pool = state.archive
+        .map((q, idx) => ({ ...q, idx }))
+        .filter(q => !state.usedQuestionIndices.includes(q.idx));
+
+      if (levelFilter !== "all") {
+        const filtered = pool.filter(q => q.level === levelFilter);
+        if (filtered.length > 0) pool = filtered;
+      }
+
+      if (pool.length === 0) {
+        if (state.archive.length === 0) {
+          alert("أرشيف الأسئلة فارغ! أضف أسئلة من الإعدادات.");
+          return;
+        }
+        state.usedQuestionIndices = [];
+        pool = state.archive.map((q, idx) => ({ ...q, idx }));
+      }
+
+      pushHistory();
+      const chosen = pool[Math.floor(Math.random() * pool.length)];
+      state.usedQuestionIndices.push(chosen.idx);
+      state.targetId = id;
+      state.currentQuestion = chosen;
+
+      const selector = state.players.find(p => p.id === state.selectorId);
+      addLog(`(${selector.id}) ${selector.name} اختار (${target.id}) ${target.name}`);
+      playTone(520, "sine", 0.15);
+      saveState();
+      renderAll();
+      startTimer();
     }
 
-    function revealAnswer() {
-      document.getElementById("answerBox").classList.toggle("visible");
+    function pickRandomTarget() {
+      if (!state.isAdmin || state.targetId !== null) return;
+      const candidates = state.players.filter(p => p.status === "available" && p.id !== state.selectorId);
+      if (candidates.length === 0) {
+        alert("لا يوجد خصوم متاحون حالياً!");
+        return;
+      }
+      const randomPlayer = candidates[Math.floor(Math.random() * candidates.length)];
+      selectTarget(randomPlayer.id);
     }
 
     function handleAnswer(isCorrect) {
-      if (state.targetId === null) return;
+      if (!state.isAdmin || state.targetId === null) return;
       pushHistory();
       stopTimer();
 
@@ -1154,85 +1092,67 @@
       const target = state.players.find(p => p.id === state.targetId);
 
       if (isCorrect) {
-        playTone(660, "sine", 0.25);
-        addLog(`✅ ${target.name} (#${target.id}) أجاب صحيحاً وثبت، وأصبح هو من يختار.`);
+        playTone(780, "triangle", 0.25);
+        addLog(`✅ (${target.id}) ${target.name} أجاب إجابة صحيحة وانتقل الدور إليه.`);
         state.selectorId = target.id;
       } else {
-        target.errorsUsed = (target.errorsUsed || 0) + 1;
-        const maxErrors = state.settings.maxErrors || 1;
-
-        if (target.errorsUsed >= maxErrors) {
-          triggerEliminationEffect();
+        target.errors += 1;
+        if (target.errors >= state.settings.maxErrors) {
           target.status = "eliminated";
           selector.kills += 1;
-          addLog(`❌ ${target.name} (#${target.id}) بلغ الحد الأقصى للأخطاء (${target.errorsUsed}/${maxErrors}) وتم استبعاده! (${selector.name} أسقط ${selector.kills}/${state.settings.killsToWin}).`);
+          triggerEliminationEffect();
+          addLog(`❌ (${target.id}) ${target.name} أخطأ وتم استبعاده! (رصيد ${selector.name}: ${selector.kills})`);
 
           if (selector.kills >= state.settings.killsToWin) {
-            promoteToWinner(selector);
+            selector.status = "winner";
+            state.winners.push({ id: selector.id, name: selector.name, kills: selector.kills });
+            playWinFanfare();
+            addLog(`🏆 مبروك! (${selector.id}) ${selector.name} حقق ${selector.kills} إسقاطات وفاز بالمركز ${state.winners.length}!`);
+            state.selectorId = getNextActiveSelector(selector.id);
           }
         } else {
           playTone(260, "sawtooth", 0.25);
-          addLog(`⚠️ ${target.name} (#${target.id}) أخطأ في الإجابة (الخطأ ${target.errorsUsed} من ${maxErrors} المسموحة) ويستمر في اللعب.`);
+          addLog(`⚠️ (${target.id}) ${target.name} أخطأ (خطأ ${target.errors} من ${state.settings.maxErrors}).`);
         }
+      }
+
+      // Check if only 1 player remains
+      const remaining = state.players.filter(p => p.status === "available");
+      if (remaining.length === 1 && state.winners.length < state.settings.maxWinners) {
+        const last = remaining[0];
+        last.status = "winner";
+        state.winners.push({ id: last.id, name: last.name, kills: last.kills });
+        playWinFanfare();
+        addLog(`🏆 (${last.id}) ${last.name} فاز لبقائه كآخر متسابق!`);
+        state.selectorId = null;
       }
 
       state.targetId = null;
       state.currentQuestion = null;
-      ensureValidSelector();
       saveState();
       renderAll();
     }
 
     function handlePass() {
-      if (state.targetId === null) return;
-      pushHistory();
-      stopTimer();
-
-      const selector = state.players.find(p => p.id === state.selectorId);
+      if (!state.isAdmin || state.targetId === null) return;
       const target = state.players.find(p => p.id === state.targetId);
-
-      target.passesUsed += 1;
-      const maxPasses = state.settings.maxPasses;
-
-      if (target.passesUsed > maxPasses) {
-        triggerEliminationEffect();
-        target.status = "eliminated";
-        selector.kills += 1;
-        addLog(`🚫 ${target.name} (#${target.id}) استنفد جميع المحاولات/الاعتذارات (${maxPasses}) وخرج من اللعبة!`);
-
-        if (selector.kills >= state.settings.killsToWin) {
-          promoteToWinner(selector);
-        }
-      } else {
-        playTone(380, "triangle", 0.2);
-        addLog(`✋ ${target.name} (#${target.id}) استخدم محاولة اعتذار (${target.passesUsed} من ${maxPasses}).`);
+      if (target.passes >= state.settings.maxPasses) {
+        alert(`استنفد اللاعب ${target.name} جميع محاولات الاعتذار المسموحة (${state.settings.maxPasses})!`);
+        return;
       }
 
+      pushHistory();
+      stopTimer();
+      target.passes += 1;
+      addLog(`✋ (${target.id}) ${target.name} اعتذر عن السؤال (${target.passes}/${state.settings.maxPasses}).`);
       state.targetId = null;
       state.currentQuestion = null;
-      ensureValidSelector();
       saveState();
       renderAll();
     }
 
-    function promoteToWinner(player) {
-      player.status = "winner";
-      state.winners.push({ id: player.id, name: player.name, kills: player.kills });
-      playWinFanfare();
-      addLog(`🏆 تهانينا! ${player.name} (#${player.id}) حقق ${player.kills} إسقاطات وصعد إلى منصة الفائزين!`);
-    }
-
-    function ensureValidSelector() {
-      const current = state.players.find(p => p.id === state.selectorId);
-      if (!current || current.status !== "available") {
-        const nextAvailable = state.players.find(p => p.status === "available");
-        if (nextAvailable) {
-          state.selectorId = nextAvailable.id;
-          addLog(`🔄 انتقل دور الاختيار تلقائياً إلى ${nextAvailable.name} (#${nextAvailable.id}).`);
-        } else {
-          state.selectorId = null;
-        }
-      }
+    function revealAnswer() {
+      document.getElementById("answerBox").classList.toggle("visible");
     }
 
     // --- Timer ---
@@ -1245,22 +1165,23 @@
         if (!timerRunning) return;
         timeLeft--;
         updateTimerUI();
-        if (timeLeft <= 5 && timeLeft > 0) playTone(750, "sine", 0.08);
+        if (timeLeft <= 5 && timeLeft > 0) playTone(440, "sine", 0.08);
         if (timeLeft <= 0) {
           stopTimer();
-          playTone(180, "sawtooth", 0.5);
+          playTone(160, "sawtooth", 0.5);
         }
       }, 1000);
+    }
+
+    function stopTimer() {
+      clearInterval(timerInterval);
+      timerInterval = null;
+      timerRunning = false;
     }
 
     function toggleTimer() {
       timerRunning = !timerRunning;
       document.getElementById("timerToggleBtn").textContent = timerRunning ? "⏸️" : "▶️";
-    }
-
-    function stopTimer() {
-      clearInterval(timerInterval);
-      timerRunning = false;
     }
 
     function updateTimerUI() {
@@ -1269,13 +1190,195 @@
       el.classList.toggle("urgent", timeLeft <= 5);
     }
 
+    // --- Player Registration ---
+    function registerPlayer() {
+      if (!state.isAdmin) return;
+      const input = document.getElementById("playerNameInput");
+      const name = input.value.trim();
+      if (!name) return;
+
+      const slot = state.players.find(p => !p.customName);
+      if (!slot) {
+        alert("تم تسجيل أسماء جميع اللاعبين!");
+        return;
+      }
+
+      pushHistory();
+      slot.name = name;
+      slot.customName = true;
+      input.value = "";
+      addLog(`تم تسجيل المتسابق (${slot.id}): ${name}`);
+      saveState();
+      renderAll();
+    }
+
+    function removeLastPlayer() {
+      if (!state.isAdmin) return;
+      const reversed = [...state.players].reverse();
+      const lastCustom = reversed.find(p => p.customName);
+      if (!lastCustom) return;
+
+      pushHistory();
+      lastCustom.name = `اللاعب ${lastCustom.id}`;
+      lastCustom.customName = false;
+      saveState();
+      renderAll();
+    }
+
+    function importNamesFromFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const lines = e.target.result
+          .split(/\r?\n/)
+          .map(l => l.split(",")[0].trim())
+          .filter(Boolean);
+
+        if (lines.length === 0) return;
+        pushHistory();
+        const replace = document.getElementById("replaceNamesCheck").checked;
+        if (replace) {
+          state.players.forEach(p => {
+            p.name = `اللاعب ${p.id}`;
+            p.customName = false;
+          });
+        }
+
+        let idx = 0;
+        for (const p of state.players) {
+          if (!p.customName && idx < lines.length) {
+            p.name = lines[idx++];
+            p.customName = true;
+          }
+        }
+        addLog(`تم استيراد ${idx} اسماً من الملف.`);
+        event.target.value = "";
+        saveState();
+        renderAll();
+      };
+      reader.readAsText(file, "UTF-8");
+    }
+
+    // --- Render ---
+    function renderAll() {
+      document.body.classList.toggle("viewer-mode", !state.isAdmin);
+      document.documentElement.style.setProperty("--cols", state.settings.cols);
+
+      const badge = document.getElementById("roleBadge");
+      const roleBtn = document.getElementById("toggleRoleBtn");
+      if (state.isAdmin) {
+        badge.textContent = "وضع المدير (تحكم كامل)";
+        badge.classList.remove("viewer");
+        roleBtn.textContent = "🔒 خروج لوضع الجمهور";
+      } else {
+        badge.textContent = "وضع العرض للجمهور (قراءة فقط)";
+        badge.classList.add("viewer");
+        roleBtn.textContent = "🔑 دخول المدير بالرقم السري";
+      }
+
+      document.getElementById("dynamicRulesText").textContent =
+        `الهدف: إسقاط ${state.settings.killsToWin} خصوم للفوز • عدد الفائزين: ${state.settings.maxWinners} • الأخطاء المسموحة: ${state.settings.maxErrors} • الاعتذارات: ${state.settings.maxPasses}`;
+
+      // Stats
+      const activeCount = state.players.filter(p => p.status === "available").length;
+      const elimCount = state.players.filter(p => p.status === "eliminated").length;
+      const remQuestions = Math.max(0, state.archive.length - state.usedQuestionIndices.length);
+
+      document.getElementById("statActive").textContent = activeCount;
+      document.getElementById("statWinners").textContent = `${state.winners.length} / ${state.settings.maxWinners}`;
+      document.getElementById("statEliminated").textContent = elimCount;
+      document.getElementById("statQuestions").textContent = remQuestions;
+
+      // Selector stage
+      const selector = state.players.find(p => p.id === state.selectorId);
+      if (selector && selector.status === "available") {
+        document.getElementById("currentSelectorDisplay").textContent = `#${selector.id} — ${selector.name}`;
+        document.getElementById("selectorStatsDisplay").textContent =
+          `الإسقاطات: ${selector.kills} / ${state.settings.killsToWin} | الاعتذارات المتبقية: ${state.settings.maxPasses - selector.passes}`;
+      } else {
+        document.getElementById("currentSelectorDisplay").textContent = "انتهت المواجهات";
+        document.getElementById("selectorStatsDisplay").textContent = "";
+      }
+
+      // Question Card
+      const qCard = document.getElementById("questionCard");
+      if (state.targetId !== null && state.currentQuestion) {
+        const target = state.players.find(p => p.id === state.targetId);
+        qCard.classList.add("active");
+        document.getElementById("targetPlayerLabel").textContent = `#${target.id} ${target.name}`;
+        document.getElementById("questionText").textContent = state.currentQuestion.q;
+        document.getElementById("answerText").textContent = state.currentQuestion.a;
+        document.getElementById("answerBox").classList.remove("visible");
+
+        const lvlBadge = document.getElementById("questionLevelBadge");
+        const lvl = state.currentQuestion.level || "easy";
+        lvlBadge.className = `level-pill level-${lvl}`;
+        lvlBadge.textContent = lvl === "easy" ? "سهل" : lvl === "medium" ? "متوسط" : "صعب";
+      } else {
+        qCard.classList.remove("active");
+      }
+
+      // Players Grid
+      const grid = document.getElementById("playersGrid");
+      grid.innerHTML = "";
+      state.players.forEach(p => {
+        const tile = document.createElement("div");
+        let stateClass = "state-available";
+        if (p.status === "eliminated") stateClass = "state-eliminated disabled";
+        else if (p.status === "winner") stateClass = "state-winner disabled";
+        else if (p.id === state.targetId) stateClass = "state-target";
+        else if (p.id === state.selectorId) stateClass = "state-selector";
+
+        tile.className = `player-tile ${stateClass}`;
+        if (p.status === "available" && state.isAdmin) {
+          tile.onclick = () => selectTarget(p.id);
+        }
+
+        tile.innerHTML = `
+          <div class="player-num">${p.id}</div>
+          <div class="player-name" title="${p.name}">${p.name}</div>
+          <div class="player-badges">
+            ${p.kills > 0 ? `<span class="mini-badge">⚔️ ${p.kills}</span>` : ""}
+            ${p.errors > 0 ? `<span class="mini-badge err-badge">❌ ${p.errors}</span>` : ""}
+            ${p.passes > 0 ? `<span class="mini-badge">✋ ${p.passes}</span>` : ""}
+          </div>
+        `;
+        grid.appendChild(tile);
+      });
+
+      // Next registration slot hint
+      const nextSlot = state.players.find(p => !p.customName);
+      document.getElementById("nextSlotHint").textContent = nextSlot
+        ? `التسجيل القادم للرقم: #${nextSlot.id}`
+        : "اكتمل تسجيل جميع المقاعد.";
+
+      // Winners list
+      const wList = document.getElementById("winnersList");
+      wList.innerHTML = state.winners.length === 0
+        ? `<li style="background:transparent; border-color:var(--border-color); color:var(--text-muted); font-weight:normal;">لا يوجد فائزون بعد</li>`
+        : state.winners.map((w, i) => `<li><span>🥇 المركز ${i + 1}: #${w.id} ${w.name}</span><span>${w.kills} إسقاطات</span></li>`).join("");
+
+      // Logs
+      document.getElementById("logList").innerHTML = state.logs.map(l => `<li>${l}</li>`).join("");
+    }
+
+    function resetContest() {
+      if (!state.isAdmin) return;
+      if (!confirm("هل أنت متأكد من بدء مسابقة جديدة وتصفير النتائج الحالية؟")) return;
+      pushHistory();
+      setupFreshGame();
+      renderAll();
+    }
+
     // --- Settings & Archive ---
     function openSettings() {
+      if (!state.isAdmin) return;
       document.getElementById("cfgKillsToWin").value = state.settings.killsToWin;
       document.getElementById("cfgMaxWinners").value = state.settings.maxWinners;
       document.getElementById("cfgTotalPlayers").value = state.settings.totalPlayers;
       document.getElementById("cfgCols").value = state.settings.cols;
-      document.getElementById("cfgMaxErrors").value = state.settings.maxErrors || 1;
+      document.getElementById("cfgMaxErrors").value = state.settings.maxErrors;
       document.getElementById("cfgMaxPasses").value = state.settings.maxPasses;
       document.getElementById("cfgTimerSec").value = state.settings.timerSec;
       renderArchiveList();
@@ -1287,61 +1390,84 @@
     }
 
     function saveSettings() {
-      const newTotal = parseInt(document.getElementById("cfgTotalPlayers").value) || 15;
+      pushHistory();
       const oldTotal = state.settings.totalPlayers;
-
-      state.settings.killsToWin = parseInt(document.getElementById("cfgKillsToWin").value) || 3;
-      state.settings.maxWinners = parseInt(document.getElementById("cfgMaxWinners").value) || 3;
-      state.settings.totalPlayers = newTotal;
-      state.settings.cols = parseInt(document.getElementById("cfgCols").value) || 5;
+      state.settings.killsToWin = Math.max(1, parseInt(document.getElementById("cfgKillsToWin").value) || 3);
+      state.settings.maxWinners = Math.max(1, parseInt(document.getElementById("cfgMaxWinners").value) || 3);
+      state.settings.totalPlayers = Math.max(2, parseInt(document.getElementById("cfgTotalPlayers").value) || 15);
+      state.settings.cols = Math.max(2, parseInt(document.getElementById("cfgCols").value) || 5);
       state.settings.maxErrors = Math.max(1, parseInt(document.getElementById("cfgMaxErrors").value) || 1);
-      state.settings.maxPasses = Math.max(0, parseInt(document.getElementById("cfgMaxPasses").value) || 0);
-      state.settings.timerSec = parseInt(document.getElementById("cfgTimerSec").value) || 30;
+      state.settings.maxPasses = Math.max(0, parseInt(document.getElementById("cfgMaxPasses").value) || 3);
+      state.settings.timerSec = Math.max(5, parseInt(document.getElementById("cfgTimerSec").value) || 30);
 
-      if (newTotal !== oldTotal) setupFreshGame();
+      if (oldTotal !== state.settings.totalPlayers) {
+        setupFreshGame();
+      }
       saveState();
       renderAll();
       closeSettings();
     }
 
-    function normalizeLevel(rawLevel) {
-      if (!rawLevel) return "medium";
-      const s = rawLevel.trim().toLowerCase();
-      if (s.includes("سهل") || s === "easy") return "easy";
-      if (s.includes("صعب") || s === "hard") return "hard";
-      return "medium";
+    function changePassword() {
+      const val = document.getElementById("newAdminPass").value.trim();
+      if (val.length < 3) {
+        alert("يرجى إدخال رقم سري لا يقل عن 3 خانات.");
+        return;
+      }
+      state.adminPassword = val;
+      document.getElementById("newAdminPass").value = "";
+      saveState();
+      alert("تم تحديث الرقم السري بنجاح!");
+    }
+
+    function renderArchiveList() {
+      const filter = document.getElementById("archiveFilterSelect").value;
+      document.getElementById("archiveTotalCount").textContent = state.archive.length;
+      const container = document.getElementById("archiveListContainer");
+
+      const items = state.archive
+        .map((item, index) => ({ ...item, index }))
+        .filter(item => filter === "all" || item.level === filter);
+
+      container.innerHTML = items.map(item => `
+        <div class="archive-item">
+          <div>
+            <strong>${item.q}</strong>
+            <div style="color: var(--success); font-size: 0.8rem;">الإجابة: ${item.a} (${item.level})</div>
+          </div>
+          <button class="btn-danger" style="padding: 4px 8px; font-size: 0.75rem;" onclick="deleteQuestion(${item.index})">حذف</button>
+        </div>
+      `).join("");
     }
 
     function addBulkQuestions() {
       const raw = document.getElementById("bulkQuestionsInput").value.trim();
       if (!raw) return;
-      const lines = raw.split(/\r?\n/);
+      const lines = raw.split(/\r?\n/).filter(Boolean);
       let added = 0;
 
-      for (let line of lines) {
-        line = line.trim();
-        if (!line) continue;
-        let parts = line.includes("|") ? line.split("|") : line.split("—");
-        if (parts.length >= 2) {
-          const q = parts[0].trim();
-          const a = parts[1].trim();
-          const level = normalizeLevel(parts[2]);
-          if (q && !state.archive.some(item => item.q === q)) {
-            state.archive.push({ q, a, level });
-            added++;
+      lines.forEach(line => {
+        const parts = line.split("|").map(s => s.trim());
+        if (parts.length >= 2 && parts[0] && parts[1]) {
+          let level = "easy";
+          if (parts[2]) {
+            if (parts[2].includes("متوسط") || parts[2] === "medium") level = "medium";
+            else if (parts[2].includes("صعب") || parts[2] === "hard") level = "hard";
           }
+          state.archive.push({ q: parts[0], a: parts[1], level });
+          added++;
         }
-      }
+      });
+
       document.getElementById("bulkQuestionsInput").value = "";
       saveState();
       renderArchiveList();
       renderAll();
-      alert(`تمت إضافة ${added} سؤال جديد للأرشيف.`);
+      alert(`تمت إضافة ${added} سؤالاً بنجاح.`);
     }
 
-    function deleteArchiveQuestion(index) {
-      state.archive.splice(index, 1);
-      state.usedQuestionIndices = [];
+    function deleteQuestion(idx) {
+      state.archive.splice(idx, 1);
       saveState();
       renderArchiveList();
       renderAll();
@@ -1364,61 +1490,44 @@
       renderAll();
     }
 
-    function renderArchiveList() {
-      const filter = document.getElementById("archiveFilterSelect").value;
-      document.getElementById("archiveTotalCount").textContent = state.archive.length;
-      const container = document.getElementById("archiveListContainer");
-      const levelLabels = { easy: "🟢 سهل", medium: "🟡 متوسط", hard: "🔴 صعب" };
-
-      container.innerHTML = state.archive
-        .map((item, i) => ({ item, i }))
-        .filter(({ item }) => filter === "all" || (item.level || "medium") === filter)
-        .map(
-          ({ item, i }) => `
-          <div class="archive-item">
-            <div>
-              <span style="font-size:0.75rem; margin-left:6px;">${levelLabels[item.level || "medium"]}</span>
-              <strong>${item.q}</strong> <span style="color:#6ee7b7;">| ${item.a}</span>
-            </div>
-            <button class="btn-danger" style="padding:3px 8px; font-size:0.75rem;" onclick="deleteArchiveQuestion(${i})">حذف</button>
-          </div>
-        `
-        )
-        .join("");
+    // --- Backup & Reports ---
+    function exportBackupJSON() {
+      const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `contest_backup_${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
     }
 
-    // --- Reports & Export ---
-    function openReportsModal() {
-      const statusMap = { available: "في اللعب", eliminated: "مستبعد", winner: "فائز" };
-      const rows = state.players
-        .map(
-          p =>
-            `<tr>
-              <td style="padding:6px; border-bottom:1px solid #283548;">${p.id}</td>
-              <td style="padding:6px; border-bottom:1px solid #283548;">${p.name}</td>
-              <td style="padding:6px; border-bottom:1px solid #283548;">${statusMap[p.status]}</td>
-              <td style="padding:6px; border-bottom:1px solid #283548;">${p.kills}</td>
-              <td style="padding:6px; border-bottom:1px solid #283548;">${p.errorsUsed || 0}/${state.settings.maxErrors}</td>
-              <td style="padding:6px; border-bottom:1px solid #283548;">${p.passesUsed}/${state.settings.maxPasses}</td>
-            </tr>`
-        )
-        .join("");
+    function importBackupJSON(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          state = { ...state, ...parsed, isAdmin: true };
+          saveState();
+          renderAll();
+          closeSettings();
+          alert("تمت استعادة النسخة الاحتياطية بنجاح!");
+        } catch (err) {
+          alert("ملف النسخة الاحتياطية غير صالح!");
+        }
+      };
+      reader.readAsText(file, "UTF-8");
+    }
 
-      document.getElementById("reportPreviewBox").innerHTML = `
-        <table style="width:100%; border-collapse:collapse; text-align:right;">
-          <thead>
-            <tr style="color:#94a3b8; border-bottom:1px solid #3b82f6;">
-              <th style="padding:6px;">الرقم</th>
-              <th style="padding:6px;">الاسم</th>
-              <th style="padding:6px;">الحالة</th>
-              <th style="padding:6px;">الإسقاطات</th>
-              <th style="padding:6px;">الأخطاء</th>
-              <th style="padding:6px;">الاعتذارات</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-      `;
+    function openReportsModal() {
+      const preview = document.getElementById("reportPreviewBox");
+      const rows = state.players.map(p => {
+        const statusAr = p.status === "winner" ? "فائز 🏆" : p.status === "eliminated" ? "مستبعد ❌" : "متاح";
+        return `<div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #1e293b;">
+          <span>#${p.id} ${p.name}</span>
+          <span>${statusAr} | إسقاطات: ${p.kills} | أخطاء: ${p.errors}</span>
+        </div>`;
+      }).join("");
+      preview.innerHTML = rows;
       document.getElementById("reportsModal").classList.add("open");
     }
 
@@ -1427,211 +1536,20 @@
     }
 
     function exportExcelCSV() {
-      const statusMap = { available: "في اللعب", eliminated: "مستبعد", winner: "فائز" };
-      let csv = "\uFEFFالرقم,الاسم,الحالة,عدد الإسقاطات,الأخطاء المستخدمة,الاعتذارات المستخدمة\n";
+      let csv = "\uFEFFالرقم,الاسم,الحالة,الإسقاطات,الأخطاء,الاعتذارات\n";
       state.players.forEach(p => {
-        csv += `${p.id},"${p.name}",${statusMap[p.status]},${p.kills},${p.errorsUsed || 0},${p.passesUsed}\n`;
+        const statusAr = p.status === "winner" ? "فائز" : p.status === "eliminated" ? "مستبعد" : "متاح";
+        csv += `${p.id},"${p.name}",${statusAr},${p.kills},${p.errors},${p.passes}\n`;
       });
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url;
-      a.download = `نتائج-المسابقة-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.href = URL.createObjectURL(blob);
+      a.download = `نتائج_المسابقة_${new Date().toISOString().slice(0, 10)}.csv`;
       a.click();
     }
 
     function printPDFReport() {
-      const statusMap = { available: "في اللعب", eliminated: "مستبعد", winner: "فائز" };
-      const winHtml = window.open("", "_blank");
-      const rows = state.players
-        .map(
-          p =>
-            `<tr>
-              <td>${p.id}</td>
-              <td>${p.name}</td>
-              <td>${statusMap[p.status]}</td>
-              <td>${p.kills}</td>
-              <td>${p.errorsUsed || 0} / ${state.settings.maxErrors}</td>
-              <td>${p.passesUsed} / ${state.settings.maxPasses}</td>
-            </tr>`
-        )
-        .join("");
-
-      winHtml.document.write(`
-        <html lang="ar" dir="rtl">
-        <head>
-          <title>تقرير نتائج المسابقة</title>
-          <style>
-            body { font-family: Tahoma, Arial, sans-serif; padding: 24px; color: #111; }
-            h1 { text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 10px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 18px; }
-            th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: center; }
-            th { background: #f1f5f9; }
-          </style>
-        </head>
-        <body>
-          <h1>التقرير الختامي للمسابقة التفاعلية</h1>
-          <p>التاريخ: ${new Date().toLocaleDateString("ar-EG")} | الفائزون: ${state.winners.map(w => w.name).join(" ، ") || "لا يوجد بعد"}</p>
-          <table>
-            <thead>
-              <tr>
-                <th>الرقم</th>
-                <th>اسم المتسابق</th>
-                <th>الحالة النهائية</th>
-                <th>عدد الإسقاطات</th>
-                <th>الأخطاء</th>
-                <th>الاعتذارات</th>
-              </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-          </table>
-          <script>window.onload = () => window.print();<\/script>
-        </body>
-        </html>
-      `);
-      winHtml.document.close();
-    }
-
-    // --- JSON Backup ---
-    function exportBackupJSON() {
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
-      const a = document.createElement("a");
-      a.href = dataStr;
-      a.download = `contest-backup-${new Date().toISOString().slice(0, 10)}.json`;
-      a.click();
-    }
-
-    function importBackupJSON(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = function (e) {
-        try {
-          const parsed = JSON.parse(e.target.result);
-          if (parsed && parsed.players && parsed.settings) {
-            const wasAdmin = state.isAdmin;
-            state = parsed;
-            state.isAdmin = wasAdmin;
-            saveState();
-            renderAll();
-            closeSettings();
-            alert("تمت استعادة النسخة الاحتياطية بنجاح!");
-          }
-        } catch (err) {
-          alert("ملف غير صالح.");
-        }
-      };
-      reader.readAsText(file, "UTF-8");
-    }
-
-    function addLog(msg) {
-      state.logs.unshift(msg);
-      if (state.logs.length > 50) state.logs.pop();
-    }
-
-    // --- Render ---
-    function renderAll() {
-      document.body.classList.toggle("viewer-mode", !state.isAdmin);
-      const badge = document.getElementById("roleBadge");
-      const toggleBtn = document.getElementById("toggleRoleBtn");
-      if (state.isAdmin) {
-        badge.textContent = "الدور: مدير (صلاحيات كاملة)";
-        badge.classList.remove("viewer");
-        toggleBtn.textContent = "🔒 قفل والتبديل للجمهور";
-      } else {
-        badge.textContent = "وضع العرض للجمهور (قراءة فقط)";
-        badge.classList.add("viewer");
-        toggleBtn.textContent = "🔑 دخول المدير بالرقم السري";
-      }
-
-      const maxErrors = state.settings.maxErrors || 1;
-      document.getElementById("dynamicRulesText").textContent =
-        `اللاعبون: ${state.settings.totalPlayers} | الفوز بإسقاط ${state.settings.killsToWin} منافسين | الأخطاء المسموحة: ${maxErrors} | المحاولات/الاعتذارات: ${state.settings.maxPasses}`;
-
-      const activeCount = state.players.filter(p => p.status === "available").length;
-      const elimCount = state.players.filter(p => p.status === "eliminated").length;
-      const remQuestions = Math.max(0, state.archive.length - state.usedQuestionIndices.length);
-
-      document.getElementById("statActive").textContent = activeCount;
-      document.getElementById("statWinners").textContent = `${state.winners.length} / ${state.settings.maxWinners}`;
-      document.getElementById("statEliminated").textContent = elimCount;
-      document.getElementById("statQuestions").textContent = remQuestions;
-
-      const nextSlot = state.players.find(p => !p.customName);
-      document.getElementById("nextSlotHint").textContent = nextSlot
-        ? `المتسابق القادم يُسجَّل برقم ${nextSlot.id} من ${state.settings.totalPlayers}.`
-        : "اكتمل تسجيل أسماء جميع المتسابقين.";
-
-      const selector = state.players.find(p => p.id === state.selectorId);
-      if (selector) {
-        document.getElementById("currentSelectorDisplay").textContent = `${selector.name} (رقم ${selector.id})`;
-        document.getElementById("selectorStatsDisplay").textContent =
-          `أسقط ${selector.kills} من ${state.settings.killsToWin} | أخطاؤه: ${selector.errorsUsed || 0}/${maxErrors} | اعتذاراته: ${selector.passesUsed}/${state.settings.maxPasses}`;
-      } else {
-        document.getElementById("currentSelectorDisplay").textContent = "انتهت المواجهات!";
-        document.getElementById("selectorStatsDisplay").textContent = "";
-      }
-
-      const qCard = document.getElementById("questionCard");
-      if (state.targetId !== null && state.currentQuestion) {
-        const target = state.players.find(p => p.id === state.targetId);
-        const lvl = state.currentQuestion.level || "medium";
-        const lvlBadge = document.getElementById("questionLevelBadge");
-        lvlBadge.className = `level-pill level-${lvl}`;
-        lvlBadge.textContent = lvl === "easy" ? "🟢 سهل" : lvl === "hard" ? "🔴 صعب" : "🟡 متوسط";
-
-        qCard.classList.add("active");
-        document.getElementById("targetPlayerLabel").textContent = `${target.name} (رقم ${target.id})`;
-        document.getElementById("questionText").textContent = state.currentQuestion.q;
-        document.getElementById("answerText").textContent = state.currentQuestion.a;
-        document.getElementById("answerBox").classList.remove("visible");
-        document.getElementById("randomTargetBtn").disabled = true;
-      } else {
-        qCard.classList.remove("active");
-        document.getElementById("randomTargetBtn").disabled = false;
-      }
-
-      const grid = document.getElementById("playersGrid");
-      grid.style.setProperty("--cols", state.settings.cols);
-      grid.innerHTML = state.players
-        .map(p => {
-          let stateClass = "state-available";
-          let disabledClass = "";
-          if (p.status === "eliminated") {
-            stateClass = "state-eliminated";
-            disabledClass = "disabled";
-          } else if (p.status === "winner") {
-            stateClass = "state-winner";
-            disabledClass = "disabled";
-          } else if (p.id === state.targetId) {
-            stateClass = "state-target";
-          } else if (p.id === state.selectorId) {
-            stateClass = "state-selector";
-          }
-
-          return `
-            <div class="player-tile ${stateClass} ${disabledClass}" onclick="selectTarget(${p.id})">
-              <div class="player-num">${p.id}</div>
-              <div class="player-name" title="${p.name}">${p.name}</div>
-              <div class="player-badges">
-                <span class="mini-badge" title="الإسقاطات">⚔️ ${p.kills}</span>
-                <span class="mini-badge err-badge" title="الأخطاء">❌ ${p.errorsUsed || 0}/${maxErrors}</span>
-                <span class="mini-badge" title="الاعتذارات">✋ ${p.passesUsed}/${state.settings.maxPasses}</span>
-              </div>
-            </div>
-          `;
-        })
-        .join("");
-
-      const winnersEl = document.getElementById("winnersList");
-      winnersEl.innerHTML =
-        state.winners.length === 0
-          ? `<li style="background:transparent; border:none; color:var(--text-muted); font-weight:normal;">1. لا يوجد فائزون بعد.</li>`
-          : state.winners
-              .map((w, i) => `<li><span>${i + 1}. ${w.name} (رقم ${w.id})</span><span>⚔️ ${w.kills}</span></li>`)
-              .join("");
-
-      document.getElementById("logList").innerHTML = state.logs.map(l => `<li>• ${l}</li>`).join("");
+      window.print();
     }
 
     init();
