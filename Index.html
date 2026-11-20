@@ -555,7 +555,7 @@
       <div class="header-info">
         <h1>
           برنامج إدارة المسابقة
-          <span id="roleBadge" class="role-badge viewer">وضع الجمهور (مباشر)</span>
+          <span id="roleBadge" class="role-badge viewer">وضع الجمهور أولاً</span>
         </h1>
         <p id="dynamicRulesText" class="dynamic-rules"></p>
       </div>
@@ -974,11 +974,12 @@
     }
 
     function init() {
+      state.isAdmin = false;
       state.archive = [...DEFAULT_QUESTIONS];
       setupFreshGame(false);
 
       try {
-        const saved = localStorage.getItem("contest_manager_pro_v10");
+        const saved = localStorage.getItem("contest_manager_pro_v11");
         if (saved) {
           const parsed = JSON.parse(saved);
           if (parsed && typeof parsed === "object") {
@@ -999,7 +1000,6 @@
             state.selectorId = parsed.selectorId || null;
             state.targetId = parsed.targetId || null;
             state.currentQuestion = parsed.currentQuestion || null;
-            state.isAdmin = false;
           }
         }
       } catch (e) {
@@ -1007,13 +1007,16 @@
         setupFreshGame(false);
       }
 
+      // يبدأ البرنامج دائماً في وضع الجمهور أولاً
+      state.isAdmin = false;
       renderAll();
       clearSelectionInput();
     }
 
     function saveState() {
       try {
-        localStorage.setItem("contest_manager_pro_v10", JSON.stringify(state));
+        const toSave = { ...state, isAdmin: false };
+        localStorage.setItem("contest_manager_pro_v11", JSON.stringify(toSave));
       } catch (e) {}
     }
 
@@ -1045,7 +1048,7 @@
       state.currentQuestion = null;
       state.logs = [];
       state.selectorId = null;
-      addLog("المسابقة جاهزة في وضع الجمهور — استخدم «دخول المدير» للتحكم.");
+      addLog("بدأ العرض في وضع الجمهور — اضغط «دخول المدير» لإدارة المسابقة.");
       saveState();
       clearSelectionInput();
     }
@@ -1421,7 +1424,7 @@
       if (instructionEl) {
         instructionEl.textContent = state.isAdmin
           ? "اضغط «اختيار عشوائي» لاختيار خصم عشوائي وطرح السؤال مباشرة."
-          : "البث المباشر للجمهور — اضغط «🔑 دخول المدير» في الأعلى للتحكم.";
+          : "وضع الجمهور مفعل — اضغط «🔑 دخول المدير» في الأعلى للتحكم.";
       }
 
       const badge = document.getElementById("roleBadge");
@@ -1431,7 +1434,7 @@
         badge.classList.remove("viewer");
         roleBtn.textContent = "🔒 خروج لوضع الجمهور";
       } else {
-        badge.textContent = "وضع الجمهور (مباشر)";
+        badge.textContent = "وضع الجمهور أولاً";
         badge.classList.add("viewer");
         roleBtn.textContent = "🔑 دخول المدير";
       }
