@@ -3,14 +3,72 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="refresh" content="0; url=./Index.html">
   <title>برنامج إدارة المسابقة</title>
-  <script>
-    window.location.replace(new URL("Index.html", window.location.href).href);
-  </script>
 </head>
 <body>
-  <p>جارٍ فتح برنامج إدارة المسابقة…</p>
-  <p><a href="./Index.html">اضغط هنا لفتح البرنامج</a></p>
+  <p>جارٍ تحميل البرنامج…</p>
+  <script>
+    (async function () {
+      try {
+        const response = await fetch("./Index.html", { cache: "no-store" });
+        if (!response.ok) throw new Error("تعذّر تحميل ملف البرنامج");
+        let html = await response.text();
+        const initCall = "    init();";
+        const startupPatch = `
+    // اختيار أول متسابق عشوائياً عند تشغيل البرنامج لأول مرة.
+    const originalInitForFirstTurn = init;
+    init = function () {
+      const isFirstStart = !localStorage.getItem("contest_manager_pro_v4");
+      originalInitForFirstTurn();
+      if (isFirstStart && state.players.length) {
+        const activePlayers = state.players.filter(player => player.status === "available");
+        if (activePlayers.length) {
+          state.selectorId = activePlayers[Math.floor(Math.random() * activePlayers.length)].id;
+          addLog(\`تم اختيار أول متسابق عشوائياً: اللاعب #\${state.selectorId} \${state.players.find(player => player.id === state.selectorId).name}\`);
+          saveState();
+          renderAll();
+        }
+      }
+    };
+
+    // في المسابقة الجديدة يختار المدير عشوائياً أو يحدد رقم أول متسابق يدوياً.
+    const originalResetContestForChoice = resetContest;
+    resetContest = function () {
+      if (!state.isAdmin) return;
+      if (!confirm("هل تريد بدء مسابقة جديدة؟")) return;
+      const chooseRandom = confirm("اضغط موافق لاختيار أول متسابق عشوائياً، أو إلغاء لاختيار الرقم يدوياً.");
+      let chosenId = null;
+      if (!chooseRandom) {
+        const enteredId = prompt(\`أدخل رقم أول متسابق (1 إلى \${state.settings.totalPlayers}):\`);
+        if (enteredId === null) return;
+        chosenId = Number(enteredId);
+        if (!Number.isInteger(chosenId) || chosenId < 1 || chosenId > state.settings.totalPlayers) {
+          alert("رقم المتسابق غير صحيح.");
+          return;
+        }
+      }
+      pushHistory();
+      setupFreshGame();
+      if (chooseRandom) {
+        const activePlayers = state.players.filter(player => player.status === "available");
+        chosenId = activePlayers[Math.floor(Math.random() * activePlayers.length)].id;
+      }
+      state.selectorId = chosenId;
+      addLog(\`أول متسابق في المسابقة الجديدة: اللاعب #\${chosenId} \${state.players.find(player => player.id === chosenId).name}\`);
+      saveState();
+      renderAll();
+    };
+
+    init();`;
+        if (!html.includes(initCall)) throw new Error("لم يتم العثور على نقطة تشغيل البرنامج");
+        html = html.replace(initCall, startupPatch);
+        document.open();
+        document.write(html);
+        document.close();
+      } catch (error) {
+        document.body.innerHTML = "<p dir='rtl'>تعذّر فتح البرنامج. افتح ملف Index.html مباشرة أو أعد تحميل الصفحة.</p>";
+      }
+    })();
+  </script>
 </body>
 </html>
