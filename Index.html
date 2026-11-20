@@ -248,9 +248,14 @@
       user-select: none;
     }
 
-    .player-tile:hover:not(.disabled) {
+    .player-tile:hover:not(.disabled):not(.manual-locked) {
       transform: translateY(-2px);
       border-color: var(--primary);
+    }
+
+    .player-tile.manual-locked {
+      cursor: default;
+      opacity: 0.85;
     }
 
     .player-num {
@@ -572,7 +577,11 @@
         <div class="panel">
           <div class="panel-title">
             <span>🎯 ساحة المواجهة والاختيار</span>
-            <div style="display: flex; gap: 8px; align-items: center;" class="admin-only">
+            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;" class="admin-only">
+              <select id="selectionModeSelect" onchange="changeSelectionMode()" style="width: auto; padding: 6px 10px; font-size: 0.85rem;">
+                <option value="manual">اختيار اللاعب: يدوي</option>
+                <option value="random">اختيار اللاعب: عشوائي</option>
+              </select>
               <select id="levelSelector" style="width: auto; padding: 6px 10px; font-size: 0.85rem;">
                 <option value="all">مستوى السؤال: عشوائي</option>
                 <option value="easy">🟢 سهل</option>
@@ -587,7 +596,7 @@
             <div style="font-size: 0.9rem; color: var(--text-muted);">يختار الآن:</div>
             <div class="selector-highlight" id="currentSelectorDisplay">—</div>
             <div id="selectorStatsDisplay" style="font-size: 0.88rem; color: var(--gold); margin-bottom: 6px;"></div>
-            <p style="font-size: 0.88rem; color: var(--text-muted);">اضغط رقم اللاعب المتاح في اللوحة أدناه لطرح السؤال عليه (أو اختر عشوائياً).</p>
+            <p id="selectionInstructionText" style="font-size: 0.88rem; color: var(--text-muted);"></p>
           </div>
 
           <!-- Active Question Card -->
@@ -815,6 +824,7 @@
     let state = {
       isAdmin: false,
       adminPassword: "1234",
+      selectionMode: "manual", // "manual" | "random"
       settings: {
         killsToWin: 3,
         maxWinners: 3,
@@ -919,7 +929,12 @@
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          state = { ...state, ...parsed, settings: { ...state.settings, ...(parsed.settings || {}) } };
+          state = {
+            ...state,
+            ...parsed,
+            selectionMode: parsed.selectionMode || "manual",
+            settings: { ...state.settings, ...(parsed.settings || {}) }
+          };
           state.isAdmin = false;
         } catch (e) {
           state.archive = [...DEFAULT_QUESTIONS];
@@ -964,7 +979,7 @@
           id: i,
           name: existing && existing.customName ? existing.name : `اللاعب ${i}`,
           customName: existing ? existing.customName : false,
-          status: "available", // available | eliminated | winner
+          status: "available",
           kills: 0,
           errors: 0,
           passes: 0
@@ -1013,6 +1028,16 @@
       document.getElementById("loginModal").classList.remove("open");
     }
 
+    // --- Selection Mode ---
+    function changeSelectionMode() {
+      if (!state.isAdmin) return;
+      const modeSelect = document.getElementById("selectionModeSelect");
+      state.selectionMode = modeSelect.value === "random" ? "random" : "manual";
+      addLog(`تم تغيير نمط اختيار اللاعب إلى: ${state.selectionMode === "random" ? "عشوائي" : "يدوي"}`);
+      saveState();
+      renderAll();
+    }
+
     // --- Game Flow ---
     function getNextActiveSelector(afterId) {
       const active = state.players.filter(p => p.status === "available");
@@ -1021,7 +1046,7 @@
       return next ? next.id : active[0].id;
     }
 
-    function selectTarget(id) {
+    function selectTarget(id, source = "manual") {
       if (!state.isAdmin) return;
       if (state.winners.length >= state.settings.maxWinners) {
         alert("اكتمل عدد الفائزين في المسابقة!");
@@ -1029,6 +1054,10 @@
       }
       if (state.targetId !== null) {
         alert("يرجى حسم السؤال الحالي أولاً قبل اختيار لاعب آخر.");
+        return;
+      }
+      if (source === "manual" && state.selectionMode !== "manual") {
+        alert("الاختيار اليدوي معطّل حالياً لأن النمط مضبوط على (عشوائي).");
         return;
       }
 
@@ -1065,7 +1094,8 @@
       state.currentQuestion = chosen;
 
       const selector = state.players.find(p => p.id === state.selectorId);
-      addLog(`(${selector.id}) ${selector.name} اختار (${target.id}) ${target.name}`);
+      const modeLabel = source === "random" ? "عشوائياً" : "يدوياً";
+      addLog(`(${selector.id}) ${selector.name} اختار (${target.id}) ${target.name} [${modeLabel}]`);
       playTone(520, "sine", 0.15);
       saveState();
       renderAll();
@@ -1074,13 +1104,17 @@
 
     function pickRandomTarget() {
       if (!state.isAdmin || state.targetId !== null) return;
+      if (state.selectionMode !== "random") {
+        alert("يرجى تغيير نمط الاختيار إلى (عشوائي) أولاً.");
+        return;
+      }
       const candidates = state.players.filter(p => p.status === "available" && p.id !== state.selectorId);
       if (candidates.length === 0) {
         alert("لا يوجد خصوم متاحون حالياً!");
         return;
       }
       const randomPlayer = candidates[Math.floor(Math.random() * candidates.length)];
-      selectTarget(randomPlayer.id);
+      selectTarget(randomPlayer.id, "random");
     }
 
     function handleAnswer(isCorrect) {
@@ -1116,7 +1150,6 @@
         }
       }
 
-      // Check if only 1 player remains
       const remaining = state.players.filter(p => p.status === "available");
       if (remaining.length === 1 && state.winners.length < state.settings.maxWinners) {
         const last = remaining[0];
@@ -1265,6 +1298,21 @@
       document.body.classList.toggle("viewer-mode", !state.isAdmin);
       document.documentElement.style.setProperty("--cols", state.settings.cols);
 
+      const modeSelect = document.getElementById("selectionModeSelect");
+      if (modeSelect) modeSelect.value = state.selectionMode;
+
+      const randomBtn = document.getElementById("randomTargetBtn");
+      if (randomBtn) {
+        randomBtn.disabled = state.selectionMode !== "random" || state.targetId !== null;
+      }
+
+      const instructionEl = document.getElementById("selectionInstructionText");
+      if (instructionEl) {
+        instructionEl.textContent = state.selectionMode === "random"
+          ? "الوضع الحالي: اختيار عشوائي — اضغط زر «اختيار خصم عشوائي» لتحديد الخصم."
+          : "الوضع الحالي: اختيار يدوي — اضغط رقم اللاعب المتاح في اللوحة أدناه لطرح السؤال عليه.";
+      }
+
       const badge = document.getElementById("roleBadge");
       const roleBtn = document.getElementById("toggleRoleBtn");
       if (state.isAdmin) {
@@ -1330,9 +1378,12 @@
         else if (p.id === state.targetId) stateClass = "state-target";
         else if (p.id === state.selectorId) stateClass = "state-selector";
 
-        tile.className = `player-tile ${stateClass}`;
-        if (p.status === "available" && state.isAdmin) {
-          tile.onclick = () => selectTarget(p.id);
+        const isManualSelectable = p.status === "available" && state.isAdmin && state.selectionMode === "manual";
+        const lockedClass = (p.status === "available" && state.isAdmin && state.selectionMode !== "manual") ? " manual-locked" : "";
+
+        tile.className = `player-tile ${stateClass}${lockedClass}`;
+        if (isManualSelectable) {
+          tile.onclick = () => selectTarget(p.id, "manual");
         }
 
         tile.innerHTML = `
