@@ -1,0 +1,2451 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>برنامج إدارة المسابقة التفاعلي</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f4f7fe;
+      --surface: #ffffff;
+      --surface-alt: #f8fafc;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.04);
+
+      --primary: #3b5bfd;
+      --primary-soft: #eef2ff;
+      --indigo-grad: linear-gradient(135deg, #3730a3 0%, #4338ca 55%, #3b5bfd 100%);
+
+      --success: #0d9488;
+      --success-bg: #ecfdf5;
+      --success-btn: #059669;
+
+      --warning: #d97706;
+      --warning-bg: #fffbeb;
+      --warning-border: #fbbf24;
+
+      --danger: #e11d48;
+      --danger-bg: #fff1f2;
+    }
+
+    body.dark-theme {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface-alt: #162033;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --border: #334155;
+      --shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.35);
+      --primary-soft: rgba(59, 91, 253, 0.18);
+      --success-bg: rgba(16, 185, 129, 0.14);
+      --warning-bg: rgba(245, 158, 11, 0.14);
+      --danger-bg: rgba(244, 63, 94, 0.14);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: "Cairo", system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding-bottom: 32px;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+
+    button, input, select, textarea {
+      font-family: inherit;
+      font-size: 0.9rem;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      padding: 8px 14px;
+      transition: all 0.15s ease;
+    }
+
+    button {
+      cursor: pointer;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    button:hover:not(:disabled) {
+      transform: translateY(-1px);
+      filter: brightness(0.97);
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .admin-only { display: inline-flex; }
+    body.viewer-mode .admin-only { display: none !important; }
+
+    .navbar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      box-shadow: 0 2px 10px rgba(15, 23, 42, 0.03);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      background: var(--primary);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      box-shadow: 0 4px 12px rgba(59, 91, 253, 0.3);
+    }
+
+    .brand-title {
+      font-size: 1.15rem;
+      font-weight: 800;
+      line-height: 1.2;
+    }
+
+    .brand-sub {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .nav-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .nav-tab {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      padding: 8px 16px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 0.9rem;
+    }
+
+    .nav-tab:hover {
+      background: var(--surface-alt);
+      color: var(--text);
+    }
+
+    .nav-tab.active {
+      background: var(--primary-soft);
+      color: var(--primary);
+      border-color: rgba(59, 91, 253, 0.25);
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .icon-btn {
+      width: 38px;
+      height: 38px;
+      padding: 0;
+      border-radius: 10px;
+      background: var(--surface-alt);
+      color: var(--text-muted);
+    }
+
+    .container {
+      max-width: 1480px;
+      margin: 20px auto 0;
+      padding: 0 20px;
+    }
+
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    @media (max-width: 1100px) {
+      .stats-row { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 650px) {
+      .stats-row { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: var(--shadow);
+    }
+
+    .stat-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .stat-label {
+      font-size: 0.84rem;
+      color: var(--text-muted);
+      font-weight: 700;
+    }
+
+    .stat-number {
+      font-size: 1.65rem;
+      font-weight: 800;
+      line-height: 1.1;
+    }
+
+    .stat-number small {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      font-weight: 700;
+    }
+
+    .stat-icon {
+      width: 46px;
+      height: 46px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.35rem;
+    }
+
+    .arena-grid {
+      display: grid;
+      grid-template-columns: 1.75fr 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    @media (max-width: 1024px) {
+      .arena-grid { grid-template-columns: 1fr; }
+    }
+
+    .card-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: var(--shadow);
+      margin-bottom: 18px;
+    }
+
+    .board-header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .board-title-wrap h2 {
+      font-size: 1.15rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .board-title-wrap p {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .legend-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .legend-pill {
+      font-size: 0.76rem;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .legend-pill .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .players-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    @media (max-width: 1280px) {
+      .players-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 600px) {
+      .players-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    .player-card {
+      background: var(--surface-alt);
+      border: 1.5px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 126px;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      position: relative;
+    }
+
+    .player-card:hover {
+      border-color: var(--primary);
+      background: var(--surface);
+      box-shadow: 0 6px 16px rgba(59, 91, 253, 0.08);
+    }
+
+    .player-card.is-selector {
+      background: #eff6ff;
+      border: 2px solid var(--primary);
+      box-shadow: 0 4px 14px rgba(59, 91, 253, 0.14);
+    }
+    body.dark-theme .player-card.is-selector { background: rgba(59, 91, 253, 0.18); }
+
+    .player-card.is-target {
+      background: var(--warning-bg);
+      border: 2px solid var(--warning-border);
+      box-shadow: 0 4px 14px rgba(245, 158, 11, 0.16);
+    }
+
+    .p-card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .p-num-badge {
+      min-width: 28px;
+      height: 28px;
+      padding: 0 6px;
+      border-radius: 8px;
+      background: #e2e8f0;
+      color: #334155;
+      font-weight: 800;
+      font-size: 0.85rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    body.dark-theme .p-num-badge { background: #334155; color: #f8fafc; }
+
+    .player-card.is-selector .p-num-badge { background: var(--primary); color: #fff; }
+    .player-card.is-target .p-num-badge { background: #f59e0b; color: #fff; }
+
+    .p-role-tag {
+      font-size: 0.72rem;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 6px;
+    }
+
+    .tag-selector { background: var(--primary); color: #fff; }
+    .tag-target { background: #f59e0b; color: #fff; }
+
+    .p-name {
+      font-weight: 800;
+      font-size: 0.96rem;
+      text-align: center;
+      margin: 10px 0;
+      line-height: 1.35;
+      color: var(--text);
+      word-break: break-word;
+    }
+
+    .p-name.number-mode {
+      font-size: 1.05rem;
+      color: var(--primary);
+    }
+
+    .p-card-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      padding-top: 6px;
+      border-top: 1px dashed var(--border);
+    }
+
+    .selector-hero {
+      background: var(--indigo-grad);
+      color: #fff;
+      border-radius: 18px;
+      padding: 20px;
+      margin-bottom: 14px;
+      box-shadow: 0 10px 25px -5px rgba(59, 91, 253, 0.35);
+    }
+
+    .selector-hero-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .pill-glass {
+      background: rgba(255, 255, 255, 0.16);
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+
+    .selector-hero-body {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .hero-num-box {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      background: #ffffff;
+      color: #3730a3;
+      font-size: 1.4rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .hero-details h3 {
+      font-size: 1.2rem;
+      font-weight: 800;
+      line-height: 1.3;
+    }
+
+    .hero-details p {
+      font-size: 0.82rem;
+      color: rgba(255, 255, 255, 0.85);
+      margin-top: 3px;
+    }
+
+    .target-box {
+      background: var(--warning-bg);
+      border: 1.5px solid #fde68a;
+      border-radius: 16px;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .target-main {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .target-num-box {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: #f59e0b;
+      color: #fff;
+      font-size: 1.2rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .target-label {
+      font-size: 0.76rem;
+      font-weight: 800;
+      color: var(--warning);
+    }
+
+    .target-name {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: var(--text);
+    }
+
+    .target-passes {
+      text-align: center;
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      font-weight: 700;
+    }
+
+    .target-passes strong {
+      display: block;
+      font-size: 0.95rem;
+      color: var(--warning);
+    }
+
+    .btn-launch {
+      width: 100%;
+      background: var(--success-btn);
+      color: #fff;
+      border: none;
+      padding: 13px 18px;
+      border-radius: 14px;
+      font-size: 1.05rem;
+      font-weight: 800;
+      box-shadow: 0 6px 16px rgba(5, 150, 105, 0.25);
+      margin-bottom: 10px;
+    }
+
+    .secondary-actions-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .btn-apology {
+      background: #fef3c7;
+      border-color: #fde68a;
+      color: #b45309;
+    }
+
+    .btn-cancel-pick {
+      background: var(--surface-alt);
+      color: var(--text-muted);
+    }
+
+    .active-question-card {
+      background: var(--surface-alt);
+      border: 1.5px solid var(--primary);
+      border-radius: 16px;
+      padding: 16px;
+      margin-top: 12px;
+      display: none;
+    }
+
+    .active-question-card.visible {
+      display: block;
+    }
+
+    .q-top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .timer-pill {
+      background: var(--primary-soft);
+      color: var(--primary);
+      font-weight: 800;
+      font-size: 1.35rem;
+      padding: 4px 14px;
+      border-radius: 12px;
+    }
+
+    .timer-pill.urgent {
+      background: var(--danger-bg);
+      color: var(--danger);
+      animation: pulse 0.8s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.06); }
+    }
+
+    .q-body-text {
+      font-size: 1.15rem;
+      font-weight: 800;
+      margin: 12px 0;
+      line-height: 1.5;
+    }
+
+    .q-answer-reveal {
+      background: var(--success-bg);
+      border: 1px solid #10b981;
+      color: var(--success);
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-weight: 800;
+      margin-bottom: 12px;
+      display: none;
+    }
+
+    .q-answer-reveal.visible { display: block; }
+
+    .judge-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .panel-head-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .panel-head-row h3 {
+      font-size: 1rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .badge-count {
+      background: var(--success-bg);
+      color: var(--success);
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 800;
+    }
+
+    .winners-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .winner-item {
+      background: var(--success-bg);
+      border: 1px solid #a7f3d0;
+      border-radius: 12px;
+      padding: 10px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      font-weight: 800;
+      color: #065f46;
+      animation: winnerPop 0.35s ease;
+    }
+
+    .winner-item.latest-winner {
+      border: 2px solid #059669;
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+    }
+
+    .winner-badge-new {
+      background: #059669;
+      color: #fff;
+      font-size: 0.7rem;
+      padding: 2px 7px;
+      border-radius: 999px;
+      margin-right: 6px;
+    }
+
+    @keyframes winnerPop {
+      0% { transform: scale(0.96); opacity: 0.6; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .logs-feed {
+      max-height: 280px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-left: 4px;
+    }
+
+    .log-row {
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 9px 12px;
+      font-size: 0.82rem;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    .log-time {
+      color: var(--text-muted);
+      font-size: 0.74rem;
+      white-space: nowrap;
+      margin-top: 2px;
+    }
+
+    .tab-section { display: none; }
+    .tab-section.active { display: block; }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 14px;
+      margin: 14px 0;
+    }
+
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
+
+    .qfs-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: var(--surface);
+      z-index: 80;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      padding: 32px;
+      text-align: center;
+    }
+    .qfs-overlay.open { display: flex; }
+
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(3px);
+      z-index: 90;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-backdrop.open { display: flex; }
+
+    .modal-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 24px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+    }
+
+    #confettiCanvas {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 100;
+    }
+  </style>
+</head>
+<body class="viewer-mode">
+  <canvas id="confettiCanvas"></canvas>
+
+  <header class="navbar">
+    <div class="brand">
+      <div class="brand-icon">🏆</div>
+      <div>
+        <div class="brand-title">برنامج إدارة المسابقة</div>
+        <div class="brand-sub" id="roleSubtitle">الدور: وضع المشاهدة (الجمهور)</div>
+      </div>
+    </div>
+
+    <nav class="nav-tabs">
+      <button class="nav-tab active" data-tab="arena" onclick="switchTab('arena')">🎮 ساحة المسابقة</button>
+      <button class="nav-tab" data-tab="players" onclick="switchTab('players')">👥 المتسابقون</button>
+      <button class="nav-tab admin-only" data-tab="archive" onclick="switchTab('archive')">📖 أرشيف الأسئلة</button>
+      <button class="nav-tab admin-only" data-tab="settings" onclick="switchTab('settings')">⚙️ الإعدادات والتقارير</button>
+    </nav>
+
+    <div class="nav-actions">
+      <button class="icon-btn" title="تبديل الوضع الليلي/النهاري" onclick="toggleTheme()">🌙</button>
+      <button class="icon-btn" title="تكبير السؤال على الشاشة" onclick="openQuestionFullscreen()">⤢</button>
+      <button id="roleToggleBtn" style="background: var(--primary); color: #fff; border: none;" onclick="handleRoleClick()">🔑 دخول المدير</button>
+    </div>
+  </header>
+
+  <div class="container">
+    <section class="stats-row">
+      <div class="stat-card">
+        <div class="stat-info">
+          <span class="stat-label">لاعبون في اللعبة</span>
+          <span class="stat-number" style="color: var(--primary);" id="statActivePlayers">0</span>
+        </div>
+        <div class="stat-icon" style="background: #eef2ff; color: var(--primary);">👥</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-info">
+          <span class="stat-label">الفائزون</span>
+          <span class="stat-number" style="color: var(--success-btn);"><span id="statWinnersCount">0</span> <small id="statWinnersMax">/ 5</small></span>
+        </div>
+        <div class="stat-icon" style="background: #ecfdf5; color: var(--success-btn);">🏅</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-info">
+          <span class="stat-label">منسحبون / مستبعدون</span>
+          <span class="stat-number" style="color: var(--danger);" id="statEliminated">0</span>
+        </div>
+        <div class="stat-icon" style="background: #fff1f2; color: var(--danger);">🚫</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-info">
+          <span class="stat-label">أسئلة متبقية</span>
+          <span class="stat-number" style="color: var(--warning);" id="statRemainingQ">0</span>
+        </div>
+        <div class="stat-icon" style="background: #fffbeb; color: var(--warning);">❓</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-info">
+          <span class="stat-label">نسبة الإجابات الصحيحة</span>
+          <span class="stat-number" style="color: #4f46e5;" id="statAccuracy">0%</span>
+        </div>
+        <div class="stat-icon" style="background: #f5f3ff; color: #4f46e5;">📊</div>
+      </div>
+    </section>
+
+    <div id="tab-arena" class="tab-section active">
+      <div class="arena-grid">
+        <div class="card-panel">
+          <div class="board-header">
+            <div class="board-title-wrap">
+              <h2>⊞ لوحة الأرقام التفاعلية</h2>
+              <p>اضغط على أي رقم أو متسابق متاح لتوجيه السؤال إليه أو تعيينه كسائل</p>
+            </div>
+
+            <div class="legend-pills">
+              <span class="legend-pill" style="background:#f1f5f9; color:#475569;"><span class="dot" style="background:#94a3b8;"></span> متاح</span>
+              <span class="legend-pill" style="background:#dbeafe; color:#1d4ed8;"><span class="dot" style="background:#2563eb;"></span> يختار الآن</span>
+              <span class="legend-pill" style="background:#fef3c7; color:#b45309;"><span class="dot" style="background:#f59e0b;"></span> المسؤول</span>
+            </div>
+          </div>
+
+          <div id="playersGrid" class="players-grid"></div>
+        </div>
+
+        <div>
+          <div class="selector-hero">
+            <div class="selector-hero-top">
+              <span class="pill-glass">يختار الآن (السائل)</span>
+              <button class="pill-glass admin-only" style="cursor:pointer;" onclick="pickRandomSelector()">⇄ تبديل السائل</button>
+            </div>
+            <div class="selector-hero-body">
+              <div class="hero-num-box" id="heroSelectorNum">-</div>
+              <div class="hero-details">
+                <h3 id="heroSelectorName">لم يتم تحديد السائل</h3>
+                <p id="heroSelectorMeta">أسقط: 0 من 3 • الاعتذارات: 0/3</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-panel" style="padding: 16px;">
+            <div class="target-box">
+              <div class="target-main">
+                <div class="target-num-box" id="targetNumBox">?</div>
+                <div>
+                  <div class="target-label">المنافس المستهدف (المسؤول)</div>
+                  <div class="target-name" id="targetNameLabel">اختر رقماً من اللوحة أو عشوائياً</div>
+                </div>
+              </div>
+              <div class="target-passes">
+                الاعتذارات
+                <strong id="targetPassesLabel">0 / 3</strong>
+              </div>
+            </div>
+
+            <div id="preQuestionControls" class="admin-only" style="display:block; width:100%;">
+              <div style="display:flex; gap:8px; margin-bottom:10px;">
+                <select id="levelSelect" style="flex:1;">
+                  <option value="all">المستوى: الكل</option>
+                  <option value="easy">سهل</option>
+                  <option value="medium">متوسط</option>
+                  <option value="hard">صعب</option>
+                </select>
+                <button style="background: var(--primary-soft); color: var(--primary); border:none;" onclick="pickRandomTarget()">🎲 اختيار خصم عشوائي</button>
+              </div>
+
+              <button class="btn-launch" onclick="launchQuestionAndTimer()">▶ طرح السؤال وبدء المؤقت</button>
+
+              <div class="secondary-actions-row">
+                <button class="btn-apology" onclick="handlePass()">✋ اعتذار قبل السؤال</button>
+                <button class="btn-cancel-pick" onclick="clearTargetSelection()">✕ إلغاء الاختيار</button>
+              </div>
+            </div>
+
+            <div id="activeQuestionCard" class="active-question-card">
+              <div class="q-top-bar">
+                <span style="font-size:0.82rem; font-weight:800; color:var(--primary);" id="qLevelBadge">سؤال مباشر</span>
+                <div style="display:flex; align-items:center; gap:6px;">
+                  <span class="timer-pill" id="timerDisplay">30</span>
+                  <button class="icon-btn admin-only" onclick="toggleTimer()" id="timerPauseBtn" title="إيقاف/استئناف">⏸</button>
+                </div>
+              </div>
+
+              <div class="q-body-text" id="activeQuestionText">...</div>
+              <div class="q-answer-reveal" id="answerRevealBox">الإجابة: <span id="activeAnswerText"></span></div>
+
+              <div class="admin-only" style="display:flex; flex-direction:column; gap:8px; width:100%;">
+                <button style="background: var(--surface); font-size:0.84rem;" onclick="toggleAnswerReveal()">👁 إظهار / إخفاء الإجابة</button>
+                <div class="judge-buttons">
+                  <button style="background: var(--success-btn); color:#fff; border:none;" onclick="handleAnswer(true)">✅ إجابة صحيحة</button>
+                  <button style="background: var(--danger); color:#fff; border:none;" onclick="handleAnswer(false)">❌ إجابة خاطئة</button>
+                </div>
+                <button class="btn-apology" onclick="handlePass()">↷ تمرير / اعتذار</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-panel">
+            <div class="panel-head-row">
+              <h3>👑 قائمة الفائزين المتأهلين</h3>
+              <span class="badge-count" id="winnersPillCount">0 / 5</span>
+            </div>
+            <div id="winnersListContainer" class="winners-list">
+              <p style="font-size:0.83rem; color:var(--text-muted); text-align:center; padding:8px 0;">
+                لا يوجد فائزون بعد. من يُسقط <span id="killsReqHint">3</span> منافسين يتأهل مباشرة.
+              </p>
+            </div>
+          </div>
+
+          <div class="card-panel">
+            <div class="panel-head-row">
+              <h3>🕒 سجل الأحداث المباشر</h3>
+              <div class="admin-only" style="gap:6px;">
+                <button id="undoBtn" style="padding:4px 10px; font-size:0.8rem;" onclick="undoAction()" disabled>↩ تراجع</button>
+                <button style="padding:4px 10px; font-size:0.8rem; background:var(--danger-bg); color:var(--danger); border-color:#fecdd3;" onclick="resetContest()">مسابقة جديدة</button>
+              </div>
+            </div>
+            <div id="logsFeed" class="logs-feed"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-players" class="tab-section">
+      <div class="card-panel">
+        <div class="panel-head-row">
+          <h3>👥 إدارة وتسجيل المتسابقين</h3>
+          <div class="admin-only" style="gap:8px;">
+            <button onclick="exportBackupJson()">⬇ تصدير نسخة احتياطية</button>
+          </div>
+        </div>
+
+        <div class="admin-only" style="display:block; width:100%; background:var(--surface-alt); padding:16px; border-radius:14px; border:1px solid var(--border); margin-bottom:16px;">
+          <div style="font-weight:800; margin-bottom:6px;">🌐 سحب ومزامنة أسماء المتسابقين تلقائياً من Google Sheets أو CSV</div>
+          <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:10px;">
+            في حال عدم تسجيل أسماء، تُفعّل الأرقام تلقائياً كمشاركين (متسابق #1، #2...). ويمكنك ربط جدول Google Sheets أو CSV هنا لسحب الأسماء ومنع التكرار تلقائياً.
+          </p>
+          <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:10px;">
+            <input type="url" id="sheetPlayersUrlInput" placeholder="https://docs.google.com/spreadsheets/d/... أو رابط .csv" style="flex:1; min-width:260px;" />
+            <input type="number" id="playersSyncIntervalInput" min="5" max="3600" value="30" title="فترة المزامنة التلقائية بالثواني" style="width:95px;" />
+            <label style="font-size:0.84rem; display:flex; align-items:center; gap:5px; cursor:pointer;">
+              <input type="checkbox" id="playersAutoSyncCheck" onchange="togglePlayersAutoSync()" /> مزامنة تلقائية (ثانية)
+            </label>
+            <label style="font-size:0.84rem; display:flex; align-items:center; gap:5px; cursor:pointer;">
+              <input type="checkbox" id="replacePlayersNamesCheck" /> استبدال الأسماء الحالية
+            </label>
+            <button style="background:var(--primary); color:#fff; border:none;" onclick="savePlayersSheetConfig(true)">💾 حفظ ومزامنة الآن</button>
+            <button style="background:var(--success-btn); color:#fff; border:none;" onclick="syncPlayersFromUrl(false)">🔄 مزامنة الآن</button>
+          </div>
+          <div id="playersSyncStatus" style="font-size:0.82rem; color:var(--text-muted); font-weight:700;">لم يتم السحب من رابط خارجي بعد (الأرقام مفعّلة تلقائياً).</div>
+        </div>
+
+        <div class="admin-only" style="flex-wrap:wrap; gap:10px; margin-bottom:16px; width:100%;">
+          <input type="text" id="adminPlayerInput" placeholder="اكتب اسم المتسابق الجديد..." style="flex:1; min-width:220px;" onkeydown="if(event.key==='Enter') registerPlayer(false)" />
+          <button style="background:var(--primary); color:#fff; border:none;" onclick="registerPlayer(false)">➕ تسجيل متسابق</button>
+          <button style="background:var(--danger-bg); color:var(--danger);" onclick="removeLastPlayer()">حذف الأخير</button>
+          <label style="display:flex; align-items:center; gap:6px; font-size:0.85rem;">
+            <input type="file" id="namesFileInput" accept=".txt,.csv" onchange="importNamesFromFile(event)" />
+          </label>
+        </div>
+
+        <div id="publicRegBox" style="background:var(--surface-alt); padding:14px; border-radius:12px; border:1px solid var(--border); margin-bottom:16px;">
+          <div style="font-weight:800; margin-bottom:8px;">تسجيل الجمهور المباشر</div>
+          <div id="publicRegForm" style="display:flex; gap:8px; flex-wrap:wrap;">
+            <input type="text" id="publicNameInput" placeholder="أدخل اسمك الكامل للمشاركة..." style="flex:1; min-width:200px;" onkeydown="if(event.key==='Enter') registerPlayer(true)" />
+            <button style="background:var(--primary); color:#fff; border:none;" onclick="registerPlayer(true)">تسجيل اسمي</button>
+          </div>
+          <p id="publicRegClosedMsg" style="font-size:0.85rem; color:var(--text-muted); display:none;">التسجيل الذاتي للجمهور مغلق حالياً من قِبل المدير.</p>
+        </div>
+
+        <div id="playersTableSummary" style="font-size:0.88rem; color:var(--text-muted);"></div>
+      </div>
+    </div>
+
+    <div id="tab-archive" class="tab-section">
+      <div class="card-panel">
+        <div class="panel-head-row">
+          <h3>📖 بنك وأرشيف الأسئلة (<span id="archiveCountBadge">0</span>)</h3>
+          <button style="background:var(--danger-bg); color:var(--danger);" onclick="resetUsedQuestions()">إعادة تفعيل الأسئلة المستخدمة</button>
+        </div>
+
+        <div style="background:var(--surface-alt); padding:16px; border-radius:14px; border:1px solid var(--border); margin-bottom:16px;">
+          <div style="font-weight:800; margin-bottom:6px;">🌐 سحب ومزامنة الأسئلة تلقائياً من Google Sheets أو CSV</div>
+          <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:10px;">
+            ألصق رابط جدول بيانات Google Sheets أو رابط ملف CSV مباشر (الأعمدة: <code>السؤال | الإجابة | المستوى</code>، ويتم منع الأسئلة المكررة تلقائياً).
+          </p>
+          <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:10px;">
+            <input type="url" id="sheetQuestionsUrlInput" placeholder="https://docs.google.com/spreadsheets/d/... أو رابط .csv" style="flex:1; min-width:260px;" />
+            <input type="number" id="sheetSyncIntervalInput" min="5" max="3600" value="30" title="فترة المزامنة التلقائية بالثواني" style="width:95px;" />
+            <label style="font-size:0.84rem; display:flex; align-items:center; gap:5px; cursor:pointer;">
+              <input type="checkbox" id="sheetAutoSyncCheck" onchange="toggleSheetAutoSync()" /> مزامنة تلقائية (ثانية)
+            </label>
+            <button style="background:var(--primary); color:#fff; border:none;" onclick="saveSheetConfig(true)">💾 حفظ ومزامنة الآن</button>
+            <button style="background:var(--success-btn); color:#fff; border:none;" onclick="syncQuestionsFromUrl(false)">🔄 مزامنة الآن</button>
+          </div>
+          <div id="sheetSyncStatus" style="font-size:0.82rem; color:var(--text-muted); font-weight:700;">لم يتم السحب من رابط خارجي بعد.</div>
+        </div>
+
+        <div style="background:var(--surface-alt); padding:16px; border-radius:14px; border:1px solid var(--border); margin-bottom:16px;">
+          <div style="font-weight:800; margin-bottom:6px;">استيراد أو إضافة أسئلة (من نص أو ملف)</div>
+          <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:10px;">
+            اكتب كل سؤال في سطر أو في ملف بصيغة: <code>نص السؤال | الإجابة | المستوى (سهل/متوسط/صعب)</code>
+          </p>
+          <textarea id="bulkQuestionsInput" rows="4" style="width:100%; margin-bottom:10px;" placeholder="ما هي عاصمة سلطنة عُمان؟ | مسقط | سهل"></textarea>
+          <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+            <button style="background:var(--primary); color:#fff; border:none;" onclick="importQuestionsFromText()">➕ إضافة الأسئلة من النص</button>
+            <label style="display:inline-flex; align-items:center; gap:6px; background:var(--surface); padding:8px 14px; border-radius:10px; border:1px solid var(--border); cursor:pointer; font-weight:700; font-size:0.88rem;">
+              📂 استيراد من ملف (.txt / .csv)
+              <input type="file" id="questionsFileInput" accept=".txt,.csv" style="display:none;" onchange="importQuestionsFromFile(event)" />
+            </label>
+            <label style="font-size:0.84rem; display:flex; align-items:center; gap:5px;">
+              <input type="checkbox" id="replaceArchiveCheck" /> استبدال الأرشيف الحالي بالكامل
+            </label>
+          </div>
+          <div id="fileImportStatus" style="font-size:0.82rem; color:var(--success); font-weight:700; margin-top:8px;"></div>
+        </div>
+
+        <div id="archiveQuestionsList" style="display:flex; flex-direction:column; gap:8px;"></div>
+      </div>
+    </div>
+
+    <div id="tab-settings" class="tab-section">
+      <div class="card-panel">
+        <div class="panel-head-row">
+          <h3>⚙️ إعدادات قوانين المسابقة</h3>
+          <button style="background:var(--success-btn); color:#fff; border:none;" onclick="saveSettings()">💾 حفظ الإعدادات</button>
+        </div>
+
+        <div class="form-grid">
+          <div class="field-group">
+            <label>عدد المتسابقين الإجمالي</label>
+            <input type="number" id="cfgTotalPlayers" min="2" max="100" />
+          </div>
+          <div class="field-group">
+            <label>الإسقاطات المطلوبة للفوز</label>
+            <input type="number" id="cfgKillsToWin" min="1" max="50" />
+          </div>
+          <div class="field-group">
+            <label>الحد الأقصى للفائزين</label>
+            <input type="number" id="cfgMaxWinners" min="1" max="50" />
+          </div>
+          <div class="field-group">
+            <label>الحد الأقصى للأخطاء (للاستبعاد)</label>
+            <input type="number" id="cfgMaxErrors" min="1" max="20" />
+          </div>
+          <div class="field-group">
+            <label>الحد الأقصى للاعتذار</label>
+            <input type="number" id="cfgMaxPasses" min="0" max="20" />
+          </div>
+          <div class="field-group">
+            <label>مدة المؤقت (بالثواني)</label>
+            <input type="number" id="cfgTimerSec" min="5" max="300" />
+          </div>
+          <div class="field-group">
+            <label>تسجيل الجمهور</label>
+            <select id="cfgPublicReg">
+              <option value="false">مغلق (المدير فقط)</option>
+              <option value="true">مفتوح للجمهور</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label>تغيير الرقم السري للمدير</label>
+            <input type="password" id="cfgNewPassword" placeholder="اتركه فارغاً للإبقاء على الحالي" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="qfsOverlay" class="qfs-overlay">
+    <div style="width:100%; display:flex; justify-content:space-between; align-items:center;">
+      <span class="pill-glass" style="background:var(--primary-soft); color:var(--primary); font-size:1rem;" id="qfsMatchupLabel">مواجهة مباشرة</span>
+      <button onclick="closeQuestionFullscreen()">✕ إغلاق وضع التكبير</button>
+    </div>
+
+    <div>
+      <div class="timer-pill" id="qfsTimer" style="font-size:3.5rem; display:inline-block; margin-bottom:20px;">30</div>
+      <h1 id="qfsQuestionText" style="font-size:clamp(1.6rem, 3.5vw, 3rem); max-width:1000px; line-height:1.4;">لا يوجد سؤال نشط حالياً</h1>
+      <div id="qfsAnswerBox" class="q-answer-reveal" style="font-size:1.8rem; margin-top:20px;"></div>
+    </div>
+
+    <div class="admin-only" style="gap:12px;">
+      <button style="background:var(--success-btn); color:#fff; border:none; font-size:1.1rem; padding:12px 24px;" onclick="handleAnswer(true)">✅ إجابة صحيحة</button>
+      <button style="background:var(--danger); color:#fff; border:none; font-size:1.1rem; padding:12px 24px;" onclick="handleAnswer(false)">❌ إجابة خاطئة</button>
+      <button onclick="toggleAnswerReveal()">👁 إظهار الإجابة</button>
+    </div>
+  </div>
+
+  <div id="loginModal" class="modal-backdrop">
+    <div class="modal-box">
+      <h3 style="margin-bottom:6px;">🔐 تسجيل دخول المدير</h3>
+      <p style="font-size:0.84rem; color:var(--text-muted); margin-bottom:14px;">أدخل الرقم السري للتحكم الكامل في المسابقة (الافتراضي: 1234)</p>
+      <input type="password" id="loginPasswordInput" placeholder="الرقم السري..." style="width:100%; margin-bottom:14px;" onkeydown="if(event.key==='Enter') verifyLogin()" />
+      <div style="display:flex; gap:8px; justify-content:flex-end;">
+        <button onclick="closeLoginModal()">إلغاء</button>
+        <button style="background:var(--primary); color:#fff; border:none;" onclick="verifyLogin()">دخول</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "contest_modern_light_v1";
+    const CHANNEL_NAME = "contest_modern_sync_channel";
+    const channel = ("BroadcastChannel" in window) ? new BroadcastChannel(CHANNEL_NAME) : null;
+    const DEFAULT_PASS = "1234";
+
+    const SAMPLE_QUESTIONS = [
+      { id: 1, text: "ما هي أكبر قارة في العالم من حيث المساحة؟", answer: "قارة آسيا", level: "easy" },
+      { id: 2, text: "كم عدد الكواكب في المجموعة الشمسية؟", answer: "8 كواكب", level: "easy" },
+      { id: 3, text: "ما هو العنصر الكيميائي الذي رمزه Au؟", answer: "الذهب", level: "medium" },
+      { id: 4, text: "في أي عام هجري فُتحت مكة المكرمة؟", answer: "السنة الثامنة للهجرة (8 هـ)", level: "medium" },
+      { id: 5, text: "ما هو أسرع حيوان بري في العالم؟", answer: "الفهد (الشيتا)", level: "easy" }
+    ];
+
+    let isAdmin = false;
+    let historyStack = [];
+    let timerInterval = null;
+    let sheetSyncTimer = null;
+    let playersSyncTimer = null;
+    let state = loadState();
+
+    function getPlayerDisplayName(player) {
+      if (!player) return "";
+      const clean = String(player.name || "").trim();
+      return clean ? clean : `متسابق #${player.number}`;
+    }
+
+    function isPlayerParticipating(player) {
+      return Boolean(player) && player.status !== "eliminated" && player.status !== "winner";
+    }
+
+    function normalizeArabicText(str) {
+      return String(str || "")
+        .replace(/[\u064B-\u065F\u0670]/g, "")
+        .replace(/[أإآا]/g, "ا")
+        .replace(/ة/g, "ه")
+        .replace(/ى/g, "ي")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toLowerCase();
+    }
+
+    function normalizePlayerNameKey(name) {
+      return normalizeArabicText(name);
+    }
+
+    function normalizeQuestionKey(questionText) {
+      return normalizeArabicText(questionText);
+    }
+
+    function isDuplicatePlayerName(candidateName, excludePlayerNumber = null) {
+      const targetKey = normalizePlayerNameKey(candidateName);
+      if (!targetKey) return false;
+      return state.players.some(p => {
+        if (!p.name) return false;
+        if (excludePlayerNumber !== null && p.number === excludePlayerNumber) return false;
+        return normalizePlayerNameKey(p.name) === targetKey;
+      });
+    }
+
+    function sanitizeLoadedState(rawObj) {
+      const base = createInitialState();
+      const merged = {
+        ...base,
+        ...(rawObj || {}),
+        settings: { ...base.settings, ...((rawObj && rawObj.settings) || {}) },
+        sheetConfig: { ...base.sheetConfig, ...((rawObj && rawObj.sheetConfig) || {}) },
+        playersSheetConfig: { ...base.playersSheetConfig, ...((rawObj && rawObj.playersSheetConfig) || {}) },
+        stats: { ...base.stats, ...((rawObj && rawObj.stats) || {}) }
+      };
+
+      const seenPlayerKeys = new Set();
+      merged.players = (Array.isArray(merged.players) ? merged.players : base.players).map((p, idx) => {
+        const cleanName = typeof p.name === "string" ? p.name.trim().replace(/\s+/g, " ") : "";
+        const key = normalizePlayerNameKey(cleanName);
+        let finalName = cleanName;
+        if (key) {
+          if (seenPlayerKeys.has(key)) {
+            finalName = "";
+          } else {
+            seenPlayerKeys.add(key);
+          }
+        }
+        return {
+          number: p.number || idx + 1,
+          name: finalName,
+          status: p.status || "available",
+          kills: Number(p.kills) || 0,
+          errors: Number(p.errors) || 0,
+          passes: Number(p.passes) || 0
+        };
+      });
+
+      const seenQuestionKeys = new Set();
+      const validIds = new Set();
+      merged.questions = (Array.isArray(merged.questions) ? merged.questions : base.questions)
+        .filter(q => q && typeof q.text === "string" && q.text.trim())
+        .filter(q => {
+          const qKey = normalizeQuestionKey(q.text);
+          if (!qKey || seenQuestionKeys.has(qKey)) return false;
+          seenQuestionKeys.add(qKey);
+          return true;
+        })
+        .map((q, idx) => {
+          const id = Number.isFinite(Number(q.id)) ? Number(q.id) : idx + 1;
+          validIds.add(id);
+          return {
+            id,
+            text: q.text.trim(),
+            answer: typeof q.answer === "string" ? q.answer.trim() : "",
+            level: ["easy", "medium", "hard"].includes(q.level) ? q.level : "easy"
+          };
+        });
+
+      merged.usedQuestionIds = Array.isArray(merged.usedQuestionIds)
+        ? merged.usedQuestionIds.filter(id => validIds.has(id))
+        : [];
+
+      const seenWinners = new Set();
+      merged.winners = (Array.isArray(merged.winners) ? merged.winners : []).filter(w => {
+        if (!w || seenWinners.has(w.number)) return false;
+        seenWinners.add(w.number);
+        return true;
+      });
+
+      return merged;
+    }
+
+    function createInitialState() {
+      const totalPlayers = 24;
+      const players = Array.from({ length: totalPlayers }, (_, i) => ({
+        number: i + 1,
+        name: "",
+        status: "available",
+        kills: 0,
+        errors: 0,
+        passes: 0
+      }));
+
+      return {
+        settings: {
+          totalPlayers,
+          killsToWin: 3,
+          maxWinners: 5,
+          maxErrors: 1,
+          maxPasses: 3,
+          timerSec: 30,
+          allowPublicRegistration: false,
+          adminPassword: DEFAULT_PASS
+        },
+        sheetConfig: {
+          url: "",
+          intervalSec: 30,
+          autoSync: false,
+          lastSyncText: "لم يتم السحب من رابط خارجي بعد."
+        },
+        playersSheetConfig: {
+          url: "",
+          intervalSec: 30,
+          autoSync: false,
+          lastSyncText: "لم يتم السحب من رابط خارجي بعد (الأرقام مفعّلة تلقائياً)."
+        },
+        players,
+        questions: [...SAMPLE_QUESTIONS],
+        usedQuestionIds: [],
+        winners: [],
+        lastWinnerNumber: null,
+        stats: { totalAsked: 0, correctAnswers: 0 },
+        logs: [{ time: getNowTime(), text: "تم تهيئة نظام المسابقة بنجاح (الأرقام مفعّلة تلقائياً)." }],
+        currentSelector: null,
+        currentTarget: null,
+        activeQuestion: null,
+        timeLeft: 30,
+        timerRunning: false,
+        answerRevealed: false
+      };
+    }
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return createInitialState();
+        return sanitizeLoadedState(JSON.parse(raw));
+      } catch {
+        return createInitialState();
+      }
+    }
+
+    function saveAndSync() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      if (channel) channel.postMessage({ type: "SYNC", state });
+      renderAll();
+    }
+
+    window.addEventListener("storage", (e) => {
+      if (e.key === STORAGE_KEY && e.newValue) {
+        try {
+          state = sanitizeLoadedState(JSON.parse(e.newValue));
+          renderAll();
+          applySheetAutoSyncTimer();
+          applyPlayersAutoSyncTimer();
+        } catch {}
+      }
+    });
+
+    if (channel) {
+      channel.onmessage = (e) => {
+        if (e.data && e.data.type === "SYNC") {
+          state = sanitizeLoadedState(e.data.state);
+          renderAll();
+          applySheetAutoSyncTimer();
+          applyPlayersAutoSyncTimer();
+        }
+      };
+    }
+
+    function pushHistory() {
+      historyStack.push(JSON.stringify(state));
+      if (historyStack.length > 20) historyStack.shift();
+    }
+
+    function undoAction() {
+      if (!isAdmin || historyStack.length === 0) return;
+      stopTimer();
+      state = sanitizeLoadedState(JSON.parse(historyStack.pop()));
+      saveAndSync();
+      applySheetAutoSyncTimer();
+      applyPlayersAutoSyncTimer();
+    }
+
+    function getNowTime() {
+      return new Date().toLocaleTimeString("ar-OM", { hour: "2-digit", minute: "2-digit" });
+    }
+
+    function addLog(text) {
+      state.logs.unshift({ time: getNowTime(), text });
+      if (state.logs.length > 60) state.logs.pop();
+    }
+
+    function recordWinnerQualification(player) {
+      if (!player) return false;
+      const label = getPlayerDisplayName(player);
+      player.status = "winner";
+      const existingIndex = state.winners.findIndex(w => w.number === player.number);
+      if (existingIndex === -1) {
+        state.winners.unshift({ number: player.number, name: label, kills: player.kills, qualifiedAt: getNowTime() });
+      } else {
+        state.winners[existingIndex] = { ...state.winners[existingIndex], name: label, kills: player.kills };
+      }
+      state.lastWinnerNumber = player.number;
+      if (state.currentSelector === player.number) state.currentSelector = null;
+      if (state.currentTarget === player.number) state.currentTarget = null;
+      triggerConfetti();
+      addLog(`🏆 تأهل البطل ${label} ورُفع فوراً من لوحة الأرقام إلى قائمة الفائزين!`);
+      return true;
+    }
+
+    function switchTab(tabName) {
+      document.querySelectorAll(".nav-tab").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.tab === tabName);
+      });
+      document.querySelectorAll(".tab-section").forEach(sec => {
+        sec.classList.toggle("active", sec.id === "tab-" + tabName);
+      });
+      if (tabName === "settings") populateSettingsForm();
+      if (tabName === "archive") hydrateSheetInputs();
+      if (tabName === "players") hydratePlayersSheetInputs();
+    }
+
+    function toggleTheme() {
+      document.body.classList.toggle("dark-theme");
+    }
+
+    function handleRoleClick() {
+      if (isAdmin) {
+        isAdmin = false;
+        document.body.classList.add("viewer-mode");
+        switchTab("arena");
+        renderAll();
+      } else {
+        document.getElementById("loginModal").classList.add("open");
+        document.getElementById("loginPasswordInput").value = "";
+        setTimeout(() => document.getElementById("loginPasswordInput").focus(), 50);
+      }
+    }
+
+    function closeLoginModal() {
+      document.getElementById("loginModal").classList.remove("open");
+    }
+
+    function verifyLogin() {
+      const val = document.getElementById("loginPasswordInput").value;
+      if (val === state.settings.adminPassword) {
+        isAdmin = true;
+        document.body.classList.remove("viewer-mode");
+        closeLoginModal();
+        hydrateSheetInputs();
+        hydratePlayersSheetInputs();
+        renderAll();
+      } else {
+        alert("الرقم السري غير صحيح!");
+      }
+    }
+
+    function parsePlayerNamesText(rawText) {
+      const lines = String(rawText || "")
+        .replace(/^\uFEFF/, "")
+        .split(/\r?\n/)
+        .map(l => l.trim())
+        .filter(Boolean);
+
+      const names = [];
+      const seenInBatch = new Set();
+      for (let i = 0; i < lines.length; i++) {
+        const firstCol = splitCsvRowSmart(lines[i])[0] || "";
+        const cleanName = firstCol.replace(/^["']|["']$/g, "").replace(/\s+/g, " ").trim();
+        if (!cleanName) continue;
+        const lower = cleanName.toLowerCase();
+        if (i === 0 && (lower === "name" || lower === "الاسم" || lower === "اسم المتسابق" || lower === "المتسابق")) {
+          continue;
+        }
+        const key = normalizePlayerNameKey(cleanName);
+        if (!key || seenInBatch.has(key)) continue;
+        seenInBatch.add(key);
+        names.push(cleanName);
+      }
+      return names;
+    }
+
+    function applyPlayerNamesList(names, replaceExisting = false, sourceLabel = "الاستيراد") {
+      if (!names.length) return { added: 0, skippedDuplicates: 0 };
+
+      pushHistory();
+      let addedOrUpdated = 0;
+      let skippedDuplicates = 0;
+
+      if (replaceExisting) {
+        state.currentSelector = null;
+        state.currentTarget = null;
+        state.activeQuestion = null;
+        state.timerRunning = false;
+        stopTimer();
+
+        const seen = new Set();
+        for (let i = 0; i < state.players.length; i++) {
+          const candidate = names[i] || "";
+          const norm = normalizePlayerNameKey(candidate);
+          if (candidate && norm && !seen.has(norm)) {
+            seen.add(norm);
+            state.players[i] = { number: i + 1, name: candidate, status: "available", kills: 0, errors: 0, passes: 0 };
+            addedOrUpdated++;
+          } else {
+            if (candidate && norm && seen.has(norm)) skippedDuplicates++;
+            state.players[i] = { number: i + 1, name: "", status: "available", kills: 0, errors: 0, passes: 0 };
+          }
+        }
+      } else {
+        const existingNames = new Set(
+          state.players.map(p => normalizePlayerNameKey(p.name)).filter(Boolean)
+        );
+        let slotIdx = 0;
+        for (const name of names) {
+          const norm = normalizePlayerNameKey(name);
+          if (!norm) continue;
+          if (existingNames.has(norm)) {
+            skippedDuplicates++;
+            continue;
+          }
+          while (slotIdx < state.players.length && state.players[slotIdx].name) {
+            slotIdx++;
+          }
+          if (slotIdx >= state.players.length) break;
+          existingNames.add(norm);
+          state.players[slotIdx].name = name;
+          addedOrUpdated++;
+        }
+      }
+
+      if (addedOrUpdated > 0) {
+        addLog(`تم تحديث ${addedOrUpdated} متسابق من ${sourceLabel} (منع ${skippedDuplicates} مكرر).`);
+      }
+      saveAndSync();
+      return { added: addedOrUpdated, skippedDuplicates };
+    }
+
+    function hydratePlayersSheetInputs() {
+      const urlInput = document.getElementById("sheetPlayersUrlInput");
+      const intervalInput = document.getElementById("playersSyncIntervalInput");
+      const autoCheck = document.getElementById("playersAutoSyncCheck");
+      const statusEl = document.getElementById("playersSyncStatus");
+
+      if (urlInput && !urlInput.value && state.playersSheetConfig.url) {
+        urlInput.value = state.playersSheetConfig.url;
+      }
+      if (intervalInput) {
+        intervalInput.value = state.playersSheetConfig.intervalSec || 30;
+      }
+      if (autoCheck) {
+        autoCheck.checked = Boolean(state.playersSheetConfig.autoSync);
+      }
+      if (statusEl && state.playersSheetConfig.lastSyncText) {
+        statusEl.textContent = state.playersSheetConfig.lastSyncText;
+      }
+    }
+
+    function savePlayersSheetConfig(andSyncNow = false) {
+      if (!isAdmin) return;
+      const rawUrl = document.getElementById("sheetPlayersUrlInput").value.trim();
+      const intervalSec = Math.max(5, Math.min(3600, parseInt(document.getElementById("playersSyncIntervalInput").value, 10) || 30));
+      const autoSync = document.getElementById("playersAutoSyncCheck").checked;
+
+      state.playersSheetConfig.url = rawUrl;
+      state.playersSheetConfig.intervalSec = intervalSec;
+      state.playersSheetConfig.autoSync = autoSync;
+      saveAndSync();
+      applyPlayersAutoSyncTimer();
+
+      if (andSyncNow) {
+        syncPlayersFromUrl(false);
+      }
+    }
+
+    function togglePlayersAutoSync() {
+      if (!isAdmin) return;
+      savePlayersSheetConfig(false);
+      if (state.playersSheetConfig.autoSync && state.playersSheetConfig.url) {
+        syncPlayersFromUrl(true);
+      }
+    }
+
+    function applyPlayersAutoSyncTimer() {
+      if (playersSyncTimer) {
+        clearInterval(playersSyncTimer);
+        playersSyncTimer = null;
+      }
+      if (state.playersSheetConfig && state.playersSheetConfig.autoSync && state.playersSheetConfig.url) {
+        const ms = Math.max(5, Number(state.playersSheetConfig.intervalSec) || 30) * 1000;
+        playersSyncTimer = setInterval(() => {
+          if (isAdmin) {
+            syncPlayersFromUrl(true);
+          }
+        }, ms);
+      }
+    }
+
+    async function syncPlayersFromUrl(isSilent = false) {
+      const inputEl = document.getElementById("sheetPlayersUrlInput");
+      const rawUrl = (inputEl ? inputEl.value.trim() : "") || state.playersSheetConfig.url;
+      const csvUrl = normalizeSheetCsvUrl(rawUrl);
+      const statusEl = document.getElementById("playersSyncStatus");
+
+      if (!csvUrl) {
+        if (!isSilent) alert("يرجى إدخال رابط Google Sheets أو ملف CSV صحيح للمتسابقين.");
+        if (statusEl) statusEl.textContent = "الرابط غير صالح أو فارغ.";
+        return;
+      }
+
+      state.playersSheetConfig.url = rawUrl;
+      if (statusEl) statusEl.textContent = "جارٍ سحب أسماء المتسابقين من الرابط...";
+
+      try {
+        const sep = csvUrl.includes("?") ? "&" : "?";
+        const fetchUrl = `${csvUrl}${sep}_t=${Date.now()}`;
+        const res = await fetch(fetchUrl, { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const text = await res.text();
+        const names = parsePlayerNamesText(text);
+        if (!names.length) {
+          throw new Error("لم يتم العثور على أسماء متسابقين صالحة في الجدول/الملف.");
+        }
+
+        const replace = document.getElementById("replacePlayersNamesCheck")?.checked || false;
+        const result = applyPlayerNamesList(names, replace, "Google Sheets / CSV");
+        const msg = `تمت المزامنة (${getNowTime()}): قراءة ${names.length} اسم، تحديث ${result.added} مقعد، ومنع ${result.skippedDuplicates} مكرر.`;
+        state.playersSheetConfig.lastSyncText = msg;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        if (statusEl) statusEl.textContent = msg;
+      } catch (err) {
+        const errMsg = `تعذر السحب تلقائياً (${err.message}). تأكد من أن الجدول منشور للويب (File > Share > Publish to web) أو متاح للعرض.`;
+        state.playersSheetConfig.lastSyncText = errMsg;
+        if (statusEl) statusEl.textContent = errMsg;
+        if (!isSilent) alert(errMsg);
+      }
+    }
+
+    function registerPlayer(isPublic) {
+      if (isPublic && !state.settings.allowPublicRegistration) return;
+      if (!isPublic && !isAdmin) return;
+
+      const input = document.getElementById(isPublic ? "publicNameInput" : "adminPlayerInput");
+      const name = input.value.trim().replace(/\s+/g, " ");
+      if (!name) return;
+
+      if (isDuplicatePlayerName(name)) {
+        alert("هذا الاسم مسجل مسبقاً في المسابقة ولا يُسمح بتكرار الأسماء!");
+        input.focus();
+        return;
+      }
+
+      const emptySlot = state.players.find(p => !p.name);
+      if (!emptySlot) {
+        alert("تم اكتمال جميع مقاعد المتسابقين!");
+        return;
+      }
+
+      pushHistory();
+      emptySlot.name = name;
+      input.value = "";
+      addLog(`تم ربط الرقم ${emptySlot.number} بالمتسابق (${name}).`);
+      saveAndSync();
+    }
+
+    function removeLastPlayer() {
+      if (!isAdmin) return;
+      for (let i = state.players.length - 1; i >= 0; i--) {
+        if (state.players[i].name) {
+          pushHistory();
+          const removed = state.players[i].name;
+          state.players[i].name = "";
+          addLog(`تم إزالة الاسم (${removed}) عن الرقم ${state.players[i].number}.`);
+          saveAndSync();
+          return;
+        }
+      }
+    }
+
+    function importNamesFromFile(e) {
+      const file = e.target.files[0];
+      if (!file || !isAdmin) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const names = parsePlayerNamesText(ev.target.result);
+        if (!names.length) return;
+        const replace = document.getElementById("replacePlayersNamesCheck")?.checked || false;
+        const result = applyPlayerNamesList(names, replace, `الملف (${file.name})`);
+        const statusEl = document.getElementById("playersSyncStatus");
+        if (statusEl) {
+          statusEl.textContent = `تم استيراد ${result.added} اسم جديد من الملف (${file.name}) ومنع ${result.skippedDuplicates} مكرر.`;
+        }
+        e.target.value = "";
+      };
+      reader.readAsText(file, "UTF-8");
+    }
+
+    function handleCardClick(playerNumber) {
+      if (!isAdmin) return;
+      const p = state.players.find(x => x.number === playerNumber);
+      if (!p || !isPlayerParticipating(p) || p.status !== "available") return;
+
+      const pLabel = getPlayerDisplayName(p);
+      pushHistory();
+      if (!state.currentSelector) {
+        state.currentSelector = p.number;
+        addLog(`تم تعيين ${pLabel} كسائل.`);
+      } else if (state.currentSelector === p.number) {
+        state.currentSelector = null;
+        state.currentTarget = null;
+      } else {
+        state.currentTarget = p.number;
+        const sel = getPlayer(state.currentSelector);
+        addLog(`${getPlayerDisplayName(sel)} اختار المنافس ${pLabel}.`);
+      }
+      saveAndSync();
+    }
+
+    function getPlayer(num) {
+      return state.players.find(p => p.number === num) || null;
+    }
+
+    function pickRandomSelector() {
+      if (!isAdmin) return;
+      const avail = state.players.filter(p => isPlayerParticipating(p) && p.status === "available" && p.number !== state.currentTarget);
+      if (!avail.length) return alert("لا يوجد لاعبون متاحون.");
+      pushHistory();
+      const chosen = avail[Math.floor(Math.random() * avail.length)];
+      state.currentSelector = chosen.number;
+      addLog(`تم اختيار السائل عشوائياً: ${getPlayerDisplayName(chosen)}.`);
+      saveAndSync();
+    }
+
+    function pickRandomTarget() {
+      if (!isAdmin) return;
+      const avail = state.players.filter(p => isPlayerParticipating(p) && p.status === "available" && p.number !== state.currentSelector);
+      if (!avail.length) return alert("لا يوجد منافسون متاحون للاختيار.");
+      pushHistory();
+      const chosen = avail[Math.floor(Math.random() * avail.length)];
+      state.currentTarget = chosen.number;
+      const sel = getPlayer(state.currentSelector);
+      addLog(sel ? `${getPlayerDisplayName(sel)} اختار المنافس ${getPlayerDisplayName(chosen)}.` : `تم اختيار المنافس ${getPlayerDisplayName(chosen)}.`);
+      saveAndSync();
+    }
+
+    function clearTargetSelection() {
+      if (!isAdmin) return;
+      pushHistory();
+      state.currentTarget = null;
+      saveAndSync();
+    }
+
+    function launchQuestionAndTimer() {
+      if (!isAdmin) return;
+      if (!state.currentSelector || !state.currentTarget) {
+        return alert("يرجى تحديد السائل والمنافس المستهدف أولاً.");
+      }
+
+      const level = document.getElementById("levelSelect").value;
+      const pool = state.questions.filter(q =>
+        !state.usedQuestionIds.includes(q.id) && (level === "all" || q.level === level)
+      );
+
+      if (!pool.length) {
+        return alert("لا توجد أسئلة متبقية في هذا المستوى! أضف أسئلة من أرشيف الأسئلة.");
+      }
+
+      pushHistory();
+      const q = pool[Math.floor(Math.random() * pool.length)];
+      state.usedQuestionIds.push(q.id);
+      state.activeQuestion = q;
+      state.answerRevealed = false;
+      state.timeLeft = state.settings.timerSec;
+      state.timerRunning = true;
+      state.stats.totalAsked++;
+
+      const target = getPlayer(state.currentTarget);
+      addLog(`طُرح سؤال على ${getPlayerDisplayName(target)}.`);
+      startTimerInterval();
+      saveAndSync();
+    }
+
+    function startTimerInterval() {
+      stopTimer();
+      timerInterval = setInterval(() => {
+        if (!state.timerRunning) return;
+        if (state.timeLeft > 0) {
+          state.timeLeft--;
+          updateTimerUI();
+        } else {
+          state.timerRunning = false;
+          stopTimer();
+          addLog("انتهى وقت الإجابة!");
+          saveAndSync();
+        }
+      }, 1000);
+    }
+
+    function stopTimer() {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+    }
+
+    function toggleTimer() {
+      if (!isAdmin || !state.activeQuestion) return;
+      state.timerRunning = !state.timerRunning;
+      if (state.timerRunning) startTimerInterval();
+      else stopTimer();
+      saveAndSync();
+    }
+
+    function toggleAnswerReveal() {
+      if (!isAdmin || !state.activeQuestion) return;
+      state.answerRevealed = !state.answerRevealed;
+      saveAndSync();
+    }
+
+    function handleAnswer(isCorrect) {
+      if (!isAdmin || !state.activeQuestion) return;
+      const selector = getPlayer(state.currentSelector);
+      const target = getPlayer(state.currentTarget);
+      if (!selector || !target) return;
+
+      const selLabel = getPlayerDisplayName(selector);
+      const tgtLabel = getPlayerDisplayName(target);
+
+      pushHistory();
+      stopTimer();
+      state.timerRunning = false;
+
+      if (isCorrect) {
+        state.stats.correctAnswers++;
+        target.kills++;
+        addLog(`✅ أجاب ${tgtLabel} إجابة صحيحة! يبقى ${selLabel} في اللعبة حتى يُوجَّه إليه سؤال ويخطئ.`);
+
+        if (target.kills >= state.settings.killsToWin) {
+          recordWinnerQualification(target);
+        } else {
+          state.currentSelector = target.number;
+        }
+      } else {
+        target.errors++;
+        selector.kills++;
+        addLog(`❌ أخطأ ${tgtLabel} في الإجابة، واحتسبت نقطة إسقاط لـ ${selLabel}.`);
+
+        if (target.errors >= state.settings.maxErrors) {
+          target.status = "eliminated";
+          if (state.currentSelector === target.number) state.currentSelector = null;
+          addLog(`🚫 انسحب ${tgtLabel} وتم إخفاء مربعه من اللوحة.`);
+        }
+
+        if (selector.kills >= state.settings.killsToWin) {
+          recordWinnerQualification(selector);
+        }
+      }
+
+      state.currentTarget = null;
+      state.activeQuestion = null;
+      state.answerRevealed = false;
+      saveAndSync();
+    }
+
+    function handlePass() {
+      if (!isAdmin || !state.currentTarget) return;
+      const target = getPlayer(state.currentTarget);
+      if (!target) return;
+
+      if (target.passes >= state.settings.maxPasses) {
+        return alert("استنفد هذا المتسابق جميع فرص الاعتذار المسموحة!");
+      }
+
+      pushHistory();
+      stopTimer();
+      target.passes++;
+      addLog(`✋ اعتذر ${getPlayerDisplayName(target)} (${target.passes}/${state.settings.maxPasses}).`);
+      state.currentTarget = null;
+      state.activeQuestion = null;
+      state.timerRunning = false;
+      saveAndSync();
+    }
+
+    function splitCsvRowSmart(line) {
+      const cells = [];
+      let current = "";
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') {
+          if (inQuotes && line[i + 1] === '"') {
+            current += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if ((ch === "," || ch === "|" || ch === "؛" || ch === "\t") && !inQuotes) {
+          cells.push(current.trim());
+          current = "";
+        } else {
+          current += ch;
+        }
+      }
+      cells.push(current.trim());
+      return cells;
+    }
+
+    function parseQuestionsLines(rawText) {
+      const lines = String(rawText || "")
+        .replace(/^\uFEFF/, "")
+        .split(/\r?\n/)
+        .map(l => l.trim())
+        .filter(Boolean);
+
+      const levelMap = {
+        "سهل": "easy",
+        "easy": "easy",
+        "متوسط": "medium",
+        "medium": "medium",
+        "صعب": "hard",
+        "hard": "hard"
+      };
+
+      const parsed = [];
+      const seenInBatch = new Set();
+
+      for (let i = 0; i < lines.length; i++) {
+        const parts = splitCsvRowSmart(lines[i]).map(s => s.replace(/^["']|["']$/g, "").trim());
+        if (parts.length >= 2 && parts[0] && parts[1]) {
+          const qLower = parts[0].toLowerCase();
+          const aLower = parts[1].toLowerCase();
+          const isHeaderRow =
+            i === 0 &&
+            (qLower === "question" || qLower === "السؤال" || parts[0] === "سؤال") &&
+            (aLower === "answer" || aLower === "الإجابة" || parts[1] === "إجابة" || parts[1] === "الجواب");
+          if (isHeaderRow) continue;
+
+          const qKey = normalizeQuestionKey(parts[0]);
+          if (!qKey || seenInBatch.has(qKey)) continue;
+          seenInBatch.add(qKey);
+
+          const lvl = levelMap[(parts[2] || "").toLowerCase()] || "easy";
+          parsed.push({
+            text: parts[0],
+            answer: parts[1],
+            level: lvl
+          });
+        }
+      }
+      return parsed;
+    }
+
+    function appendQuestionsToState(items, replace, sourceLabel = "الأرشيف") {
+      if (!items.length) {
+        return { added: 0, skippedDuplicates: 0 };
+      }
+
+      pushHistory();
+      let nextId = replace ? 1 : (state.questions.reduce((m, q) => Math.max(m, q.id), 0) + 1);
+      const existingKeys = new Set(
+        replace ? [] : state.questions.map(q => normalizeQuestionKey(q.text))
+      );
+
+      const uniqueItems = [];
+      let skippedDuplicates = 0;
+
+      for (const item of items) {
+        const key = normalizeQuestionKey(item.text);
+        if (!key) continue;
+        if (existingKeys.has(key)) {
+          skippedDuplicates++;
+          continue;
+        }
+        existingKeys.add(key);
+        uniqueItems.push({
+          id: nextId++,
+          text: item.text,
+          answer: item.answer,
+          level: item.level
+        });
+      }
+
+      if (replace) {
+        state.questions = uniqueItems;
+        state.usedQuestionIds = [];
+      } else if (uniqueItems.length > 0) {
+        state.questions.push(...uniqueItems);
+      }
+
+      if (uniqueItems.length > 0) {
+        addLog(`تم تحديث ${uniqueItems.length} سؤال من ${sourceLabel} (منع ${skippedDuplicates} مكرر).`);
+      }
+      saveAndSync();
+      return { added: uniqueItems.length, skippedDuplicates };
+    }
+
+    function importQuestionsFromText() {
+      if (!isAdmin) return;
+      const textarea = document.getElementById("bulkQuestionsInput");
+      const raw = textarea.value.trim();
+      if (!raw) return;
+
+      const replace = document.getElementById("replaceArchiveCheck").checked;
+      const parsed = parseQuestionsLines(raw);
+      if (!parsed.length) {
+        return alert("لم يتم العثور على أسئلة صالحة. تأكد من الصيغة: السؤال | الإجابة | المستوى");
+      }
+      const result = appendQuestionsToState(parsed, replace, "الإدخال النصي");
+      textarea.value = "";
+      const statusEl = document.getElementById("fileImportStatus");
+      if (statusEl) {
+        statusEl.textContent = result.added > 0
+          ? `تمت إضافة ${result.added} سؤال جديد من النص (ومنع ${result.skippedDuplicates} مكرر).`
+          : "جميع الأسئلة المدخلة مكررة أو موجودة مسبقاً في الأرشيف.";
+      }
+    }
+
+    function importQuestionsFromFile(event) {
+      if (!isAdmin) return;
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+
+      const replace = document.getElementById("replaceArchiveCheck").checked;
+      const reader = new FileReader();
+
+      reader.onload = (e) => {
+        const content = e.target && e.target.result ? String(e.target.result) : "";
+        const parsed = parseQuestionsLines(content);
+        if (!parsed.length) {
+          alert("لم يتم العثور على أسئلة صالحة داخل الملف.");
+          event.target.value = "";
+          return;
+        }
+        const result = appendQuestionsToState(parsed, replace, `الملف (${file.name})`);
+        const statusEl = document.getElementById("fileImportStatus");
+        if (statusEl) {
+          statusEl.textContent = result.added > 0
+            ? `تم استيراد ${result.added} سؤال جديد من الملف (${file.name}) ومنع ${result.skippedDuplicates} مكرر.`
+            : `جميع الأسئلة في الملف (${file.name}) مكررة أو موجودة مسبقاً.`;
+        }
+        event.target.value = "";
+      };
+
+      reader.onerror = () => {
+        alert("تعذر قراءة الملف المحدد. تأكد من ترميز الملف (UTF-8).");
+        event.target.value = "";
+      };
+
+      reader.readAsText(file, "UTF-8");
+    }
+
+    function normalizeSheetCsvUrl(rawUrl) {
+      const trimmed = String(rawUrl || "").trim();
+      if (!trimmed) return "";
+      try {
+        const u = new URL(trimmed);
+        if (u.hostname.includes("docs.google.com") && u.pathname.includes("/spreadsheets/d/")) {
+          const match = u.pathname.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+          if (match && match[1]) {
+            const sheetId = match[1];
+            const gidMatch = (u.searchParams.get("gid")) || (u.hash.match(/gid=(\d+)/)?.[1]) || "0";
+            return `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gidMatch}`;
+          }
+        }
+        return u.toString();
+      } catch {
+        return "";
+      }
+    }
+
+    function hydrateSheetInputs() {
+      const urlInput = document.getElementById("sheetQuestionsUrlInput");
+      const intervalInput = document.getElementById("sheetSyncIntervalInput");
+      const autoCheck = document.getElementById("sheetAutoSyncCheck");
+      const statusEl = document.getElementById("sheetSyncStatus");
+
+      if (urlInput && !urlInput.value && state.sheetConfig.url) {
+        urlInput.value = state.sheetConfig.url;
+      }
+      if (intervalInput) {
+        intervalInput.value = state.sheetConfig.intervalSec || 30;
+      }
+      if (autoCheck) {
+        autoCheck.checked = Boolean(state.sheetConfig.autoSync);
+      }
+      if (statusEl && state.sheetConfig.lastSyncText) {
+        statusEl.textContent = state.sheetConfig.lastSyncText;
+      }
+    }
+
+    function saveSheetConfig(andSyncNow = false) {
+      if (!isAdmin) return;
+      const rawUrl = document.getElementById("sheetQuestionsUrlInput").value.trim();
+      const intervalSec = Math.max(5, Math.min(3600, parseInt(document.getElementById("sheetSyncIntervalInput").value, 10) || 30));
+      const autoSync = document.getElementById("sheetAutoSyncCheck").checked;
+
+      state.sheetConfig.url = rawUrl;
+      state.sheetConfig.intervalSec = intervalSec;
+      state.sheetConfig.autoSync = autoSync;
+      saveAndSync();
+      applySheetAutoSyncTimer();
+
+      if (andSyncNow) {
+        syncQuestionsFromUrl(false);
+      }
+    }
+
+    function toggleSheetAutoSync() {
+      if (!isAdmin) return;
+      saveSheetConfig(false);
+      if (state.sheetConfig.autoSync && state.sheetConfig.url) {
+        syncQuestionsFromUrl(true);
+      }
+    }
+
+    function applySheetAutoSyncTimer() {
+      if (sheetSyncTimer) {
+        clearInterval(sheetSyncTimer);
+        sheetSyncTimer = null;
+      }
+      if (state.sheetConfig && state.sheetConfig.autoSync && state.sheetConfig.url) {
+        const ms = Math.max(5, Number(state.sheetConfig.intervalSec) || 30) * 1000;
+        sheetSyncTimer = setInterval(() => {
+          if (isAdmin) {
+            syncQuestionsFromUrl(true);
+          }
+        }, ms);
+      }
+    }
+
+    async function syncQuestionsFromUrl(isSilent = false) {
+      const inputEl = document.getElementById("sheetQuestionsUrlInput");
+      const rawUrl = (inputEl ? inputEl.value.trim() : "") || state.sheetConfig.url;
+      const csvUrl = normalizeSheetCsvUrl(rawUrl);
+      const statusEl = document.getElementById("sheetSyncStatus");
+
+      if (!csvUrl) {
+        if (!isSilent) alert("يرجى إدخال رابط Google Sheets أو ملف CSV صحيح.");
+        if (statusEl) statusEl.textContent = "الرابط غير صالح أو فارغ.";
+        return;
+      }
+
+      state.sheetConfig.url = rawUrl;
+      if (statusEl) statusEl.textContent = "جارٍ سحب الأسئلة من الرابط...";
+
+      try {
+        const sep = csvUrl.includes("?") ? "&" : "?";
+        const fetchUrl = `${csvUrl}${sep}_t=${Date.now()}`;
+        const res = await fetch(fetchUrl, { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const text = await res.text();
+        const parsed = parseQuestionsLines(text);
+        if (!parsed.length) {
+          throw new Error("لم يتم العثور على أسئلة صالحة في الجدول/الملف.");
+        }
+
+        const replace = document.getElementById("replaceArchiveCheck")?.checked || false;
+        const result = appendQuestionsToState(parsed, replace, "Google Sheets / CSV");
+        const msg = `تمت المزامنة (${getNowTime()}): قراءة ${parsed.length} سؤال، إضافة ${result.added} جديد، ومنع ${result.skippedDuplicates} مكرر.`;
+        state.sheetConfig.lastSyncText = msg;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        if (statusEl) statusEl.textContent = msg;
+      } catch (err) {
+        const errMsg = `تعذر السحب تلقائياً (${err.message}). تأكد من أن الجدول منشور للويب (File > Share > Publish to web) أو متاح للعرض.`;
+        state.sheetConfig.lastSyncText = errMsg;
+        if (statusEl) statusEl.textContent = errMsg;
+        if (!isSilent) alert(errMsg);
+      }
+    }
+
+    function resetUsedQuestions() {
+      if (!isAdmin) return;
+      pushHistory();
+      state.usedQuestionIds = [];
+      addLog("تمت إعادة تفعيل جميع الأسئلة في الأرشيف.");
+      saveAndSync();
+    }
+
+    function populateSettingsForm() {
+      document.getElementById("cfgTotalPlayers").value = state.settings.totalPlayers;
+      document.getElementById("cfgKillsToWin").value = state.settings.killsToWin;
+      document.getElementById("cfgMaxWinners").value = state.settings.maxWinners;
+      document.getElementById("cfgMaxErrors").value = state.settings.maxErrors;
+      document.getElementById("cfgMaxPasses").value = state.settings.maxPasses;
+      document.getElementById("cfgTimerSec").value = state.settings.timerSec;
+      document.getElementById("cfgPublicReg").value = String(state.settings.allowPublicRegistration);
+    }
+
+    function saveSettings() {
+      if (!isAdmin) return;
+      pushHistory();
+      const newTotal = Math.max(2, Math.min(100, parseInt(document.getElementById("cfgTotalPlayers").value) || 24));
+      state.settings.totalPlayers = newTotal;
+      state.settings.killsToWin = Math.max(1, parseInt(document.getElementById("cfgKillsToWin").value) || 3);
+      state.settings.maxWinners = Math.max(1, parseInt(document.getElementById("cfgMaxWinners").value) || 5);
+      state.settings.maxErrors = Math.max(1, parseInt(document.getElementById("cfgMaxErrors").value) || 1);
+      state.settings.maxPasses = Math.max(0, parseInt(document.getElementById("cfgMaxPasses").value) || 3);
+      state.settings.timerSec = Math.max(5, parseInt(document.getElementById("cfgTimerSec").value) || 30);
+      state.settings.allowPublicRegistration = document.getElementById("cfgPublicReg").value === "true";
+
+      const newPass = document.getElementById("cfgNewPassword").value.trim();
+      if (newPass) {
+        state.settings.adminPassword = newPass;
+        document.getElementById("cfgNewPassword").value = "";
+      }
+
+      if (newTotal !== state.players.length) {
+        const updated = [];
+        for (let i = 0; i < newTotal; i++) {
+          updated.push(state.players[i] || { number: i + 1, name: "", status: "available", kills: 0, errors: 0, passes: 0 });
+        }
+        state.players = updated;
+      }
+
+      addLog("تم حفظ إعدادات المسابقة.");
+      saveAndSync();
+      alert("تم حفظ الإعدادات بنجاح.");
+    }
+
+    function resetContest() {
+      if (!isAdmin) return;
+      if (!confirm("هل تريد بدء مسابقة جديدة وتصفير النتائج والإسقاطات؟")) return;
+      pushHistory();
+      stopTimer();
+      state.players.forEach(p => {
+        p.status = "available";
+        p.kills = 0;
+        p.errors = 0;
+        p.passes = 0;
+      });
+      state.winners = [];
+      state.lastWinnerNumber = null;
+      state.usedQuestionIds = [];
+      state.currentSelector = null;
+      state.currentTarget = null;
+      state.activeQuestion = null;
+      state.timerRunning = false;
+      state.stats = { totalAsked: 0, correctAnswers: 0 };
+      addLog("تم بدء مسابقة جديدة وتصفير جميع الجولات.");
+      saveAndSync();
+    }
+
+    function exportBackupJson() {
+      const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "contest-backup.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function openQuestionFullscreen() {
+      document.getElementById("qfsOverlay").classList.add("open");
+    }
+
+    function closeQuestionFullscreen() {
+      document.getElementById("qfsOverlay").classList.remove("open");
+    }
+
+    function updateTimerUI() {
+      const el = document.getElementById("timerDisplay");
+      const qfsEl = document.getElementById("qfsTimer");
+      el.textContent = state.timeLeft;
+      qfsEl.textContent = state.timeLeft;
+      const urgent = state.timeLeft <= 5 && state.timerRunning;
+      el.classList.toggle("urgent", urgent);
+      qfsEl.classList.toggle("urgent", urgent);
+    }
+
+    function renderAll() {
+      document.getElementById("roleSubtitle").textContent = isAdmin
+        ? "الدور: مدير (صلاحيات كاملة)"
+        : "الدور: وضع المشاهدة (الجمهور)";
+      const roleBtn = document.getElementById("roleToggleBtn");
+      roleBtn.textContent = isAdmin ? "🔒 خروج المدير" : "🔑 دخول المدير";
+      roleBtn.style.background = isAdmin ? "#475569" : "var(--primary)";
+
+      const activeCount = state.players.filter(p => isPlayerParticipating(p) && p.status === "available").length;
+      const elimCount = state.players.filter(p => p.status === "eliminated").length;
+      const remQ = Math.max(0, state.questions.length - state.usedQuestionIds.length);
+      const acc = state.stats.totalAsked > 0
+        ? Math.round((state.stats.correctAnswers / state.stats.totalAsked) * 100)
+        : 0;
+
+      document.getElementById("statActivePlayers").textContent = activeCount;
+      document.getElementById("statWinnersCount").textContent = state.winners.length;
+      document.getElementById("statWinnersMax").textContent = `/ ${state.settings.maxWinners}`;
+      document.getElementById("statEliminated").textContent = elimCount;
+      document.getElementById("statRemainingQ").textContent = remQ;
+      document.getElementById("statAccuracy").textContent = `${acc}%`;
+
+      const visiblePlayers = state.players.filter(p => p.status !== "eliminated" && p.status !== "winner");
+      const grid = document.getElementById("playersGrid");
+      grid.innerHTML = visiblePlayers.map(p => {
+        const isSel = state.currentSelector === p.number;
+        const isTgt = state.currentTarget === p.number;
+        const displayName = getPlayerDisplayName(p);
+        const hasCustomName = Boolean(String(p.name || "").trim());
+        let cls = "player-card";
+        let roleTag = "";
+
+        if (isSel) {
+          cls += " is-selector";
+          roleTag = `<span class="p-role-tag tag-selector">يختار الآن</span>`;
+        } else if (isTgt) {
+          cls += " is-target";
+          roleTag = `<span class="p-role-tag tag-target">المسؤول</span>`;
+        }
+
+        return `
+          <div class="${cls}" onclick="handleCardClick(${p.number})">
+            <div class="p-card-top">
+              <span class="p-num-badge">${p.number}</span>
+              ${roleTag}
+            </div>
+            <div class="p-name ${hasCustomName ? "" : "number-mode"}">${displayName}</div>
+            <div class="p-card-bottom">
+              <span>⚔ ${p.kills}/${state.settings.killsToWin}</span>
+              <span>✋ ${p.passes}/${state.settings.maxPasses}</span>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      const sel = getPlayer(state.currentSelector);
+      document.getElementById("heroSelectorNum").textContent = sel ? sel.number : "-";
+      document.getElementById("heroSelectorName").textContent = sel ? getPlayerDisplayName(sel) : "اختر السائل من لوحة الأرقام";
+      document.getElementById("heroSelectorMeta").textContent = sel
+        ? `أسقط: ${sel.kills} من ${state.settings.killsToWin}  •  الاعتذارات: ${sel.passes}/${state.settings.maxPasses}`
+        : `المطلوب للتأهل: إسقاط ${state.settings.killsToWin} منافسين`;
+
+      const tgt = getPlayer(state.currentTarget);
+      document.getElementById("targetNumBox").textContent = tgt ? tgt.number : "?";
+      document.getElementById("targetNameLabel").textContent = tgt ? getPlayerDisplayName(tgt) : "بانتظار تحديد المنافس المستهدف";
+      document.getElementById("targetPassesLabel").textContent = tgt
+        ? `${tgt.passes} / ${state.settings.maxPasses}`
+        : `0 / ${state.settings.maxPasses}`;
+
+      const qCard = document.getElementById("activeQuestionCard");
+      const preCtrl = document.getElementById("preQuestionControls");
+      if (state.activeQuestion) {
+        qCard.classList.add("visible");
+        if (isAdmin) preCtrl.style.display = "none";
+        document.getElementById("activeQuestionText").textContent = state.activeQuestion.text;
+        document.getElementById("qfsQuestionText").textContent = state.activeQuestion.text;
+        document.getElementById("activeAnswerText").textContent = state.activeQuestion.answer;
+        document.getElementById("qfsAnswerBox").textContent = `الإجابة: ${state.activeQuestion.answer}`;
+
+        document.getElementById("answerRevealBox").classList.toggle("visible", state.answerRevealed);
+        document.getElementById("qfsAnswerBox").classList.toggle("visible", state.answerRevealed);
+        document.getElementById("timerPauseBtn").textContent = state.timerRunning ? "⏸" : "▶";
+        document.getElementById("qfsMatchupLabel").textContent =
+          sel && tgt ? `السائل: ${getPlayerDisplayName(sel)} ⬅ المسؤول: ${getPlayerDisplayName(tgt)}` : "سؤال مباشر";
+      } else {
+        qCard.classList.remove("visible");
+        if (isAdmin) preCtrl.style.display = "block";
+        document.getElementById("qfsQuestionText").textContent = "بانتظار طرح السؤال التالي...";
+        document.getElementById("qfsAnswerBox").classList.remove("visible");
+      }
+
+      updateTimerUI();
+
+      document.getElementById("winnersPillCount").textContent = `${state.winners.length} / ${state.settings.maxWinners}`;
+      document.getElementById("killsReqHint").textContent = state.settings.killsToWin;
+      const winBox = document.getElementById("winnersListContainer");
+      if (state.winners.length === 0) {
+        winBox.innerHTML = `<p style="font-size:0.83rem; color:var(--text-muted); text-align:center; padding:8px 0;">لا يوجد فائزون بعد. من يُسقط ${state.settings.killsToWin} منافسين يتأهل مباشرة.</p>`;
+      } else {
+        winBox.innerHTML = state.winners.map((w, i) => {
+          const isLatest = state.lastWinnerNumber === w.number;
+          return `
+            <div class="winner-item ${isLatest ? "latest-winner" : ""}">
+              <span>🏅 #${i + 1} — ${w.name} ${isLatest ? `<span class="winner-badge-new">تأهل للتو</span>` : ""}</span>
+              <span>${w.kills} إسقاطات</span>
+            </div>
+          `;
+        }).join("");
+      }
+
+      document.getElementById("undoBtn").disabled = historyStack.length === 0;
+      document.getElementById("logsFeed").innerHTML = state.logs.map(l => `
+        <div class="log-row">
+          <span class="log-time">${l.time}</span>
+          <span>${l.text}</span>
+        </div>
+      `).join("");
+
+      document.getElementById("publicRegForm").style.display = state.settings.allowPublicRegistration ? "flex" : "none";
+      document.getElementById("publicRegClosedMsg").style.display = state.settings.allowPublicRegistration ? "none" : "block";
+
+      const namedCount = state.players.filter(p => Boolean(String(p.name || "").trim())).length;
+      document.getElementById("playersTableSummary").textContent = namedCount > 0
+        ? `المقاعد المسجلة بالأسماء: ${namedCount} من أصل ${state.players.length} (وبقية الأرقام مفعّلة تلقائياً).`
+        : `وضع الأرقام التلقائي مفعّل: جميع الأرقام (${state.players.length}) جاهزة للمشاركة مباشرة دون الحاجة لأسماء.`;
+
+      document.getElementById("archiveCountBadge").textContent = state.questions.length;
+      const lvlNames = { easy: "سهل", medium: "متوسط", hard: "صعب" };
+      document.getElementById("archiveQuestionsList").innerHTML = state.questions.map(q => {
+        const used = state.usedQuestionIds.includes(q.id);
+        return `
+          <div style="background:var(--surface-alt); border:1px solid var(--border); padding:10px 14px; border-radius:10px; display:flex; justify-content:space-between; align-items:center; opacity:${used ? "0.55" : "1"};">
+            <div>
+              <strong>${q.text}</strong>
+              <div style="font-size:0.8rem; color:var(--success);">الإجابة: ${q.answer}</div>
+            </div>
+            <span class="legend-pill" style="background:var(--primary-soft); color:var(--primary);">${lvlNames[q.level] || "سهل"} ${used ? "(مستخدم)" : ""}</span>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function triggerConfetti() {
+      const canvas = document.getElementById("confettiCanvas");
+      const ctx = canvas.getContext("2d");
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      const pieces = Array.from({ length: 90 }, () => ({
+        x: Math.random() * canvas.width,
+        y: Math.random() * -canvas.height,
+        r: Math.random() * 6 + 4,
+        c: ["#3b5bfd", "#10b981", "#f59e0b", "#e11d48"][Math.floor(Math.random() * 4)],
+        v: Math.random() * 4 + 2
+      }));
+      let frames = 0;
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        pieces.forEach(p => {
+          p.y += p.v;
+          ctx.fillStyle = p.c;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        if (++frames < 140) requestAnimationFrame(draw);
+        else ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+      draw();
+    }
+
+    hydrateSheetInputs();
+    hydratePlayersSheetInputs();
+    applySheetAutoSyncTimer();
+    applyPlayersAutoSyncTimer();
+    renderAll();
+  </script>
+</body>
+</html>
