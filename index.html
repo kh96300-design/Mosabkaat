@@ -96,7 +96,6 @@
     .admin-only { display: inline-flex; }
     body.viewer-mode .admin-only { display: none !important; }
 
-    /* الشريط العلوي */
     .navbar {
       background: var(--surface);
       border-bottom: 1px solid var(--border);
@@ -192,7 +191,6 @@
       padding: 0 20px;
     }
 
-    /* شريط الإحصائيات العلوي (5 بطاقات) */
     .stats-row {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
@@ -252,7 +250,6 @@
       font-size: 1.35rem;
     }
 
-    /* التخطيط الرئيسي: شبكة الأرقام يمين + لوحة التحكم يسار */
     .arena-grid {
       display: grid;
       grid-template-columns: 1.75fr 1fr;
@@ -273,7 +270,6 @@
       margin-bottom: 18px;
     }
 
-    /* رأس لوحة الأرقام */
     .board-header {
       display: flex;
       flex-wrap: wrap;
@@ -321,7 +317,6 @@
       border-radius: 50%;
     }
 
-    /* شبكة بطاقات المتسابقين */
     .players-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
@@ -446,7 +441,6 @@
       border-top: 1px dashed var(--border);
     }
 
-    /* العمود الأيسر: بطاقة السائل الزرقاء */
     .selector-hero {
       background: var(--indigo-grad);
       color: #fff;
@@ -505,7 +499,6 @@
       margin-top: 3px;
     }
 
-    /* بطاقة المنافس المستهدف (المسؤول) */
     .target-box {
       background: var(--warning-bg);
       border: 1.5px solid #fde68a;
@@ -563,7 +556,6 @@
       color: var(--warning);
     }
 
-    /* أزرار الإجراءات تحت المنافس */
     .btn-launch {
       width: 100%;
       background: var(--success-btn);
@@ -594,7 +586,6 @@
       color: var(--text-muted);
     }
 
-    /* صندوق السؤال النشط */
     .active-question-card {
       background: var(--surface-alt);
       border: 1.5px solid var(--primary);
@@ -661,7 +652,6 @@
       gap: 8px;
     }
 
-    /* قائمة الفائزين */
     .panel-head-row {
       display: flex;
       justify-content: space-between;
@@ -704,7 +694,6 @@
       color: #065f46;
     }
 
-    /* سجل الأحداث */
     .logs-feed {
       max-height: 280px;
       overflow-y: auto;
@@ -732,7 +721,6 @@
       margin-top: 2px;
     }
 
-    /* التبويبات الثانوية (المتسابقون / الأرشيف / الإعدادات) */
     .tab-section { display: none; }
     .tab-section.active { display: block; }
 
@@ -751,7 +739,6 @@
       font-weight: 700;
     }
 
-    /* شاشة تكبير السؤال */
     .qfs-overlay {
       display: none;
       position: fixed;
@@ -766,7 +753,6 @@
     }
     .qfs-overlay.open { display: flex; }
 
-    /* النوافذ المنبثقة */
     .modal-backdrop {
       display: none;
       position: fixed;
@@ -801,7 +787,6 @@
 <body class="viewer-mode">
   <canvas id="confettiCanvas"></canvas>
 
-  <!-- الشريط العلوي -->
   <header class="navbar">
     <div class="brand">
       <div class="brand-icon">🏆</div>
@@ -826,7 +811,6 @@
   </header>
 
   <div class="container">
-    <!-- شريط الإحصائيات العلوي -->
     <section class="stats-row">
       <div class="stat-card">
         <div class="stat-info">
@@ -839,7 +823,7 @@
       <div class="stat-card">
         <div class="stat-info">
           <span class="stat-label">الفائزون</span>
-          <span class="stat-number" style="color: var(--success-btn);"><span id="statWinnersCount">0</span> <small id="statWinnersMax">/ 3</small></span>
+          <span class="stat-number" style="color: var(--success-btn);"><span id="statWinnersCount">0</span> <small id="statWinnersMax">/ 5</small></span>
         </div>
         <div class="stat-icon" style="background: #ecfdf5; color: var(--success-btn);">🏅</div>
       </div>
@@ -869,10 +853,8 @@
       </div>
     </section>
 
-    <!-- التبويب 1: ساحة المسابقة -->
     <div id="tab-arena" class="tab-section active">
       <div class="arena-grid">
-        <!-- العمود الأيمن: لوحة الأرقام التفاعلية -->
         <div class="card-panel">
           <div class="board-header">
             <div class="board-title-wrap">
@@ -892,9 +874,7 @@
           <div id="playersGrid" class="players-grid"></div>
         </div>
 
-        <!-- العمود الأيسر: منصة القيادة والفائزون والسجل -->
         <div>
-          <!-- بطاقة السائل الحالية (الزرقاء) -->
           <div class="selector-hero">
             <div class="selector-hero-top">
               <span class="pill-glass">يختار الآن (السائل)</span>
@@ -904,12 +884,11 @@
               <div class="hero-num-box" id="heroSelectorNum">-</div>
               <div class="hero-details">
                 <h3 id="heroSelectorName">لم يتم تحديد السائل</h3>
-                <p id="heroSelectorMeta">أسقط: 0 من 3 • الاعتذارات: 0/1</p>
+                <p id="heroSelectorMeta">أسقط: 0 من 3 • الاعتذارات: 0/3</p>
               </div>
             </div>
           </div>
 
-          <!-- بطاقة المنافس المستهدف (الصفراء) -->
           <div class="card-panel" style="padding: 16px;">
             <div class="target-box">
               <div class="target-main">
@@ -921,11 +900,10 @@
               </div>
               <div class="target-passes">
                 الاعتذارات
-                <strong id="targetPassesLabel">0 / 1</strong>
+                <strong id="targetPassesLabel">0 / 3</strong>
               </div>
             </div>
 
-            <!-- أزرار قبل طرح السؤال -->
             <div id="preQuestionControls" class="admin-only" style="display:block; width:100%;">
               <div style="display:flex; gap:8px; margin-bottom:10px;">
                 <select id="levelSelect" style="flex:1;">
@@ -945,7 +923,6 @@
               </div>
             </div>
 
-            <!-- صندوق السؤال النشط والمؤقت -->
             <div id="activeQuestionCard" class="active-question-card">
               <div class="q-top-bar">
                 <span style="font-size:0.82rem; font-weight:800; color:var(--primary);" id="qLevelBadge">سؤال مباشر</span>
@@ -969,11 +946,10 @@
             </div>
           </div>
 
-          <!-- بطاقة قائمة الفائزين المتأهلين -->
           <div class="card-panel">
             <div class="panel-head-row">
               <h3>👑 قائمة الفائزين المتأهلين</h3>
-              <span class="badge-count" id="winnersPillCount">0 / 3</span>
+              <span class="badge-count" id="winnersPillCount">0 / 5</span>
             </div>
             <div id="winnersListContainer" class="winners-list">
               <p style="font-size:0.83rem; color:var(--text-muted); text-align:center; padding:8px 0;">
@@ -982,7 +958,6 @@
             </div>
           </div>
 
-          <!-- بطاقة سجل الأحداث المباشر -->
           <div class="card-panel">
             <div class="panel-head-row">
               <h3>🕒 سجل الأحداث المباشر</h3>
@@ -997,7 +972,6 @@
       </div>
     </div>
 
-    <!-- التبويب 2: المتسابقون -->
     <div id="tab-players" class="tab-section">
       <div class="card-panel">
         <div class="panel-head-row">
@@ -1007,7 +981,6 @@
           </div>
         </div>
 
-        <!-- تسجيل المدير -->
         <div class="admin-only" style="flex-wrap:wrap; gap:10px; margin-bottom:16px; width:100%;">
           <input type="text" id="adminPlayerInput" placeholder="اكتب اسم المتسابق الجديد..." style="flex:1; min-width:220px;" onkeydown="if(event.key==='Enter') registerPlayer(false)" />
           <button style="background:var(--primary); color:#fff; border:none;" onclick="registerPlayer(false)">➕ تسجيل متسابق</button>
@@ -1017,7 +990,6 @@
           </label>
         </div>
 
-        <!-- تسجيل الجمهور -->
         <div id="publicRegBox" style="background:var(--surface-alt); padding:14px; border-radius:12px; border:1px solid var(--border); margin-bottom:16px;">
           <div style="font-weight:800; margin-bottom:8px;">تسجيل الجمهور المباشر</div>
           <div id="publicRegForm" style="display:flex; gap:8px; flex-wrap:wrap;">
@@ -1031,7 +1003,6 @@
       </div>
     </div>
 
-    <!-- التبويب 3: أرشيف الأسئلة -->
     <div id="tab-archive" class="tab-section">
       <div class="card-panel">
         <div class="panel-head-row">
@@ -1040,24 +1011,28 @@
         </div>
 
         <div style="background:var(--surface-alt); padding:16px; border-radius:14px; border:1px solid var(--border); margin-bottom:16px;">
-          <div style="font-weight:800; margin-bottom:6px;">استيراد أو إضافة أسئلة</div>
+          <div style="font-weight:800; margin-bottom:6px;">استيراد أو إضافة أسئلة (من نص أو ملف)</div>
           <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:10px;">
-            اكتب كل سؤال في سطر بالصيغة: <code>نص السؤال | الإجابة | المستوى (سهل/متوسط/صعب)</code>
+            اكتب كل سؤال في سطر أو في ملف بصيغة: <code>نص السؤال | الإجابة | المستوى (سهل/متوسط/صعب)</code>
           </p>
           <textarea id="bulkQuestionsInput" rows="4" style="width:100%; margin-bottom:10px;" placeholder="ما هي عاصمة سلطنة عُمان؟ | مسقط | سهل"></textarea>
-          <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
-            <button style="background:var(--primary); color:#fff; border:none;" onclick="importQuestionsFromText()">➕ إضافة الأسئلة</button>
+          <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+            <button style="background:var(--primary); color:#fff; border:none;" onclick="importQuestionsFromText()">➕ إضافة الأسئلة من النص</button>
+            <label style="display:inline-flex; align-items:center; gap:6px; background:var(--surface); padding:8px 14px; border-radius:10px; border:1px solid var(--border); cursor:pointer; font-weight:700; font-size:0.88rem;">
+              📂 استيراد من ملف (.txt / .csv)
+              <input type="file" id="questionsFileInput" accept=".txt,.csv" style="display:none;" onchange="importQuestionsFromFile(event)" />
+            </label>
             <label style="font-size:0.84rem; display:flex; align-items:center; gap:5px;">
               <input type="checkbox" id="replaceArchiveCheck" /> استبدال الأرشيف الحالي بالكامل
             </label>
           </div>
+          <div id="fileImportStatus" style="font-size:0.82rem; color:var(--success); font-weight:700; margin-top:8px;"></div>
         </div>
 
         <div id="archiveQuestionsList" style="display:flex; flex-direction:column; gap:8px;"></div>
       </div>
     </div>
 
-    <!-- التبويب 4: الإعدادات -->
     <div id="tab-settings" class="tab-section">
       <div class="card-panel">
         <div class="panel-head-row">
@@ -1106,7 +1081,6 @@
     </div>
   </div>
 
-  <!-- شاشة تكبير السؤال للجمهور -->
   <div id="qfsOverlay" class="qfs-overlay">
     <div style="width:100%; display:flex; justify-content:space-between; align-items:center;">
       <span class="pill-glass" style="background:var(--primary-soft); color:var(--primary); font-size:1rem;" id="qfsMatchupLabel">مواجهة مباشرة</span>
@@ -1126,7 +1100,6 @@
     </div>
   </div>
 
-  <!-- نافذة دخول المدير -->
   <div id="loginModal" class="modal-backdrop">
     <div class="modal-box">
       <h3 style="margin-bottom:6px;">🔐 تسجيل دخول المدير</h3>
@@ -1163,7 +1136,7 @@
       const players = Array.from({ length: totalPlayers }, (_, i) => ({
         number: i + 1,
         name: "",
-        status: "available", // available | eliminated | winner
+        status: "available",
         kills: 0,
         errors: 0,
         passes: 0
@@ -1242,7 +1215,6 @@
       if (state.logs.length > 60) state.logs.pop();
     }
 
-    /* التنقل والمظهر */
     function switchTab(tabName) {
       document.querySelectorAll(".nav-tab").forEach(btn => {
         btn.classList.toggle("active", btn.dataset.tab === tabName);
@@ -1257,7 +1229,6 @@
       document.body.classList.toggle("dark-theme");
     }
 
-    /* الصلاحيات */
     function handleRoleClick() {
       if (isAdmin) {
         isAdmin = false;
@@ -1287,7 +1258,6 @@
       }
     }
 
-    /* إدارة المتسابقين */
     function registerPlayer(isPublic) {
       if (isPublic && !state.settings.allowPublicRegistration) return;
       if (!isPublic && !isAdmin) return;
@@ -1342,10 +1312,9 @@
         addLog(`تم استيراد ${lines.length} اسم من الملف.`);
         saveAndSync();
       };
-      reader.readAsText(file);
+      reader.readAsText(file, "UTF-8");
     }
 
-    /* منطق اللعب والاختيار */
     function handleCardClick(playerNumber) {
       if (!isAdmin) return;
       const p = state.players.find(x => x.number === playerNumber);
@@ -1400,7 +1369,6 @@
       saveAndSync();
     }
 
-    /* طرح الأسئلة والمؤقت */
     function launchQuestionAndTimer() {
       if (!isAdmin) return;
       if (!state.currentSelector || !state.currentTarget) {
@@ -1468,7 +1436,6 @@
       saveAndSync();
     }
 
-    /* تقييم الإجابة */
     function handleAnswer(isCorrect) {
       if (!isAdmin || !state.activeQuestion) return;
       const selector = getPlayer(state.currentSelector);
@@ -1480,7 +1447,6 @@
       state.timerRunning = false;
 
       if (isCorrect) {
-        // المنافس أجاب إجابة صحيحة -> يُسقط السائل ويأخذ مكانه
         state.stats.correctAnswers++;
         target.kills++;
         selector.errors++;
@@ -1501,7 +1467,6 @@
           state.currentSelector = target.number;
         }
       } else {
-        // المنافس أخطأ -> السائل يُسقطه ويبقى سائلاً
         selector.kills++;
         target.errors++;
         addLog(`❌ أخطأ ${target.name} في الإجابة، واحتسبت نقطة إسقاط لـ ${selector.name}.`);
@@ -1545,39 +1510,115 @@
       saveAndSync();
     }
 
-    /* إدارة الأرشيف والإعدادات */
+    function parseQuestionsLines(rawText) {
+      const lines = String(rawText || "")
+        .split(/\r?\n/)
+        .map(l => l.trim())
+        .filter(Boolean);
+
+      const levelMap = {
+        "سهل": "easy",
+        "easy": "easy",
+        "متوسط": "medium",
+        "medium": "medium",
+        "صعب": "hard",
+        "hard": "hard"
+      };
+
+      const parsed = [];
+      for (const line of lines) {
+        let parts = [];
+        if (line.includes("|")) {
+          parts = line.split("|");
+        } else if (line.includes("؛")) {
+          parts = line.split("؛");
+        } else if (line.includes("\t")) {
+          parts = line.split("\t");
+        } else if (line.includes(",")) {
+          parts = line.split(",");
+        }
+
+        const cleanParts = parts.map(s => s.trim().replace(/^["']|["']$/g, ""));
+        if (cleanParts.length >= 2 && cleanParts[0] && cleanParts[1]) {
+          const lvl = levelMap[cleanParts[2]?.toLowerCase()] || "easy";
+          parsed.push({
+            text: cleanParts[0],
+            answer: cleanParts[1],
+            level: lvl
+          });
+        }
+      }
+      return parsed;
+    }
+
+    function appendQuestionsToState(items, replace) {
+      if (!items.length) {
+        alert("لم يتم العثور على أسئلة صالحة. تأكد من الصيغة: السؤال | الإجابة | المستوى");
+        return 0;
+      }
+
+      pushHistory();
+      let nextId = replace ? 1 : (state.questions.reduce((m, q) => Math.max(m, q.id), 0) + 1);
+      const formatted = items.map(item => ({
+        id: nextId++,
+        text: item.text,
+        answer: item.answer,
+        level: item.level
+      }));
+
+      if (replace) {
+        state.questions = formatted;
+        state.usedQuestionIds = [];
+      } else {
+        state.questions.push(...formatted);
+      }
+
+      addLog(`تم استيراد ${formatted.length} سؤال إلى الأرشيف.`);
+      saveAndSync();
+      return formatted.length;
+    }
+
     function importQuestionsFromText() {
       if (!isAdmin) return;
-      const raw = document.getElementById("bulkQuestionsInput").value.trim();
+      const textarea = document.getElementById("bulkQuestionsInput");
+      const raw = textarea.value.trim();
       if (!raw) return;
 
       const replace = document.getElementById("replaceArchiveCheck").checked;
-      const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-      const levelMap = { "سهل": "easy", "متوسط": "medium", "صعب": "hard" };
+      const parsed = parseQuestionsLines(raw);
+      const count = appendQuestionsToState(parsed, replace);
+      if (count > 0) {
+        textarea.value = "";
+        const statusEl = document.getElementById("fileImportStatus");
+        if (statusEl) statusEl.textContent = `تمت إضافة ${count} سؤال بنجاح من النص.`;
+      }
+    }
 
-      let nextId = replace ? 1 : (state.questions.reduce((m, q) => Math.max(m, q.id), 0) + 1);
-      const parsed = [];
+    function importQuestionsFromFile(event) {
+      if (!isAdmin) return;
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
 
-      for (const line of lines) {
-        const parts = line.split("|").map(s => s.trim());
-        if (parts.length >= 2 && parts[0] && parts[1]) {
-          const lvl = levelMap[parts[2]] || "easy";
-          parsed.push({ id: nextId++, text: parts[0], answer: parts[1], level: lvl });
+      const replace = document.getElementById("replaceArchiveCheck").checked;
+      const reader = new FileReader();
+
+      reader.onload = (e) => {
+        const content = e.target && e.target.result ? String(e.target.result) : "";
+        const parsed = parseQuestionsLines(content);
+        const count = appendQuestionsToState(parsed, replace);
+        const statusEl = document.getElementById("fileImportStatus");
+        if (statusEl && count > 0) {
+          statusEl.textContent = `تم استيراد ${count} سؤال من الملف (${file.name}).`;
         }
-      }
+        event.target.value = "";
+      };
 
-      if (!parsed.length) return alert("تأكد من كتابة السؤال والإجابة مفصولين بعلامة |");
+      reader.onerror = () => {
+        alert("تعذر قراءة الملف المحدد. تأكد من ترميز الملف (UTF-8).");
+        event.target.value = "";
+      };
 
-      pushHistory();
-      if (replace) {
-        state.questions = parsed;
-        state.usedQuestionIds = [];
-      } else {
-        state.questions.push(...parsed);
-      }
-      document.getElementById("bulkQuestionsInput").value = "";
-      addLog(`تم إضافة ${parsed.length} سؤال إلى الأرشيف.`);
-      saveAndSync();
+      reader.readAsText(file, "UTF-8");
     }
 
     function resetUsedQuestions() {
@@ -1660,7 +1701,6 @@
       URL.revokeObjectURL(url);
     }
 
-    /* تكبير السؤال */
     function openQuestionFullscreen() {
       document.getElementById("qfsOverlay").classList.add("open");
     }
@@ -1669,7 +1709,6 @@
       document.getElementById("qfsOverlay").classList.remove("open");
     }
 
-    /* تحديث الواجهة بالكامل */
     function updateTimerUI() {
       const el = document.getElementById("timerDisplay");
       const qfsEl = document.getElementById("qfsTimer");
@@ -1681,7 +1720,6 @@
     }
 
     function renderAll() {
-      // الشريط العلوي
       document.getElementById("roleSubtitle").textContent = isAdmin
         ? "الدور: مدير (صلاحيات كاملة)"
         : "الدور: وضع المشاهدة (الجمهور)";
@@ -1689,7 +1727,6 @@
       roleBtn.textContent = isAdmin ? "🔒 خروج المدير" : "🔑 دخول المدير";
       roleBtn.style.background = isAdmin ? "#475569" : "var(--primary)";
 
-      // الإحصائيات
       const activeCount = state.players.filter(p => p.name && p.status === "available").length;
       const elimCount = state.players.filter(p => p.name && p.status === "eliminated").length;
       const remQ = Math.max(0, state.questions.length - state.usedQuestionIds.length);
@@ -1704,7 +1741,6 @@
       document.getElementById("statRemainingQ").textContent = remQ;
       document.getElementById("statAccuracy").textContent = `${acc}%`;
 
-      // شبكة اللاعبين
       const grid = document.getElementById("playersGrid");
       grid.innerHTML = state.players.map(p => {
         const isSel = state.currentSelector === p.number;
@@ -1741,7 +1777,6 @@
         `;
       }).join("");
 
-      // بطاقة السائل الزرقاء
       const sel = getPlayer(state.currentSelector);
       document.getElementById("heroSelectorNum").textContent = sel ? sel.number : "-";
       document.getElementById("heroSelectorName").textContent = sel ? sel.name : "اختر السائل من لوحة الأرقام";
@@ -1749,7 +1784,6 @@
         ? `أسقط: ${sel.kills} من ${state.settings.killsToWin}  •  الاعتذارات: ${sel.passes}/${state.settings.maxPasses}`
         : `المطلوب للتأهل: إسقاط ${state.settings.killsToWin} منافسين`;
 
-      // بطاقة المنافس المستهدف
       const tgt = getPlayer(state.currentTarget);
       document.getElementById("targetNumBox").textContent = tgt ? tgt.number : "?";
       document.getElementById("targetNameLabel").textContent = tgt ? tgt.name : "بانتظار تحديد المنافس المستهدف";
@@ -1757,7 +1791,6 @@
         ? `${tgt.passes} / ${state.settings.maxPasses}`
         : `0 / ${state.settings.maxPasses}`;
 
-      // صندوق السؤال النشط
       const qCard = document.getElementById("activeQuestionCard");
       const preCtrl = document.getElementById("preQuestionControls");
       if (state.activeQuestion) {
@@ -1782,7 +1815,6 @@
 
       updateTimerUI();
 
-      // قائمة الفائزين
       document.getElementById("winnersPillCount").textContent = `${state.winners.length} / ${state.settings.maxWinners}`;
       document.getElementById("killsReqHint").textContent = state.settings.killsToWin;
       const winBox = document.getElementById("winnersListContainer");
@@ -1797,7 +1829,6 @@
         `).join("");
       }
 
-      // سجل الأحداث
       document.getElementById("undoBtn").disabled = historyStack.length === 0;
       document.getElementById("logsFeed").innerHTML = state.logs.map(l => `
         <div class="log-row">
@@ -1806,7 +1837,6 @@
         </div>
       `).join("");
 
-      // تبويب المتسابقين والأرشيف
       document.getElementById("publicRegForm").style.display = state.settings.allowPublicRegistration ? "flex" : "none";
       document.getElementById("publicRegClosedMsg").style.display = state.settings.allowPublicRegistration ? "none" : "block";
 
@@ -1829,7 +1859,6 @@
       }).join("");
     }
 
-    /* احتفالية الفوز */
     function triggerConfetti() {
       const canvas = document.getElementById("confettiCanvas");
       const ctx = canvas.getContext("2d");
