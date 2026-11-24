@@ -1,0 +1,1864 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>برنامج إدارة المسابقة التفاعلي</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f4f7fe;
+      --surface: #ffffff;
+      --surface-alt: #f8fafc;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.04);
+
+      --primary: #3b5bfd;
+      --primary-soft: #eef2ff;
+      --indigo-grad: linear-gradient(135deg, #3730a3 0%, #4338ca 55%, #3b5bfd 100%);
+
+      --success: #0d9488;
+      --success-bg: #ecfdf5;
+      --success-btn: #059669;
+
+      --warning: #d97706;
+      --warning-bg: #fffbeb;
+      --warning-border: #fbbf24;
+
+      --danger: #e11d48;
+      --danger-bg: #fff1f2;
+    }
+
+    body.dark-theme {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface-alt: #162033;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --border: #334155;
+      --shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.35);
+      --primary-soft: rgba(59, 91, 253, 0.18);
+      --success-bg: rgba(16, 185, 129, 0.14);
+      --warning-bg: rgba(245, 158, 11, 0.14);
+      --danger-bg: rgba(244, 63, 94, 0.14);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: "Cairo", system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding-bottom: 32px;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+
+    button, input, select, textarea {
+      font-family: inherit;
+      font-size: 0.9rem;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      padding: 8px 14px;
+      transition: all 0.15s ease;
+    }
+
+    button {
+      cursor: pointer;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    button:hover:not(:disabled) {
+      transform: translateY(-1px);
+      filter: brightness(0.97);
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .admin-only { display: inline-flex; }
+    body.viewer-mode .admin-only { display: none !important; }
+
+    /* الشريط العلوي */
+    .navbar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      box-shadow: 0 2px 10px rgba(15, 23, 42, 0.03);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      background: var(--primary);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      box-shadow: 0 4px 12px rgba(59, 91, 253, 0.3);
+    }
+
+    .brand-title {
+      font-size: 1.15rem;
+      font-weight: 800;
+      line-height: 1.2;
+    }
+
+    .brand-sub {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .nav-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .nav-tab {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      padding: 8px 16px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 0.9rem;
+    }
+
+    .nav-tab:hover {
+      background: var(--surface-alt);
+      color: var(--text);
+    }
+
+    .nav-tab.active {
+      background: var(--primary-soft);
+      color: var(--primary);
+      border-color: rgba(59, 91, 253, 0.25);
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .icon-btn {
+      width: 38px;
+      height: 38px;
+      padding: 0;
+      border-radius: 10px;
+      background: var(--surface-alt);
+      color: var(--text-muted);
+    }
+
+    .container {
+      max-width: 1480px;
+      margin: 20px auto 0;
+      padding: 0 20px;
+    }
+
+    /* شريط الإحصائيات العلوي (5 بطاقات) */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    @media (max-width: 1100px) {
+      .stats-row { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 650px) {
+      .stats-row { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: var(--shadow);
+    }
+
+    .stat-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .stat-label {
+      font-size: 0.84rem;
+      color: var(--text-muted);
+      font-weight: 700;
+    }
+
+    .stat-number {
+      font-size: 1.65rem;
+      font-weight: 800;
+      line-height: 1.1;
+    }
+
+    .stat-number small {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      font-weight: 700;
+    }
+
+    .stat-icon {
+      width: 46px;
+      height: 46px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.35rem;
+    }
+
+    /* التخطيط الرئيسي: شبكة الأرقام يمين + لوحة التحكم يسار */
+    .arena-grid {
+      display: grid;
+      grid-template-columns: 1.75fr 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    @media (max-width: 1024px) {
+      .arena-grid { grid-template-columns: 1fr; }
+    }
+
+    .card-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: var(--shadow);
+      margin-bottom: 18px;
+    }
+
+    /* رأس لوحة الأرقام */
+    .board-header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .board-title-wrap h2 {
+      font-size: 1.15rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .board-title-wrap p {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .legend-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .legend-pill {
+      font-size: 0.76rem;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .legend-pill .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    /* شبكة بطاقات المتسابقين */
+    .players-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    @media (max-width: 1280px) {
+      .players-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 600px) {
+      .players-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    .player-card {
+      background: var(--surface-alt);
+      border: 1.5px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 126px;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      position: relative;
+    }
+
+    .player-card:hover {
+      border-color: var(--primary);
+      background: var(--surface);
+      box-shadow: 0 6px 16px rgba(59, 91, 253, 0.08);
+    }
+
+    .player-card.is-selector {
+      background: #eff6ff;
+      border: 2px solid var(--primary);
+      box-shadow: 0 4px 14px rgba(59, 91, 253, 0.14);
+    }
+    body.dark-theme .player-card.is-selector { background: rgba(59, 91, 253, 0.18); }
+
+    .player-card.is-target {
+      background: var(--warning-bg);
+      border: 2px solid var(--warning-border);
+      box-shadow: 0 4px 14px rgba(245, 158, 11, 0.16);
+    }
+
+    .player-card.status-winner {
+      background: var(--success-bg);
+      border: 2px solid #10b981;
+    }
+
+    .player-card.status-eliminated {
+      background: var(--danger-bg);
+      border-color: #fda4af;
+      opacity: 0.65;
+    }
+
+    .p-card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .p-num-badge {
+      min-width: 28px;
+      height: 28px;
+      padding: 0 6px;
+      border-radius: 8px;
+      background: #e2e8f0;
+      color: #334155;
+      font-weight: 800;
+      font-size: 0.85rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    body.dark-theme .p-num-badge { background: #334155; color: #f8fafc; }
+
+    .player-card.is-selector .p-num-badge { background: var(--primary); color: #fff; }
+    .player-card.is-target .p-num-badge { background: #f59e0b; color: #fff; }
+    .player-card.status-winner .p-num-badge { background: #10b981; color: #fff; }
+    .player-card.status-eliminated .p-num-badge { background: #e11d48; color: #fff; }
+
+    .p-role-tag {
+      font-size: 0.72rem;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 6px;
+    }
+
+    .tag-selector { background: var(--primary); color: #fff; }
+    .tag-target { background: #f59e0b; color: #fff; }
+    .tag-winner { background: #10b981; color: #fff; }
+    .tag-eliminated { background: #e11d48; color: #fff; }
+
+    .p-name {
+      font-weight: 800;
+      font-size: 0.94rem;
+      text-align: center;
+      margin: 10px 0;
+      line-height: 1.35;
+      color: var(--text);
+      word-break: break-word;
+    }
+
+    .p-name.empty {
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 0.82rem;
+    }
+
+    .p-card-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      padding-top: 6px;
+      border-top: 1px dashed var(--border);
+    }
+
+    /* العمود الأيسر: بطاقة السائل الزرقاء */
+    .selector-hero {
+      background: var(--indigo-grad);
+      color: #fff;
+      border-radius: 18px;
+      padding: 20px;
+      margin-bottom: 14px;
+      box-shadow: 0 10px 25px -5px rgba(59, 91, 253, 0.35);
+    }
+
+    .selector-hero-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .pill-glass {
+      background: rgba(255, 255, 255, 0.16);
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+
+    .selector-hero-body {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .hero-num-box {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      background: #ffffff;
+      color: #3730a3;
+      font-size: 1.4rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .hero-details h3 {
+      font-size: 1.2rem;
+      font-weight: 800;
+      line-height: 1.3;
+    }
+
+    .hero-details p {
+      font-size: 0.82rem;
+      color: rgba(255, 255, 255, 0.85);
+      margin-top: 3px;
+    }
+
+    /* بطاقة المنافس المستهدف (المسؤول) */
+    .target-box {
+      background: var(--warning-bg);
+      border: 1.5px solid #fde68a;
+      border-radius: 16px;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .target-main {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .target-num-box {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: #f59e0b;
+      color: #fff;
+      font-size: 1.2rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .target-label {
+      font-size: 0.76rem;
+      font-weight: 800;
+      color: var(--warning);
+    }
+
+    .target-name {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: var(--text);
+    }
+
+    .target-passes {
+      text-align: center;
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      font-weight: 700;
+    }
+
+    .target-passes strong {
+      display: block;
+      font-size: 0.95rem;
+      color: var(--warning);
+    }
+
+    /* أزرار الإجراءات تحت المنافس */
+    .btn-launch {
+      width: 100%;
+      background: var(--success-btn);
+      color: #fff;
+      border: none;
+      padding: 13px 18px;
+      border-radius: 14px;
+      font-size: 1.05rem;
+      font-weight: 800;
+      box-shadow: 0 6px 16px rgba(5, 150, 105, 0.25);
+      margin-bottom: 10px;
+    }
+
+    .secondary-actions-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .btn-apology {
+      background: #fef3c7;
+      border-color: #fde68a;
+      color: #b45309;
+    }
+
+    .btn-cancel-pick {
+      background: var(--surface-alt);
+      color: var(--text-muted);
+    }
+
+    /* صندوق السؤال النشط */
+    .active-question-card {
+      background: var(--surface-alt);
+      border: 1.5px solid var(--primary);
+      border-radius: 16px;
+      padding: 16px;
+      margin-top: 12px;
+      display: none;
+    }
+
+    .active-question-card.visible {
+      display: block;
+    }
+
+    .q-top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .timer-pill {
+      background: var(--primary-soft);
+      color: var(--primary);
+      font-weight: 800;
+      font-size: 1.35rem;
+      padding: 4px 14px;
+      border-radius: 12px;
+    }
+
+    .timer-pill.urgent {
+      background: var(--danger-bg);
+      color: var(--danger);
+      animation: pulse 0.8s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.06); }
+    }
+
+    .q-body-text {
+      font-size: 1.15rem;
+      font-weight: 800;
+      margin: 12px 0;
+      line-height: 1.5;
+    }
+
+    .q-answer-reveal {
+      background: var(--success-bg);
+      border: 1px solid #10b981;
+      color: var(--success);
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-weight: 800;
+      margin-bottom: 12px;
+      display: none;
+    }
+
+    .q-answer-reveal.visible { display: block; }
+
+    .judge-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    /* قائمة الفائزين */
+    .panel-head-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .panel-head-row h3 {
+      font-size: 1rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .badge-count {
+      background: var(--success-bg);
+      color: var(--success);
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 800;
+    }
+
+    .winners-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .winner-item {
+      background: var(--success-bg);
+      border: 1px solid #a7f3d0;
+      border-radius: 12px;
+      padding: 10px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 800;
+      color: #065f46;
+    }
+
+    /* سجل الأحداث */
+    .logs-feed {
+      max-height: 280px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-left: 4px;
+    }
+
+    .log-row {
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 9px 12px;
+      font-size: 0.82rem;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    .log-time {
+      color: var(--text-muted);
+      font-size: 0.74rem;
+      white-space: nowrap;
+      margin-top: 2px;
+    }
+
+    /* التبويبات الثانوية (المتسابقون / الأرشيف / الإعدادات) */
+    .tab-section { display: none; }
+    .tab-section.active { display: block; }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 14px;
+      margin: 14px 0;
+    }
+
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
+
+    /* شاشة تكبير السؤال */
+    .qfs-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: var(--surface);
+      z-index: 80;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      padding: 32px;
+      text-align: center;
+    }
+    .qfs-overlay.open { display: flex; }
+
+    /* النوافذ المنبثقة */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(3px);
+      z-index: 90;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-backdrop.open { display: flex; }
+
+    .modal-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 24px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+    }
+
+    #confettiCanvas {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 100;
+    }
+  </style>
+</head>
+<body class="viewer-mode">
+  <canvas id="confettiCanvas"></canvas>
+
+  <!-- الشريط العلوي -->
+  <header class="navbar">
+    <div class="brand">
+      <div class="brand-icon">🏆</div>
+      <div>
+        <div class="brand-title">برنامج إدارة المسابقة</div>
+        <div class="brand-sub" id="roleSubtitle">الدور: وضع المشاهدة (الجمهور)</div>
+      </div>
+    </div>
+
+    <nav class="nav-tabs">
+      <button class="nav-tab active" data-tab="arena" onclick="switchTab('arena')">🎮 ساحة المسابقة</button>
+      <button class="nav-tab" data-tab="players" onclick="switchTab('players')">👥 المتسابقون</button>
+      <button class="nav-tab admin-only" data-tab="archive" onclick="switchTab('archive')">📖 أرشيف الأسئلة</button>
+      <button class="nav-tab admin-only" data-tab="settings" onclick="switchTab('settings')">⚙️ الإعدادات والتقارير</button>
+    </nav>
+
+    <div class="nav-actions">
+      <button class="icon-btn" title="تبديل الوضع الليلي/النهاري" onclick="toggleTheme()">🌙</button>
+      <button class="icon-btn" title="تكبير السؤال على الشاشة" onclick="openQuestionFullscreen()">⤢</button>
+      <button id="roleToggleBtn" style="background: var(--primary); color: #fff; border: none;" onclick="handleRoleClick()">🔑 دخول المدير</button>
+    </div>
+  </header>
+
+  <div class="container">
+    <!-- شريط الإحصائيات العلوي -->
+    <section class="stats-row">
+      <div class="stat-card">
+        <div class="stat-info">
+          <span class="stat-label">لاعبون في اللعبة</span>
+          <span class="stat-number" style="color: var(--primary);" id="statActivePlayers">0</span>
+        </div>
+        <div class="stat-icon" style="background: #eef2ff; color: var(--primary);">👥</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-info">
+          <span class="stat-label">الفائزون</span>
+          <span class="stat-number" style="color: var(--success-btn);"><span id="statWinnersCount">0</span> <small id="statWinnersMax">/ 3</small></span>
+        </div>
+        <div class="stat-icon" style="background: #ecfdf5; color: var(--success-btn);">🏅</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-info">
+          <span class="stat-label">منسحبون / مستبعدون</span>
+          <span class="stat-number" style="color: var(--danger);" id="statEliminated">0</span>
+        </div>
+        <div class="stat-icon" style="background: #fff1f2; color: var(--danger);">🚫</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-info">
+          <span class="stat-label">أسئلة متبقية</span>
+          <span class="stat-number" style="color: var(--warning);" id="statRemainingQ">0</span>
+        </div>
+        <div class="stat-icon" style="background: #fffbeb; color: var(--warning);">❓</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-info">
+          <span class="stat-label">نسبة الإجابات الصحيحة</span>
+          <span class="stat-number" style="color: #4f46e5;" id="statAccuracy">0%</span>
+        </div>
+        <div class="stat-icon" style="background: #f5f3ff; color: #4f46e5;">📊</div>
+      </div>
+    </section>
+
+    <!-- التبويب 1: ساحة المسابقة -->
+    <div id="tab-arena" class="tab-section active">
+      <div class="arena-grid">
+        <!-- العمود الأيمن: لوحة الأرقام التفاعلية -->
+        <div class="card-panel">
+          <div class="board-header">
+            <div class="board-title-wrap">
+              <h2>⊞ لوحة الأرقام التفاعلية</h2>
+              <p>اضغط على بطاقة أي لاعب متاح لتوجيه السؤال إليه أو تعيينه كسائل</p>
+            </div>
+
+            <div class="legend-pills">
+              <span class="legend-pill" style="background:#f1f5f9; color:#475569;"><span class="dot" style="background:#94a3b8;"></span> متاح</span>
+              <span class="legend-pill" style="background:#dbeafe; color:#1d4ed8;"><span class="dot" style="background:#2563eb;"></span> يختار الآن</span>
+              <span class="legend-pill" style="background:#fef3c7; color:#b45309;"><span class="dot" style="background:#f59e0b;"></span> المسؤول</span>
+              <span class="legend-pill" style="background:#d1fae5; color:#047857;"><span class="dot" style="background:#10b981;"></span> فائز</span>
+              <span class="legend-pill" style="background:#ffe4e6; color:#be123c;"><span class="dot" style="background:#e11d48;"></span> منسحب</span>
+            </div>
+          </div>
+
+          <div id="playersGrid" class="players-grid"></div>
+        </div>
+
+        <!-- العمود الأيسر: منصة القيادة والفائزون والسجل -->
+        <div>
+          <!-- بطاقة السائل الحالية (الزرقاء) -->
+          <div class="selector-hero">
+            <div class="selector-hero-top">
+              <span class="pill-glass">يختار الآن (السائل)</span>
+              <button class="pill-glass admin-only" style="cursor:pointer;" onclick="pickRandomSelector()">⇄ تبديل السائل</button>
+            </div>
+            <div class="selector-hero-body">
+              <div class="hero-num-box" id="heroSelectorNum">-</div>
+              <div class="hero-details">
+                <h3 id="heroSelectorName">لم يتم تحديد السائل</h3>
+                <p id="heroSelectorMeta">أسقط: 0 من 3 • الاعتذارات: 0/1</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- بطاقة المنافس المستهدف (الصفراء) -->
+          <div class="card-panel" style="padding: 16px;">
+            <div class="target-box">
+              <div class="target-main">
+                <div class="target-num-box" id="targetNumBox">?</div>
+                <div>
+                  <div class="target-label">المنافس المستهدف (المسؤول)</div>
+                  <div class="target-name" id="targetNameLabel">اختر لاعباً من اللوحة أو عشوائياً</div>
+                </div>
+              </div>
+              <div class="target-passes">
+                الاعتذارات
+                <strong id="targetPassesLabel">0 / 1</strong>
+              </div>
+            </div>
+
+            <!-- أزرار قبل طرح السؤال -->
+            <div id="preQuestionControls" class="admin-only" style="display:block; width:100%;">
+              <div style="display:flex; gap:8px; margin-bottom:10px;">
+                <select id="levelSelect" style="flex:1;">
+                  <option value="all">المستوى: الكل</option>
+                  <option value="easy">سهل</option>
+                  <option value="medium">متوسط</option>
+                  <option value="hard">صعب</option>
+                </select>
+                <button style="background: var(--primary-soft); color: var(--primary); border:none;" onclick="pickRandomTarget()">🎲 اختيار خصم عشوائي</button>
+              </div>
+
+              <button class="btn-launch" onclick="launchQuestionAndTimer()">▶ طرح السؤال وبدء المؤقت</button>
+
+              <div class="secondary-actions-row">
+                <button class="btn-apology" onclick="handlePass()">✋ اعتذار قبل السؤال</button>
+                <button class="btn-cancel-pick" onclick="clearTargetSelection()">✕ إلغاء الاختيار</button>
+              </div>
+            </div>
+
+            <!-- صندوق السؤال النشط والمؤقت -->
+            <div id="activeQuestionCard" class="active-question-card">
+              <div class="q-top-bar">
+                <span style="font-size:0.82rem; font-weight:800; color:var(--primary);" id="qLevelBadge">سؤال مباشر</span>
+                <div style="display:flex; align-items:center; gap:6px;">
+                  <span class="timer-pill" id="timerDisplay">30</span>
+                  <button class="icon-btn admin-only" onclick="toggleTimer()" id="timerPauseBtn" title="إيقاف/استئناف">⏸</button>
+                </div>
+              </div>
+
+              <div class="q-body-text" id="activeQuestionText">...</div>
+              <div class="q-answer-reveal" id="answerRevealBox">الإجابة: <span id="activeAnswerText"></span></div>
+
+              <div class="admin-only" style="display:flex; flex-direction:column; gap:8px; width:100%;">
+                <button style="background: var(--surface); font-size:0.84rem;" onclick="toggleAnswerReveal()">👁 إظهار / إخفاء الإجابة</button>
+                <div class="judge-buttons">
+                  <button style="background: var(--success-btn); color:#fff; border:none;" onclick="handleAnswer(true)">✅ إجابة صحيحة</button>
+                  <button style="background: var(--danger); color:#fff; border:none;" onclick="handleAnswer(false)">❌ إجابة خاطئة</button>
+                </div>
+                <button class="btn-apology" onclick="handlePass()">↷ تمرير / اعتذار</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- بطاقة قائمة الفائزين المتأهلين -->
+          <div class="card-panel">
+            <div class="panel-head-row">
+              <h3>👑 قائمة الفائزين المتأهلين</h3>
+              <span class="badge-count" id="winnersPillCount">0 / 3</span>
+            </div>
+            <div id="winnersListContainer" class="winners-list">
+              <p style="font-size:0.83rem; color:var(--text-muted); text-align:center; padding:8px 0;">
+                لا يوجد فائزون بعد. من يُسقط <span id="killsReqHint">3</span> منافسين يتأهل مباشرة.
+              </p>
+            </div>
+          </div>
+
+          <!-- بطاقة سجل الأحداث المباشر -->
+          <div class="card-panel">
+            <div class="panel-head-row">
+              <h3>🕒 سجل الأحداث المباشر</h3>
+              <div class="admin-only" style="gap:6px;">
+                <button id="undoBtn" style="padding:4px 10px; font-size:0.8rem;" onclick="undoAction()" disabled>↩ تراجع</button>
+                <button style="padding:4px 10px; font-size:0.8rem; background:var(--danger-bg); color:var(--danger); border-color:#fecdd3;" onclick="resetContest()">مسابقة جديدة</button>
+              </div>
+            </div>
+            <div id="logsFeed" class="logs-feed"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- التبويب 2: المتسابقون -->
+    <div id="tab-players" class="tab-section">
+      <div class="card-panel">
+        <div class="panel-head-row">
+          <h3>👥 إدارة وتسجيل المتسابقين</h3>
+          <div class="admin-only" style="gap:8px;">
+            <button onclick="exportBackupJson()">⬇ تصدير نسخة احتياطية</button>
+          </div>
+        </div>
+
+        <!-- تسجيل المدير -->
+        <div class="admin-only" style="flex-wrap:wrap; gap:10px; margin-bottom:16px; width:100%;">
+          <input type="text" id="adminPlayerInput" placeholder="اكتب اسم المتسابق الجديد..." style="flex:1; min-width:220px;" onkeydown="if(event.key==='Enter') registerPlayer(false)" />
+          <button style="background:var(--primary); color:#fff; border:none;" onclick="registerPlayer(false)">➕ تسجيل متسابق</button>
+          <button style="background:var(--danger-bg); color:var(--danger);" onclick="removeLastPlayer()">حذف الأخير</button>
+          <label style="display:flex; align-items:center; gap:6px; font-size:0.85rem;">
+            <input type="file" id="namesFileInput" accept=".txt,.csv" onchange="importNamesFromFile(event)" />
+          </label>
+        </div>
+
+        <!-- تسجيل الجمهور -->
+        <div id="publicRegBox" style="background:var(--surface-alt); padding:14px; border-radius:12px; border:1px solid var(--border); margin-bottom:16px;">
+          <div style="font-weight:800; margin-bottom:8px;">تسجيل الجمهور المباشر</div>
+          <div id="publicRegForm" style="display:flex; gap:8px; flex-wrap:wrap;">
+            <input type="text" id="publicNameInput" placeholder="أدخل اسمك الكامل للمشاركة..." style="flex:1; min-width:200px;" />
+            <button style="background:var(--primary); color:#fff; border:none;" onclick="registerPlayer(true)">تسجيل اسمي</button>
+          </div>
+          <p id="publicRegClosedMsg" style="font-size:0.85rem; color:var(--text-muted); display:none;">التسجيل الذاتي للجمهور مغلق حالياً من قِبل المدير.</p>
+        </div>
+
+        <div id="playersTableSummary" style="font-size:0.88rem; color:var(--text-muted);"></div>
+      </div>
+    </div>
+
+    <!-- التبويب 3: أرشيف الأسئلة -->
+    <div id="tab-archive" class="tab-section">
+      <div class="card-panel">
+        <div class="panel-head-row">
+          <h3>📖 بنك وأرشيف الأسئلة (<span id="archiveCountBadge">0</span>)</h3>
+          <button style="background:var(--danger-bg); color:var(--danger);" onclick="resetUsedQuestions()">إعادة تفعيل الأسئلة المستخدمة</button>
+        </div>
+
+        <div style="background:var(--surface-alt); padding:16px; border-radius:14px; border:1px solid var(--border); margin-bottom:16px;">
+          <div style="font-weight:800; margin-bottom:6px;">استيراد أو إضافة أسئلة</div>
+          <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:10px;">
+            اكتب كل سؤال في سطر بالصيغة: <code>نص السؤال | الإجابة | المستوى (سهل/متوسط/صعب)</code>
+          </p>
+          <textarea id="bulkQuestionsInput" rows="4" style="width:100%; margin-bottom:10px;" placeholder="ما هي عاصمة سلطنة عُمان؟ | مسقط | سهل"></textarea>
+          <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
+            <button style="background:var(--primary); color:#fff; border:none;" onclick="importQuestionsFromText()">➕ إضافة الأسئلة</button>
+            <label style="font-size:0.84rem; display:flex; align-items:center; gap:5px;">
+              <input type="checkbox" id="replaceArchiveCheck" /> استبدال الأرشيف الحالي بالكامل
+            </label>
+          </div>
+        </div>
+
+        <div id="archiveQuestionsList" style="display:flex; flex-direction:column; gap:8px;"></div>
+      </div>
+    </div>
+
+    <!-- التبويب 4: الإعدادات -->
+    <div id="tab-settings" class="tab-section">
+      <div class="card-panel">
+        <div class="panel-head-row">
+          <h3>⚙️ إعدادات قوانين المسابقة</h3>
+          <button style="background:var(--success-btn); color:#fff; border:none;" onclick="saveSettings()">💾 حفظ الإعدادات</button>
+        </div>
+
+        <div class="form-grid">
+          <div class="field-group">
+            <label>عدد المتسابقين الإجمالي</label>
+            <input type="number" id="cfgTotalPlayers" min="2" max="100" />
+          </div>
+          <div class="field-group">
+            <label>الإسقاطات المطلوبة للفوز</label>
+            <input type="number" id="cfgKillsToWin" min="1" max="50" />
+          </div>
+          <div class="field-group">
+            <label>الحد الأقصى للفائزين</label>
+            <input type="number" id="cfgMaxWinners" min="1" max="50" />
+          </div>
+          <div class="field-group">
+            <label>الحد الأقصى للأخطاء (للاستبعاد)</label>
+            <input type="number" id="cfgMaxErrors" min="1" max="20" />
+          </div>
+          <div class="field-group">
+            <label>الحد الأقصى للاعتذار</label>
+            <input type="number" id="cfgMaxPasses" min="0" max="20" />
+          </div>
+          <div class="field-group">
+            <label>مدة المؤقت (بالثواني)</label>
+            <input type="number" id="cfgTimerSec" min="5" max="300" />
+          </div>
+          <div class="field-group">
+            <label>تسجيل الجمهور</label>
+            <select id="cfgPublicReg">
+              <option value="false">مغلق (المدير فقط)</option>
+              <option value="true">مفتوح للجمهور</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label>تغيير الرقم السري للمدير</label>
+            <input type="password" id="cfgNewPassword" placeholder="اتركه فارغاً للإبقاء على الحالي" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- شاشة تكبير السؤال للجمهور -->
+  <div id="qfsOverlay" class="qfs-overlay">
+    <div style="width:100%; display:flex; justify-content:space-between; align-items:center;">
+      <span class="pill-glass" style="background:var(--primary-soft); color:var(--primary); font-size:1rem;" id="qfsMatchupLabel">مواجهة مباشرة</span>
+      <button onclick="closeQuestionFullscreen()">✕ إغلاق وضع التكبير</button>
+    </div>
+
+    <div>
+      <div class="timer-pill" id="qfsTimer" style="font-size:3.5rem; display:inline-block; margin-bottom:20px;">30</div>
+      <h1 id="qfsQuestionText" style="font-size:clamp(1.6rem, 3.5vw, 3rem); max-width:1000px; line-height:1.4;">لا يوجد سؤال نشط حالياً</h1>
+      <div id="qfsAnswerBox" class="q-answer-reveal" style="font-size:1.8rem; margin-top:20px;"></div>
+    </div>
+
+    <div class="admin-only" style="gap:12px;">
+      <button style="background:var(--success-btn); color:#fff; border:none; font-size:1.1rem; padding:12px 24px;" onclick="handleAnswer(true)">✅ إجابة صحيحة</button>
+      <button style="background:var(--danger); color:#fff; border:none; font-size:1.1rem; padding:12px 24px;" onclick="handleAnswer(false)">❌ إجابة خاطئة</button>
+      <button onclick="toggleAnswerReveal()">👁 إظهار الإجابة</button>
+    </div>
+  </div>
+
+  <!-- نافذة دخول المدير -->
+  <div id="loginModal" class="modal-backdrop">
+    <div class="modal-box">
+      <h3 style="margin-bottom:6px;">🔐 تسجيل دخول المدير</h3>
+      <p style="font-size:0.84rem; color:var(--text-muted); margin-bottom:14px;">أدخل الرقم السري للتحكم الكامل في المسابقة (الافتراضي: 1234)</p>
+      <input type="password" id="loginPasswordInput" placeholder="الرقم السري..." style="width:100%; margin-bottom:14px;" onkeydown="if(event.key==='Enter') verifyLogin()" />
+      <div style="display:flex; gap:8px; justify-content:flex-end;">
+        <button onclick="closeLoginModal()">إلغاء</button>
+        <button style="background:var(--primary); color:#fff; border:none;" onclick="verifyLogin()">دخول</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "contest_modern_light_v1";
+    const CHANNEL_NAME = "contest_modern_sync_channel";
+    const channel = ("BroadcastChannel" in window) ? new BroadcastChannel(CHANNEL_NAME) : null;
+    const DEFAULT_PASS = "1234";
+
+    const SAMPLE_QUESTIONS = [
+      { id: 1, text: "ما هي أكبر قارة في العالم من حيث المساحة؟", answer: "قارة آسيا", level: "easy" },
+      { id: 2, text: "كم عدد الكواكب في المجموعة الشمسية؟", answer: "8 كواكب", level: "easy" },
+      { id: 3, text: "ما هو العنصر الكيميائي الذي رمزه Au؟", answer: "الذهب", level: "medium" },
+      { id: 4, text: "في أي عام هجري فُتحت مكة المكرمة؟", answer: "السنة الثامنة للهجرة (8 هـ)", level: "medium" },
+      { id: 5, text: "ما هو أسرع حيوان بري في العالم؟", answer: "الفهد (الشيتا)", level: "easy" }
+    ];
+
+    let isAdmin = false;
+    let historyStack = [];
+    let timerInterval = null;
+    let state = loadState();
+
+    function createInitialState() {
+      const totalPlayers = 24;
+      const players = Array.from({ length: totalPlayers }, (_, i) => ({
+        number: i + 1,
+        name: "",
+        status: "available", // available | eliminated | winner
+        kills: 0,
+        errors: 0,
+        passes: 0
+      }));
+
+      return {
+        settings: {
+          totalPlayers,
+          killsToWin: 3,
+          maxWinners: 5,
+          maxErrors: 1,
+          maxPasses: 3,
+          timerSec: 30,
+          allowPublicRegistration: false,
+          adminPassword: DEFAULT_PASS
+        },
+        players,
+        questions: [...SAMPLE_QUESTIONS],
+        usedQuestionIds: [],
+        winners: [],
+        stats: { totalAsked: 0, correctAnswers: 0 },
+        logs: [{ time: getNowTime(), text: "تم تهيئة نظام المسابقة بنجاح." }],
+        currentSelector: null,
+        currentTarget: null,
+        activeQuestion: null,
+        timeLeft: 30,
+        timerRunning: false,
+        answerRevealed: false
+      };
+    }
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return createInitialState();
+        const parsed = JSON.parse(raw);
+        return { ...createInitialState(), ...parsed };
+      } catch {
+        return createInitialState();
+      }
+    }
+
+    function saveAndSync() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      if (channel) channel.postMessage({ type: "SYNC", state });
+      renderAll();
+    }
+
+    if (channel) {
+      channel.onmessage = (e) => {
+        if (e.data && e.data.type === "SYNC") {
+          state = e.data.state;
+          renderAll();
+        }
+      };
+    }
+
+    function pushHistory() {
+      historyStack.push(JSON.stringify(state));
+      if (historyStack.length > 20) historyStack.shift();
+    }
+
+    function undoAction() {
+      if (!isAdmin || historyStack.length === 0) return;
+      stopTimer();
+      state = JSON.parse(historyStack.pop());
+      saveAndSync();
+    }
+
+    function getNowTime() {
+      return new Date().toLocaleTimeString("ar-OM", { hour: "2-digit", minute: "2-digit" });
+    }
+
+    function addLog(text) {
+      state.logs.unshift({ time: getNowTime(), text });
+      if (state.logs.length > 60) state.logs.pop();
+    }
+
+    /* التنقل والمظهر */
+    function switchTab(tabName) {
+      document.querySelectorAll(".nav-tab").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.tab === tabName);
+      });
+      document.querySelectorAll(".tab-section").forEach(sec => {
+        sec.classList.toggle("active", sec.id === "tab-" + tabName);
+      });
+      if (tabName === "settings") populateSettingsForm();
+    }
+
+    function toggleTheme() {
+      document.body.classList.toggle("dark-theme");
+    }
+
+    /* الصلاحيات */
+    function handleRoleClick() {
+      if (isAdmin) {
+        isAdmin = false;
+        document.body.classList.add("viewer-mode");
+        switchTab("arena");
+        renderAll();
+      } else {
+        document.getElementById("loginModal").classList.add("open");
+        document.getElementById("loginPasswordInput").value = "";
+        setTimeout(() => document.getElementById("loginPasswordInput").focus(), 50);
+      }
+    }
+
+    function closeLoginModal() {
+      document.getElementById("loginModal").classList.remove("open");
+    }
+
+    function verifyLogin() {
+      const val = document.getElementById("loginPasswordInput").value;
+      if (val === state.settings.adminPassword) {
+        isAdmin = true;
+        document.body.classList.remove("viewer-mode");
+        closeLoginModal();
+        renderAll();
+      } else {
+        alert("الرقم السري غير صحيح!");
+      }
+    }
+
+    /* إدارة المتسابقين */
+    function registerPlayer(isPublic) {
+      if (isPublic && !state.settings.allowPublicRegistration) return;
+      if (!isPublic && !isAdmin) return;
+
+      const input = document.getElementById(isPublic ? "publicNameInput" : "adminPlayerInput");
+      const name = input.value.trim();
+      if (!name) return;
+
+      const emptySlot = state.players.find(p => !p.name);
+      if (!emptySlot) {
+        alert("تم اكتمال جميع مقاعد المتسابقين!");
+        return;
+      }
+
+      pushHistory();
+      emptySlot.name = name;
+      emptySlot.status = "available";
+      input.value = "";
+      addLog(`تم تسجيل المتسابق رقم ${emptySlot.number} (${name}).`);
+      saveAndSync();
+    }
+
+    function removeLastPlayer() {
+      if (!isAdmin) return;
+      for (let i = state.players.length - 1; i >= 0; i--) {
+        if (state.players[i].name) {
+          pushHistory();
+          const removed = state.players[i].name;
+          state.players[i] = { number: i + 1, name: "", status: "available", kills: 0, errors: 0, passes: 0 };
+          addLog(`تم حذف المتسابق (${removed}).`);
+          saveAndSync();
+          return;
+        }
+      }
+    }
+
+    function importNamesFromFile(e) {
+      const file = e.target.files[0];
+      if (!file || !isAdmin) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const lines = ev.target.result.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        if (!lines.length) return;
+        pushHistory();
+        let idx = 0;
+        for (const line of lines) {
+          while (idx < state.players.length && state.players[idx].name) idx++;
+          if (idx >= state.players.length) break;
+          state.players[idx].name = line.split(",")[0].trim();
+          state.players[idx].status = "available";
+        }
+        addLog(`تم استيراد ${lines.length} اسم من الملف.`);
+        saveAndSync();
+      };
+      reader.readAsText(file);
+    }
+
+    /* منطق اللعب والاختيار */
+    function handleCardClick(playerNumber) {
+      if (!isAdmin) return;
+      const p = state.players.find(x => x.number === playerNumber);
+      if (!p || !p.name || p.status !== "available") return;
+
+      pushHistory();
+      if (!state.currentSelector) {
+        state.currentSelector = p.number;
+        addLog(`تم تعيين اللاعب ${p.number} (${p.name}) كسائل.`);
+      } else if (state.currentSelector === p.number) {
+        state.currentSelector = null;
+        state.currentTarget = null;
+      } else {
+        state.currentTarget = p.number;
+        const sel = getPlayer(state.currentSelector);
+        addLog(`اللاعب ${sel.number} (${sel.name}) اختار المنافس ${p.number} (${p.name}).`);
+      }
+      saveAndSync();
+    }
+
+    function getPlayer(num) {
+      return state.players.find(p => p.number === num) || null;
+    }
+
+    function pickRandomSelector() {
+      if (!isAdmin) return;
+      const avail = state.players.filter(p => p.name && p.status === "available" && p.number !== state.currentTarget);
+      if (!avail.length) return alert("لا يوجد لاعبون متاحون.");
+      pushHistory();
+      const chosen = avail[Math.floor(Math.random() * avail.length)];
+      state.currentSelector = chosen.number;
+      addLog(`تم اختيار السائل عشوائياً: اللاعب ${chosen.number} (${chosen.name}).`);
+      saveAndSync();
+    }
+
+    function pickRandomTarget() {
+      if (!isAdmin) return;
+      const avail = state.players.filter(p => p.name && p.status === "available" && p.number !== state.currentSelector);
+      if (!avail.length) return alert("لا يوجد منافسون متاحون للاختيار.");
+      pushHistory();
+      const chosen = avail[Math.floor(Math.random() * avail.length)];
+      state.currentTarget = chosen.number;
+      const sel = getPlayer(state.currentSelector);
+      addLog(sel ? `اللاعب ${sel.number} (${sel.name}) اختار المنافس ${chosen.number} (${chosen.name}).` : `تم اختيار المنافس ${chosen.number} (${chosen.name}).`);
+      saveAndSync();
+    }
+
+    function clearTargetSelection() {
+      if (!isAdmin) return;
+      pushHistory();
+      state.currentTarget = null;
+      saveAndSync();
+    }
+
+    /* طرح الأسئلة والمؤقت */
+    function launchQuestionAndTimer() {
+      if (!isAdmin) return;
+      if (!state.currentSelector || !state.currentTarget) {
+        return alert("يرجى تحديد السائل والمنافس المستهدف أولاً.");
+      }
+
+      const level = document.getElementById("levelSelect").value;
+      const pool = state.questions.filter(q =>
+        !state.usedQuestionIds.includes(q.id) && (level === "all" || q.level === level)
+      );
+
+      if (!pool.length) {
+        return alert("لا توجد أسئلة متبقية في هذا المستوى! أضف أسئلة من أرشيف الأسئلة.");
+      }
+
+      pushHistory();
+      const q = pool[Math.floor(Math.random() * pool.length)];
+      state.usedQuestionIds.push(q.id);
+      state.activeQuestion = q;
+      state.answerRevealed = false;
+      state.timeLeft = state.settings.timerSec;
+      state.timerRunning = true;
+      state.stats.totalAsked++;
+
+      const target = getPlayer(state.currentTarget);
+      addLog(`طُرح سؤال على المنافس ${target.number} (${target.name}).`);
+      startTimerInterval();
+      saveAndSync();
+    }
+
+    function startTimerInterval() {
+      stopTimer();
+      timerInterval = setInterval(() => {
+        if (!state.timerRunning) return;
+        if (state.timeLeft > 0) {
+          state.timeLeft--;
+          updateTimerUI();
+        } else {
+          state.timerRunning = false;
+          stopTimer();
+          addLog("انتهى وقت الإجابة!");
+          saveAndSync();
+        }
+      }, 1000);
+    }
+
+    function stopTimer() {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+    }
+
+    function toggleTimer() {
+      if (!isAdmin || !state.activeQuestion) return;
+      state.timerRunning = !state.timerRunning;
+      if (state.timerRunning) startTimerInterval();
+      else stopTimer();
+      saveAndSync();
+    }
+
+    function toggleAnswerReveal() {
+      if (!isAdmin || !state.activeQuestion) return;
+      state.answerRevealed = !state.answerRevealed;
+      saveAndSync();
+    }
+
+    /* تقييم الإجابة */
+    function handleAnswer(isCorrect) {
+      if (!isAdmin || !state.activeQuestion) return;
+      const selector = getPlayer(state.currentSelector);
+      const target = getPlayer(state.currentTarget);
+      if (!selector || !target) return;
+
+      pushHistory();
+      stopTimer();
+      state.timerRunning = false;
+
+      if (isCorrect) {
+        // المنافس أجاب إجابة صحيحة -> يُسقط السائل ويأخذ مكانه
+        state.stats.correctAnswers++;
+        target.kills++;
+        selector.errors++;
+        addLog(`✅ أجاب ${target.name} إجابة صحيحة وأسقط ${selector.name}!`);
+
+        if (selector.errors >= state.settings.maxErrors) {
+          selector.status = "eliminated";
+          addLog(`🚫 استُبعد اللاعب ${selector.number} (${selector.name}).`);
+        }
+
+        if (target.kills >= state.settings.killsToWin) {
+          target.status = "winner";
+          state.winners.push({ number: target.number, name: target.name, kills: target.kills });
+          state.currentSelector = null;
+          triggerConfetti();
+          addLog(`🏆 تأهل البطل ${target.name} إلى قائمة الفائزين!`);
+        } else {
+          state.currentSelector = target.number;
+        }
+      } else {
+        // المنافس أخطأ -> السائل يُسقطه ويبقى سائلاً
+        selector.kills++;
+        target.errors++;
+        addLog(`❌ أخطأ ${target.name} في الإجابة، واحتسبت نقطة إسقاط لـ ${selector.name}.`);
+
+        if (target.errors >= state.settings.maxErrors) {
+          target.status = "eliminated";
+          addLog(`🚫 استُبعد اللاعب ${target.number} (${target.name}).`);
+        }
+
+        if (selector.kills >= state.settings.killsToWin) {
+          selector.status = "winner";
+          state.winners.push({ number: selector.number, name: selector.name, kills: selector.kills });
+          state.currentSelector = null;
+          triggerConfetti();
+          addLog(`🏆 تأهل البطل ${selector.name} إلى قائمة الفائزين!`);
+        }
+      }
+
+      state.currentTarget = null;
+      state.activeQuestion = null;
+      state.answerRevealed = false;
+      saveAndSync();
+    }
+
+    function handlePass() {
+      if (!isAdmin || !state.currentTarget) return;
+      const target = getPlayer(state.currentTarget);
+      if (!target) return;
+
+      if (target.passes >= state.settings.maxPasses) {
+        return alert("استنفد هذا المتسابق جميع فرص الاعتذار المسموحة!");
+      }
+
+      pushHistory();
+      stopTimer();
+      target.passes++;
+      addLog(`✋ اعتذر اللاعب ${target.number} (${target.name}) (${target.passes}/${state.settings.maxPasses}).`);
+      state.currentTarget = null;
+      state.activeQuestion = null;
+      state.timerRunning = false;
+      saveAndSync();
+    }
+
+    /* إدارة الأرشيف والإعدادات */
+    function importQuestionsFromText() {
+      if (!isAdmin) return;
+      const raw = document.getElementById("bulkQuestionsInput").value.trim();
+      if (!raw) return;
+
+      const replace = document.getElementById("replaceArchiveCheck").checked;
+      const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      const levelMap = { "سهل": "easy", "متوسط": "medium", "صعب": "hard" };
+
+      let nextId = replace ? 1 : (state.questions.reduce((m, q) => Math.max(m, q.id), 0) + 1);
+      const parsed = [];
+
+      for (const line of lines) {
+        const parts = line.split("|").map(s => s.trim());
+        if (parts.length >= 2 && parts[0] && parts[1]) {
+          const lvl = levelMap[parts[2]] || "easy";
+          parsed.push({ id: nextId++, text: parts[0], answer: parts[1], level: lvl });
+        }
+      }
+
+      if (!parsed.length) return alert("تأكد من كتابة السؤال والإجابة مفصولين بعلامة |");
+
+      pushHistory();
+      if (replace) {
+        state.questions = parsed;
+        state.usedQuestionIds = [];
+      } else {
+        state.questions.push(...parsed);
+      }
+      document.getElementById("bulkQuestionsInput").value = "";
+      addLog(`تم إضافة ${parsed.length} سؤال إلى الأرشيف.`);
+      saveAndSync();
+    }
+
+    function resetUsedQuestions() {
+      if (!isAdmin) return;
+      pushHistory();
+      state.usedQuestionIds = [];
+      addLog("تمت إعادة تفعيل جميع الأسئلة في الأرشيف.");
+      saveAndSync();
+    }
+
+    function populateSettingsForm() {
+      document.getElementById("cfgTotalPlayers").value = state.settings.totalPlayers;
+      document.getElementById("cfgKillsToWin").value = state.settings.killsToWin;
+      document.getElementById("cfgMaxWinners").value = state.settings.maxWinners;
+      document.getElementById("cfgMaxErrors").value = state.settings.maxErrors;
+      document.getElementById("cfgMaxPasses").value = state.settings.maxPasses;
+      document.getElementById("cfgTimerSec").value = state.settings.timerSec;
+      document.getElementById("cfgPublicReg").value = String(state.settings.allowPublicRegistration);
+    }
+
+    function saveSettings() {
+      if (!isAdmin) return;
+      pushHistory();
+      const newTotal = Math.max(2, Math.min(100, parseInt(document.getElementById("cfgTotalPlayers").value) || 24));
+      state.settings.killsToWin = Math.max(1, parseInt(document.getElementById("cfgKillsToWin").value) || 3);
+      state.settings.maxWinners = Math.max(1, parseInt(document.getElementById("cfgMaxWinners").value) || 5);
+      state.settings.maxErrors = Math.max(1, parseInt(document.getElementById("cfgMaxErrors").value) || 1);
+      state.settings.maxPasses = Math.max(0, parseInt(document.getElementById("cfgMaxPasses").value) || 3);
+      state.settings.timerSec = Math.max(5, parseInt(document.getElementById("cfgTimerSec").value) || 30);
+      state.settings.allowPublicRegistration = document.getElementById("cfgPublicReg").value === "true";
+
+      const newPass = document.getElementById("cfgNewPassword").value.trim();
+      if (newPass) {
+        state.settings.adminPassword = newPass;
+        document.getElementById("cfgNewPassword").value = "";
+      }
+
+      if (newTotal !== state.players.length) {
+        const updated = [];
+        for (let i = 0; i < newTotal; i++) {
+          updated.push(state.players[i] || { number: i + 1, name: "", status: "available", kills: 0, errors: 0, passes: 0 });
+        }
+        state.players = updated;
+      }
+
+      addLog("تم حفظ إعدادات المسابقة.");
+      saveAndSync();
+      alert("تم حفظ الإعدادات بنجاح.");
+    }
+
+    function resetContest() {
+      if (!isAdmin) return;
+      if (!confirm("هل تريد بدء مسابقة جديدة وتصفير النتائج والإسقاطات؟")) return;
+      pushHistory();
+      stopTimer();
+      state.players.forEach(p => {
+        p.status = "available";
+        p.kills = 0;
+        p.errors = 0;
+        p.passes = 0;
+      });
+      state.winners = [];
+      state.usedQuestionIds = [];
+      state.currentSelector = null;
+      state.currentTarget = null;
+      state.activeQuestion = null;
+      state.timerRunning = false;
+      state.stats = { totalAsked: 0, correctAnswers: 0 };
+      addLog("تم بدء مسابقة جديدة وتصفير جميع الجولات.");
+      saveAndSync();
+    }
+
+    function exportBackupJson() {
+      const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "contest-backup.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    /* تكبير السؤال */
+    function openQuestionFullscreen() {
+      document.getElementById("qfsOverlay").classList.add("open");
+    }
+
+    function closeQuestionFullscreen() {
+      document.getElementById("qfsOverlay").classList.remove("open");
+    }
+
+    /* تحديث الواجهة بالكامل */
+    function updateTimerUI() {
+      const el = document.getElementById("timerDisplay");
+      const qfsEl = document.getElementById("qfsTimer");
+      el.textContent = state.timeLeft;
+      qfsEl.textContent = state.timeLeft;
+      const urgent = state.timeLeft <= 5 && state.timerRunning;
+      el.classList.toggle("urgent", urgent);
+      qfsEl.classList.toggle("urgent", urgent);
+    }
+
+    function renderAll() {
+      // الشريط العلوي
+      document.getElementById("roleSubtitle").textContent = isAdmin
+        ? "الدور: مدير (صلاحيات كاملة)"
+        : "الدور: وضع المشاهدة (الجمهور)";
+      const roleBtn = document.getElementById("roleToggleBtn");
+      roleBtn.textContent = isAdmin ? "🔒 خروج المدير" : "🔑 دخول المدير";
+      roleBtn.style.background = isAdmin ? "#475569" : "var(--primary)";
+
+      // الإحصائيات
+      const activeCount = state.players.filter(p => p.name && p.status === "available").length;
+      const elimCount = state.players.filter(p => p.name && p.status === "eliminated").length;
+      const remQ = Math.max(0, state.questions.length - state.usedQuestionIds.length);
+      const acc = state.stats.totalAsked > 0
+        ? Math.round((state.stats.correctAnswers / state.stats.totalAsked) * 100)
+        : 0;
+
+      document.getElementById("statActivePlayers").textContent = activeCount;
+      document.getElementById("statWinnersCount").textContent = state.winners.length;
+      document.getElementById("statWinnersMax").textContent = `/ ${state.settings.maxWinners}`;
+      document.getElementById("statEliminated").textContent = elimCount;
+      document.getElementById("statRemainingQ").textContent = remQ;
+      document.getElementById("statAccuracy").textContent = `${acc}%`;
+
+      // شبكة اللاعبين
+      const grid = document.getElementById("playersGrid");
+      grid.innerHTML = state.players.map(p => {
+        const isSel = state.currentSelector === p.number;
+        const isTgt = state.currentTarget === p.number;
+        let cls = "player-card";
+        let roleTag = "";
+
+        if (isSel) {
+          cls += " is-selector";
+          roleTag = `<span class="p-role-tag tag-selector">يختار الآن</span>`;
+        } else if (isTgt) {
+          cls += " is-target";
+          roleTag = `<span class="p-role-tag tag-target">المسؤول</span>`;
+        } else if (p.status === "winner") {
+          cls += " status-winner";
+          roleTag = `<span class="p-role-tag tag-winner">فائز</span>`;
+        } else if (p.status === "eliminated") {
+          cls += " status-eliminated";
+          roleTag = `<span class="p-role-tag tag-eliminated">منسحب</span>`;
+        }
+
+        return `
+          <div class="${cls}" onclick="handleCardClick(${p.number})">
+            <div class="p-card-top">
+              <span class="p-num-badge">${p.number}</span>
+              ${roleTag}
+            </div>
+            <div class="p-name ${p.name ? "" : "empty"}">${p.name || "مقعد شاغر"}</div>
+            <div class="p-card-bottom">
+              <span>⚔ ${p.kills}/${state.settings.killsToWin}</span>
+              <span>✋ ${p.passes}/${state.settings.maxPasses}</span>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      // بطاقة السائل الزرقاء
+      const sel = getPlayer(state.currentSelector);
+      document.getElementById("heroSelectorNum").textContent = sel ? sel.number : "-";
+      document.getElementById("heroSelectorName").textContent = sel ? sel.name : "اختر السائل من لوحة الأرقام";
+      document.getElementById("heroSelectorMeta").textContent = sel
+        ? `أسقط: ${sel.kills} من ${state.settings.killsToWin}  •  الاعتذارات: ${sel.passes}/${state.settings.maxPasses}`
+        : `المطلوب للتأهل: إسقاط ${state.settings.killsToWin} منافسين`;
+
+      // بطاقة المنافس المستهدف
+      const tgt = getPlayer(state.currentTarget);
+      document.getElementById("targetNumBox").textContent = tgt ? tgt.number : "?";
+      document.getElementById("targetNameLabel").textContent = tgt ? tgt.name : "بانتظار تحديد المنافس المستهدف";
+      document.getElementById("targetPassesLabel").textContent = tgt
+        ? `${tgt.passes} / ${state.settings.maxPasses}`
+        : `0 / ${state.settings.maxPasses}`;
+
+      // صندوق السؤال النشط
+      const qCard = document.getElementById("activeQuestionCard");
+      const preCtrl = document.getElementById("preQuestionControls");
+      if (state.activeQuestion) {
+        qCard.classList.add("visible");
+        if (isAdmin) preCtrl.style.display = "none";
+        document.getElementById("activeQuestionText").textContent = state.activeQuestion.text;
+        document.getElementById("qfsQuestionText").textContent = state.activeQuestion.text;
+        document.getElementById("activeAnswerText").textContent = state.activeQuestion.answer;
+        document.getElementById("qfsAnswerBox").textContent = `الإجابة: ${state.activeQuestion.answer}`;
+
+        document.getElementById("answerRevealBox").classList.toggle("visible", state.answerRevealed);
+        document.getElementById("qfsAnswerBox").classList.toggle("visible", state.answerRevealed);
+        document.getElementById("timerPauseBtn").textContent = state.timerRunning ? "⏸" : "▶";
+        document.getElementById("qfsMatchupLabel").textContent =
+          sel && tgt ? `السائل: ${sel.name} ⬅ المسؤول: ${tgt.name}` : "سؤال مباشر";
+      } else {
+        qCard.classList.remove("visible");
+        if (isAdmin) preCtrl.style.display = "block";
+        document.getElementById("qfsQuestionText").textContent = "بانتظار طرح السؤال التالي...";
+        document.getElementById("qfsAnswerBox").classList.remove("visible");
+      }
+
+      updateTimerUI();
+
+      // قائمة الفائزين
+      document.getElementById("winnersPillCount").textContent = `${state.winners.length} / ${state.settings.maxWinners}`;
+      document.getElementById("killsReqHint").textContent = state.settings.killsToWin;
+      const winBox = document.getElementById("winnersListContainer");
+      if (state.winners.length === 0) {
+        winBox.innerHTML = `<p style="font-size:0.83rem; color:var(--text-muted); text-align:center; padding:8px 0;">لا يوجد فائزون بعد. من يُسقط ${state.settings.killsToWin} منافسين يتأهل مباشرة.</p>`;
+      } else {
+        winBox.innerHTML = state.winners.map((w, i) => `
+          <div class="winner-item">
+            <span>🏅 #${i + 1} — ${w.name}</span>
+            <span>${w.kills} إسقاطات</span>
+          </div>
+        `).join("");
+      }
+
+      // سجل الأحداث
+      document.getElementById("undoBtn").disabled = historyStack.length === 0;
+      document.getElementById("logsFeed").innerHTML = state.logs.map(l => `
+        <div class="log-row">
+          <span class="log-time">${l.time}</span>
+          <span>${l.text}</span>
+        </div>
+      `).join("");
+
+      // تبويب المتسابقين والأرشيف
+      document.getElementById("publicRegForm").style.display = state.settings.allowPublicRegistration ? "flex" : "none";
+      document.getElementById("publicRegClosedMsg").style.display = state.settings.allowPublicRegistration ? "none" : "block";
+
+      const registeredCount = state.players.filter(p => p.name).length;
+      document.getElementById("playersTableSummary").textContent = `إجمالي المقاعد المسجلة: ${registeredCount} من أصل ${state.players.length} مقعد.`;
+
+      document.getElementById("archiveCountBadge").textContent = state.questions.length;
+      const lvlNames = { easy: "سهل", medium: "متوسط", hard: "صعب" };
+      document.getElementById("archiveQuestionsList").innerHTML = state.questions.map(q => {
+        const used = state.usedQuestionIds.includes(q.id);
+        return `
+          <div style="background:var(--surface-alt); border:1px solid var(--border); padding:10px 14px; border-radius:10px; display:flex; justify-content:space-between; align-items:center; opacity:${used ? "0.55" : "1"};">
+            <div>
+              <strong>${q.text}</strong>
+              <div style="font-size:0.8rem; color:var(--success);">الإجابة: ${q.answer}</div>
+            </div>
+            <span class="legend-pill" style="background:var(--primary-soft); color:var(--primary);">${lvlNames[q.level] || "سهل"} ${used ? "(مستخدم)" : ""}</span>
+          </div>
+        `;
+      }).join("");
+    }
+
+    /* احتفالية الفوز */
+    function triggerConfetti() {
+      const canvas = document.getElementById("confettiCanvas");
+      const ctx = canvas.getContext("2d");
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      const pieces = Array.from({ length: 90 }, () => ({
+        x: Math.random() * canvas.width,
+        y: Math.random() * -canvas.height,
+        r: Math.random() * 6 + 4,
+        c: ["#3b5bfd", "#10b981", "#f59e0b", "#e11d48"][Math.floor(Math.random() * 4)],
+        v: Math.random() * 4 + 2
+      }));
+      let frames = 0;
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        pieces.forEach(p => {
+          p.y += p.v;
+          ctx.fillStyle = p.c;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        if (++frames < 140) requestAnimationFrame(draw);
+        else ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+      draw();
+    }
+
+    renderAll();
+  </script>
+</body>
+</html>
