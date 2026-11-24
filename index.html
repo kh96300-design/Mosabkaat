@@ -363,17 +363,6 @@
       box-shadow: 0 4px 14px rgba(245, 158, 11, 0.16);
     }
 
-    .player-card.status-winner {
-      background: var(--success-bg);
-      border: 2px solid #10b981;
-    }
-
-    .player-card.status-eliminated {
-      background: var(--danger-bg);
-      border-color: #fda4af;
-      opacity: 0.65;
-    }
-
     .p-card-top {
       display: flex;
       justify-content: space-between;
@@ -399,8 +388,6 @@
 
     .player-card.is-selector .p-num-badge { background: var(--primary); color: #fff; }
     .player-card.is-target .p-num-badge { background: #f59e0b; color: #fff; }
-    .player-card.status-winner .p-num-badge { background: #10b981; color: #fff; }
-    .player-card.status-eliminated .p-num-badge { background: #e11d48; color: #fff; }
 
     .p-role-tag {
       font-size: 0.72rem;
@@ -411,12 +398,10 @@
 
     .tag-selector { background: var(--primary); color: #fff; }
     .tag-target { background: #f59e0b; color: #fff; }
-    .tag-winner { background: #10b981; color: #fff; }
-    .tag-eliminated { background: #e11d48; color: #fff; }
 
     .p-name {
       font-weight: 800;
-      font-size: 0.94rem;
+      font-size: 0.96rem;
       text-align: center;
       margin: 10px 0;
       line-height: 1.35;
@@ -424,10 +409,9 @@
       word-break: break-word;
     }
 
-    .p-name.empty {
-      color: var(--text-muted);
-      font-weight: 600;
-      font-size: 0.82rem;
+    .p-name.number-mode {
+      font-size: 1.05rem;
+      color: var(--primary);
     }
 
     .p-card-bottom {
@@ -690,8 +674,29 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 8px;
       font-weight: 800;
       color: #065f46;
+      animation: winnerPop 0.35s ease;
+    }
+
+    .winner-item.latest-winner {
+      border: 2px solid #059669;
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+    }
+
+    .winner-badge-new {
+      background: #059669;
+      color: #fff;
+      font-size: 0.7rem;
+      padding: 2px 7px;
+      border-radius: 999px;
+      margin-right: 6px;
+    }
+
+    @keyframes winnerPop {
+      0% { transform: scale(0.96); opacity: 0.6; }
+      100% { transform: scale(1); opacity: 1; }
     }
 
     .logs-feed {
@@ -859,15 +864,13 @@
           <div class="board-header">
             <div class="board-title-wrap">
               <h2>⊞ لوحة الأرقام التفاعلية</h2>
-              <p>اضغط على بطاقة أي لاعب متاح لتوجيه السؤال إليه أو تعيينه كسائل</p>
+              <p>اضغط على أي رقم أو متسابق متاح لتوجيه السؤال إليه أو تعيينه كسائل</p>
             </div>
 
             <div class="legend-pills">
               <span class="legend-pill" style="background:#f1f5f9; color:#475569;"><span class="dot" style="background:#94a3b8;"></span> متاح</span>
               <span class="legend-pill" style="background:#dbeafe; color:#1d4ed8;"><span class="dot" style="background:#2563eb;"></span> يختار الآن</span>
               <span class="legend-pill" style="background:#fef3c7; color:#b45309;"><span class="dot" style="background:#f59e0b;"></span> المسؤول</span>
-              <span class="legend-pill" style="background:#d1fae5; color:#047857;"><span class="dot" style="background:#10b981;"></span> فائز</span>
-              <span class="legend-pill" style="background:#ffe4e6; color:#be123c;"><span class="dot" style="background:#e11d48;"></span> منسحب</span>
             </div>
           </div>
 
@@ -895,7 +898,7 @@
                 <div class="target-num-box" id="targetNumBox">?</div>
                 <div>
                   <div class="target-label">المنافس المستهدف (المسؤول)</div>
-                  <div class="target-name" id="targetNameLabel">اختر لاعباً من اللوحة أو عشوائياً</div>
+                  <div class="target-name" id="targetNameLabel">اختر رقماً من اللوحة أو عشوائياً</div>
                 </div>
               </div>
               <div class="target-passes">
@@ -981,6 +984,26 @@
           </div>
         </div>
 
+        <div class="admin-only" style="display:block; width:100%; background:var(--surface-alt); padding:16px; border-radius:14px; border:1px solid var(--border); margin-bottom:16px;">
+          <div style="font-weight:800; margin-bottom:6px;">🌐 سحب ومزامنة أسماء المتسابقين تلقائياً من Google Sheets أو CSV</div>
+          <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:10px;">
+            في حال عدم تسجيل أسماء، تُفعّل الأرقام تلقائياً كمشاركين (متسابق #1، #2...). ويمكنك ربط جدول Google Sheets أو CSV هنا لسحب الأسماء ومنع التكرار تلقائياً.
+          </p>
+          <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:10px;">
+            <input type="url" id="sheetPlayersUrlInput" placeholder="https://docs.google.com/spreadsheets/d/... أو رابط .csv" style="flex:1; min-width:260px;" />
+            <input type="number" id="playersSyncIntervalInput" min="5" max="3600" value="30" title="فترة المزامنة التلقائية بالثواني" style="width:95px;" />
+            <label style="font-size:0.84rem; display:flex; align-items:center; gap:5px; cursor:pointer;">
+              <input type="checkbox" id="playersAutoSyncCheck" onchange="togglePlayersAutoSync()" /> مزامنة تلقائية (ثانية)
+            </label>
+            <label style="font-size:0.84rem; display:flex; align-items:center; gap:5px; cursor:pointer;">
+              <input type="checkbox" id="replacePlayersNamesCheck" /> استبدال الأسماء الحالية
+            </label>
+            <button style="background:var(--primary); color:#fff; border:none;" onclick="savePlayersSheetConfig(true)">💾 حفظ ومزامنة الآن</button>
+            <button style="background:var(--success-btn); color:#fff; border:none;" onclick="syncPlayersFromUrl(false)">🔄 مزامنة الآن</button>
+          </div>
+          <div id="playersSyncStatus" style="font-size:0.82rem; color:var(--text-muted); font-weight:700;">لم يتم السحب من رابط خارجي بعد (الأرقام مفعّلة تلقائياً).</div>
+        </div>
+
         <div class="admin-only" style="flex-wrap:wrap; gap:10px; margin-bottom:16px; width:100%;">
           <input type="text" id="adminPlayerInput" placeholder="اكتب اسم المتسابق الجديد..." style="flex:1; min-width:220px;" onkeydown="if(event.key==='Enter') registerPlayer(false)" />
           <button style="background:var(--primary); color:#fff; border:none;" onclick="registerPlayer(false)">➕ تسجيل متسابق</button>
@@ -993,7 +1016,7 @@
         <div id="publicRegBox" style="background:var(--surface-alt); padding:14px; border-radius:12px; border:1px solid var(--border); margin-bottom:16px;">
           <div style="font-weight:800; margin-bottom:8px;">تسجيل الجمهور المباشر</div>
           <div id="publicRegForm" style="display:flex; gap:8px; flex-wrap:wrap;">
-            <input type="text" id="publicNameInput" placeholder="أدخل اسمك الكامل للمشاركة..." style="flex:1; min-width:200px;" />
+            <input type="text" id="publicNameInput" placeholder="أدخل اسمك الكامل للمشاركة..." style="flex:1; min-width:200px;" onkeydown="if(event.key==='Enter') registerPlayer(true)" />
             <button style="background:var(--primary); color:#fff; border:none;" onclick="registerPlayer(true)">تسجيل اسمي</button>
           </div>
           <p id="publicRegClosedMsg" style="font-size:0.85rem; color:var(--text-muted); display:none;">التسجيل الذاتي للجمهور مغلق حالياً من قِبل المدير.</p>
@@ -1008,6 +1031,23 @@
         <div class="panel-head-row">
           <h3>📖 بنك وأرشيف الأسئلة (<span id="archiveCountBadge">0</span>)</h3>
           <button style="background:var(--danger-bg); color:var(--danger);" onclick="resetUsedQuestions()">إعادة تفعيل الأسئلة المستخدمة</button>
+        </div>
+
+        <div style="background:var(--surface-alt); padding:16px; border-radius:14px; border:1px solid var(--border); margin-bottom:16px;">
+          <div style="font-weight:800; margin-bottom:6px;">🌐 سحب ومزامنة الأسئلة تلقائياً من Google Sheets أو CSV</div>
+          <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:10px;">
+            ألصق رابط جدول بيانات Google Sheets أو رابط ملف CSV مباشر (الأعمدة: <code>السؤال | الإجابة | المستوى</code>، ويتم منع الأسئلة المكررة تلقائياً).
+          </p>
+          <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:10px;">
+            <input type="url" id="sheetQuestionsUrlInput" placeholder="https://docs.google.com/spreadsheets/d/... أو رابط .csv" style="flex:1; min-width:260px;" />
+            <input type="number" id="sheetSyncIntervalInput" min="5" max="3600" value="30" title="فترة المزامنة التلقائية بالثواني" style="width:95px;" />
+            <label style="font-size:0.84rem; display:flex; align-items:center; gap:5px; cursor:pointer;">
+              <input type="checkbox" id="sheetAutoSyncCheck" onchange="toggleSheetAutoSync()" /> مزامنة تلقائية (ثانية)
+            </label>
+            <button style="background:var(--primary); color:#fff; border:none;" onclick="saveSheetConfig(true)">💾 حفظ ومزامنة الآن</button>
+            <button style="background:var(--success-btn); color:#fff; border:none;" onclick="syncQuestionsFromUrl(false)">🔄 مزامنة الآن</button>
+          </div>
+          <div id="sheetSyncStatus" style="font-size:0.82rem; color:var(--text-muted); font-weight:700;">لم يتم السحب من رابط خارجي بعد.</div>
         </div>
 
         <div style="background:var(--surface-alt); padding:16px; border-radius:14px; border:1px solid var(--border); margin-bottom:16px;">
@@ -1129,7 +1169,116 @@
     let isAdmin = false;
     let historyStack = [];
     let timerInterval = null;
+    let sheetSyncTimer = null;
+    let playersSyncTimer = null;
     let state = loadState();
+
+    function getPlayerDisplayName(player) {
+      if (!player) return "";
+      const clean = String(player.name || "").trim();
+      return clean ? clean : `متسابق #${player.number}`;
+    }
+
+    function isPlayerParticipating(player) {
+      return Boolean(player) && player.status !== "eliminated" && player.status !== "winner";
+    }
+
+    function normalizeArabicText(str) {
+      return String(str || "")
+        .replace(/[\u064B-\u065F\u0670]/g, "")
+        .replace(/[أإآا]/g, "ا")
+        .replace(/ة/g, "ه")
+        .replace(/ى/g, "ي")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toLowerCase();
+    }
+
+    function normalizePlayerNameKey(name) {
+      return normalizeArabicText(name);
+    }
+
+    function normalizeQuestionKey(questionText) {
+      return normalizeArabicText(questionText);
+    }
+
+    function isDuplicatePlayerName(candidateName, excludePlayerNumber = null) {
+      const targetKey = normalizePlayerNameKey(candidateName);
+      if (!targetKey) return false;
+      return state.players.some(p => {
+        if (!p.name) return false;
+        if (excludePlayerNumber !== null && p.number === excludePlayerNumber) return false;
+        return normalizePlayerNameKey(p.name) === targetKey;
+      });
+    }
+
+    function sanitizeLoadedState(rawObj) {
+      const base = createInitialState();
+      const merged = {
+        ...base,
+        ...(rawObj || {}),
+        settings: { ...base.settings, ...((rawObj && rawObj.settings) || {}) },
+        sheetConfig: { ...base.sheetConfig, ...((rawObj && rawObj.sheetConfig) || {}) },
+        playersSheetConfig: { ...base.playersSheetConfig, ...((rawObj && rawObj.playersSheetConfig) || {}) },
+        stats: { ...base.stats, ...((rawObj && rawObj.stats) || {}) }
+      };
+
+      const seenPlayerKeys = new Set();
+      merged.players = (Array.isArray(merged.players) ? merged.players : base.players).map((p, idx) => {
+        const cleanName = typeof p.name === "string" ? p.name.trim().replace(/\s+/g, " ") : "";
+        const key = normalizePlayerNameKey(cleanName);
+        let finalName = cleanName;
+        if (key) {
+          if (seenPlayerKeys.has(key)) {
+            finalName = "";
+          } else {
+            seenPlayerKeys.add(key);
+          }
+        }
+        return {
+          number: p.number || idx + 1,
+          name: finalName,
+          status: p.status || "available",
+          kills: Number(p.kills) || 0,
+          errors: Number(p.errors) || 0,
+          passes: Number(p.passes) || 0
+        };
+      });
+
+      const seenQuestionKeys = new Set();
+      const validIds = new Set();
+      merged.questions = (Array.isArray(merged.questions) ? merged.questions : base.questions)
+        .filter(q => q && typeof q.text === "string" && q.text.trim())
+        .filter(q => {
+          const qKey = normalizeQuestionKey(q.text);
+          if (!qKey || seenQuestionKeys.has(qKey)) return false;
+          seenQuestionKeys.add(qKey);
+          return true;
+        })
+        .map((q, idx) => {
+          const id = Number.isFinite(Number(q.id)) ? Number(q.id) : idx + 1;
+          validIds.add(id);
+          return {
+            id,
+            text: q.text.trim(),
+            answer: typeof q.answer === "string" ? q.answer.trim() : "",
+            level: ["easy", "medium", "hard"].includes(q.level) ? q.level : "easy"
+          };
+        });
+
+      merged.usedQuestionIds = Array.isArray(merged.usedQuestionIds)
+        ? merged.usedQuestionIds.filter(id => validIds.has(id))
+        : [];
+
+      const seenWinners = new Set();
+      merged.winners = (Array.isArray(merged.winners) ? merged.winners : []).filter(w => {
+        if (!w || seenWinners.has(w.number)) return false;
+        seenWinners.add(w.number);
+        return true;
+      });
+
+      return merged;
+    }
 
     function createInitialState() {
       const totalPlayers = 24;
@@ -1153,12 +1302,25 @@
           allowPublicRegistration: false,
           adminPassword: DEFAULT_PASS
         },
+        sheetConfig: {
+          url: "",
+          intervalSec: 30,
+          autoSync: false,
+          lastSyncText: "لم يتم السحب من رابط خارجي بعد."
+        },
+        playersSheetConfig: {
+          url: "",
+          intervalSec: 30,
+          autoSync: false,
+          lastSyncText: "لم يتم السحب من رابط خارجي بعد (الأرقام مفعّلة تلقائياً)."
+        },
         players,
         questions: [...SAMPLE_QUESTIONS],
         usedQuestionIds: [],
         winners: [],
+        lastWinnerNumber: null,
         stats: { totalAsked: 0, correctAnswers: 0 },
-        logs: [{ time: getNowTime(), text: "تم تهيئة نظام المسابقة بنجاح." }],
+        logs: [{ time: getNowTime(), text: "تم تهيئة نظام المسابقة بنجاح (الأرقام مفعّلة تلقائياً)." }],
         currentSelector: null,
         currentTarget: null,
         activeQuestion: null,
@@ -1172,8 +1334,7 @@
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (!raw) return createInitialState();
-        const parsed = JSON.parse(raw);
-        return { ...createInitialState(), ...parsed };
+        return sanitizeLoadedState(JSON.parse(raw));
       } catch {
         return createInitialState();
       }
@@ -1185,11 +1346,24 @@
       renderAll();
     }
 
+    window.addEventListener("storage", (e) => {
+      if (e.key === STORAGE_KEY && e.newValue) {
+        try {
+          state = sanitizeLoadedState(JSON.parse(e.newValue));
+          renderAll();
+          applySheetAutoSyncTimer();
+          applyPlayersAutoSyncTimer();
+        } catch {}
+      }
+    });
+
     if (channel) {
       channel.onmessage = (e) => {
         if (e.data && e.data.type === "SYNC") {
-          state = e.data.state;
+          state = sanitizeLoadedState(e.data.state);
           renderAll();
+          applySheetAutoSyncTimer();
+          applyPlayersAutoSyncTimer();
         }
       };
     }
@@ -1202,8 +1376,10 @@
     function undoAction() {
       if (!isAdmin || historyStack.length === 0) return;
       stopTimer();
-      state = JSON.parse(historyStack.pop());
+      state = sanitizeLoadedState(JSON.parse(historyStack.pop()));
       saveAndSync();
+      applySheetAutoSyncTimer();
+      applyPlayersAutoSyncTimer();
     }
 
     function getNowTime() {
@@ -1215,6 +1391,24 @@
       if (state.logs.length > 60) state.logs.pop();
     }
 
+    function recordWinnerQualification(player) {
+      if (!player) return false;
+      const label = getPlayerDisplayName(player);
+      player.status = "winner";
+      const existingIndex = state.winners.findIndex(w => w.number === player.number);
+      if (existingIndex === -1) {
+        state.winners.unshift({ number: player.number, name: label, kills: player.kills, qualifiedAt: getNowTime() });
+      } else {
+        state.winners[existingIndex] = { ...state.winners[existingIndex], name: label, kills: player.kills };
+      }
+      state.lastWinnerNumber = player.number;
+      if (state.currentSelector === player.number) state.currentSelector = null;
+      if (state.currentTarget === player.number) state.currentTarget = null;
+      triggerConfetti();
+      addLog(`🏆 تأهل البطل ${label} ورُفع فوراً من لوحة الأرقام إلى قائمة الفائزين!`);
+      return true;
+    }
+
     function switchTab(tabName) {
       document.querySelectorAll(".nav-tab").forEach(btn => {
         btn.classList.toggle("active", btn.dataset.tab === tabName);
@@ -1223,6 +1417,8 @@
         sec.classList.toggle("active", sec.id === "tab-" + tabName);
       });
       if (tabName === "settings") populateSettingsForm();
+      if (tabName === "archive") hydrateSheetInputs();
+      if (tabName === "players") hydratePlayersSheetInputs();
     }
 
     function toggleTheme() {
@@ -1252,9 +1448,193 @@
         isAdmin = true;
         document.body.classList.remove("viewer-mode");
         closeLoginModal();
+        hydrateSheetInputs();
+        hydratePlayersSheetInputs();
         renderAll();
       } else {
         alert("الرقم السري غير صحيح!");
+      }
+    }
+
+    function parsePlayerNamesText(rawText) {
+      const lines = String(rawText || "")
+        .replace(/^\uFEFF/, "")
+        .split(/\r?\n/)
+        .map(l => l.trim())
+        .filter(Boolean);
+
+      const names = [];
+      const seenInBatch = new Set();
+      for (let i = 0; i < lines.length; i++) {
+        const firstCol = splitCsvRowSmart(lines[i])[0] || "";
+        const cleanName = firstCol.replace(/^["']|["']$/g, "").replace(/\s+/g, " ").trim();
+        if (!cleanName) continue;
+        const lower = cleanName.toLowerCase();
+        if (i === 0 && (lower === "name" || lower === "الاسم" || lower === "اسم المتسابق" || lower === "المتسابق")) {
+          continue;
+        }
+        const key = normalizePlayerNameKey(cleanName);
+        if (!key || seenInBatch.has(key)) continue;
+        seenInBatch.add(key);
+        names.push(cleanName);
+      }
+      return names;
+    }
+
+    function applyPlayerNamesList(names, replaceExisting = false, sourceLabel = "الاستيراد") {
+      if (!names.length) return { added: 0, skippedDuplicates: 0 };
+
+      pushHistory();
+      let addedOrUpdated = 0;
+      let skippedDuplicates = 0;
+
+      if (replaceExisting) {
+        state.currentSelector = null;
+        state.currentTarget = null;
+        state.activeQuestion = null;
+        state.timerRunning = false;
+        stopTimer();
+
+        const seen = new Set();
+        for (let i = 0; i < state.players.length; i++) {
+          const candidate = names[i] || "";
+          const norm = normalizePlayerNameKey(candidate);
+          if (candidate && norm && !seen.has(norm)) {
+            seen.add(norm);
+            state.players[i] = { number: i + 1, name: candidate, status: "available", kills: 0, errors: 0, passes: 0 };
+            addedOrUpdated++;
+          } else {
+            if (candidate && norm && seen.has(norm)) skippedDuplicates++;
+            state.players[i] = { number: i + 1, name: "", status: "available", kills: 0, errors: 0, passes: 0 };
+          }
+        }
+      } else {
+        const existingNames = new Set(
+          state.players.map(p => normalizePlayerNameKey(p.name)).filter(Boolean)
+        );
+        let slotIdx = 0;
+        for (const name of names) {
+          const norm = normalizePlayerNameKey(name);
+          if (!norm) continue;
+          if (existingNames.has(norm)) {
+            skippedDuplicates++;
+            continue;
+          }
+          while (slotIdx < state.players.length && state.players[slotIdx].name) {
+            slotIdx++;
+          }
+          if (slotIdx >= state.players.length) break;
+          existingNames.add(norm);
+          state.players[slotIdx].name = name;
+          addedOrUpdated++;
+        }
+      }
+
+      if (addedOrUpdated > 0) {
+        addLog(`تم تحديث ${addedOrUpdated} متسابق من ${sourceLabel} (منع ${skippedDuplicates} مكرر).`);
+      }
+      saveAndSync();
+      return { added: addedOrUpdated, skippedDuplicates };
+    }
+
+    function hydratePlayersSheetInputs() {
+      const urlInput = document.getElementById("sheetPlayersUrlInput");
+      const intervalInput = document.getElementById("playersSyncIntervalInput");
+      const autoCheck = document.getElementById("playersAutoSyncCheck");
+      const statusEl = document.getElementById("playersSyncStatus");
+
+      if (urlInput && !urlInput.value && state.playersSheetConfig.url) {
+        urlInput.value = state.playersSheetConfig.url;
+      }
+      if (intervalInput) {
+        intervalInput.value = state.playersSheetConfig.intervalSec || 30;
+      }
+      if (autoCheck) {
+        autoCheck.checked = Boolean(state.playersSheetConfig.autoSync);
+      }
+      if (statusEl && state.playersSheetConfig.lastSyncText) {
+        statusEl.textContent = state.playersSheetConfig.lastSyncText;
+      }
+    }
+
+    function savePlayersSheetConfig(andSyncNow = false) {
+      if (!isAdmin) return;
+      const rawUrl = document.getElementById("sheetPlayersUrlInput").value.trim();
+      const intervalSec = Math.max(5, Math.min(3600, parseInt(document.getElementById("playersSyncIntervalInput").value, 10) || 30));
+      const autoSync = document.getElementById("playersAutoSyncCheck").checked;
+
+      state.playersSheetConfig.url = rawUrl;
+      state.playersSheetConfig.intervalSec = intervalSec;
+      state.playersSheetConfig.autoSync = autoSync;
+      saveAndSync();
+      applyPlayersAutoSyncTimer();
+
+      if (andSyncNow) {
+        syncPlayersFromUrl(false);
+      }
+    }
+
+    function togglePlayersAutoSync() {
+      if (!isAdmin) return;
+      savePlayersSheetConfig(false);
+      if (state.playersSheetConfig.autoSync && state.playersSheetConfig.url) {
+        syncPlayersFromUrl(true);
+      }
+    }
+
+    function applyPlayersAutoSyncTimer() {
+      if (playersSyncTimer) {
+        clearInterval(playersSyncTimer);
+        playersSyncTimer = null;
+      }
+      if (state.playersSheetConfig && state.playersSheetConfig.autoSync && state.playersSheetConfig.url) {
+        const ms = Math.max(5, Number(state.playersSheetConfig.intervalSec) || 30) * 1000;
+        playersSyncTimer = setInterval(() => {
+          if (isAdmin) {
+            syncPlayersFromUrl(true);
+          }
+        }, ms);
+      }
+    }
+
+    async function syncPlayersFromUrl(isSilent = false) {
+      const inputEl = document.getElementById("sheetPlayersUrlInput");
+      const rawUrl = (inputEl ? inputEl.value.trim() : "") || state.playersSheetConfig.url;
+      const csvUrl = normalizeSheetCsvUrl(rawUrl);
+      const statusEl = document.getElementById("playersSyncStatus");
+
+      if (!csvUrl) {
+        if (!isSilent) alert("يرجى إدخال رابط Google Sheets أو ملف CSV صحيح للمتسابقين.");
+        if (statusEl) statusEl.textContent = "الرابط غير صالح أو فارغ.";
+        return;
+      }
+
+      state.playersSheetConfig.url = rawUrl;
+      if (statusEl) statusEl.textContent = "جارٍ سحب أسماء المتسابقين من الرابط...";
+
+      try {
+        const sep = csvUrl.includes("?") ? "&" : "?";
+        const fetchUrl = `${csvUrl}${sep}_t=${Date.now()}`;
+        const res = await fetch(fetchUrl, { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const text = await res.text();
+        const names = parsePlayerNamesText(text);
+        if (!names.length) {
+          throw new Error("لم يتم العثور على أسماء متسابقين صالحة في الجدول/الملف.");
+        }
+
+        const replace = document.getElementById("replacePlayersNamesCheck")?.checked || false;
+        const result = applyPlayerNamesList(names, replace, "Google Sheets / CSV");
+        const msg = `تمت المزامنة (${getNowTime()}): قراءة ${names.length} اسم، تحديث ${result.added} مقعد، ومنع ${result.skippedDuplicates} مكرر.`;
+        state.playersSheetConfig.lastSyncText = msg;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        if (statusEl) statusEl.textContent = msg;
+      } catch (err) {
+        const errMsg = `تعذر السحب تلقائياً (${err.message}). تأكد من أن الجدول منشور للويب (File > Share > Publish to web) أو متاح للعرض.`;
+        state.playersSheetConfig.lastSyncText = errMsg;
+        if (statusEl) statusEl.textContent = errMsg;
+        if (!isSilent) alert(errMsg);
       }
     }
 
@@ -1263,8 +1643,14 @@
       if (!isPublic && !isAdmin) return;
 
       const input = document.getElementById(isPublic ? "publicNameInput" : "adminPlayerInput");
-      const name = input.value.trim();
+      const name = input.value.trim().replace(/\s+/g, " ");
       if (!name) return;
+
+      if (isDuplicatePlayerName(name)) {
+        alert("هذا الاسم مسجل مسبقاً في المسابقة ولا يُسمح بتكرار الأسماء!");
+        input.focus();
+        return;
+      }
 
       const emptySlot = state.players.find(p => !p.name);
       if (!emptySlot) {
@@ -1274,9 +1660,8 @@
 
       pushHistory();
       emptySlot.name = name;
-      emptySlot.status = "available";
       input.value = "";
-      addLog(`تم تسجيل المتسابق رقم ${emptySlot.number} (${name}).`);
+      addLog(`تم ربط الرقم ${emptySlot.number} بالمتسابق (${name}).`);
       saveAndSync();
     }
 
@@ -1286,8 +1671,8 @@
         if (state.players[i].name) {
           pushHistory();
           const removed = state.players[i].name;
-          state.players[i] = { number: i + 1, name: "", status: "available", kills: 0, errors: 0, passes: 0 };
-          addLog(`تم حذف المتسابق (${removed}).`);
+          state.players[i].name = "";
+          addLog(`تم إزالة الاسم (${removed}) عن الرقم ${state.players[i].number}.`);
           saveAndSync();
           return;
         }
@@ -1299,18 +1684,15 @@
       if (!file || !isAdmin) return;
       const reader = new FileReader();
       reader.onload = (ev) => {
-        const lines = ev.target.result.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-        if (!lines.length) return;
-        pushHistory();
-        let idx = 0;
-        for (const line of lines) {
-          while (idx < state.players.length && state.players[idx].name) idx++;
-          if (idx >= state.players.length) break;
-          state.players[idx].name = line.split(",")[0].trim();
-          state.players[idx].status = "available";
+        const names = parsePlayerNamesText(ev.target.result);
+        if (!names.length) return;
+        const replace = document.getElementById("replacePlayersNamesCheck")?.checked || false;
+        const result = applyPlayerNamesList(names, replace, `الملف (${file.name})`);
+        const statusEl = document.getElementById("playersSyncStatus");
+        if (statusEl) {
+          statusEl.textContent = `تم استيراد ${result.added} اسم جديد من الملف (${file.name}) ومنع ${result.skippedDuplicates} مكرر.`;
         }
-        addLog(`تم استيراد ${lines.length} اسم من الملف.`);
-        saveAndSync();
+        e.target.value = "";
       };
       reader.readAsText(file, "UTF-8");
     }
@@ -1318,19 +1700,20 @@
     function handleCardClick(playerNumber) {
       if (!isAdmin) return;
       const p = state.players.find(x => x.number === playerNumber);
-      if (!p || !p.name || p.status !== "available") return;
+      if (!p || !isPlayerParticipating(p) || p.status !== "available") return;
 
+      const pLabel = getPlayerDisplayName(p);
       pushHistory();
       if (!state.currentSelector) {
         state.currentSelector = p.number;
-        addLog(`تم تعيين اللاعب ${p.number} (${p.name}) كسائل.`);
+        addLog(`تم تعيين ${pLabel} كسائل.`);
       } else if (state.currentSelector === p.number) {
         state.currentSelector = null;
         state.currentTarget = null;
       } else {
         state.currentTarget = p.number;
         const sel = getPlayer(state.currentSelector);
-        addLog(`اللاعب ${sel.number} (${sel.name}) اختار المنافس ${p.number} (${p.name}).`);
+        addLog(`${getPlayerDisplayName(sel)} اختار المنافس ${pLabel}.`);
       }
       saveAndSync();
     }
@@ -1341,24 +1724,24 @@
 
     function pickRandomSelector() {
       if (!isAdmin) return;
-      const avail = state.players.filter(p => p.name && p.status === "available" && p.number !== state.currentTarget);
+      const avail = state.players.filter(p => isPlayerParticipating(p) && p.status === "available" && p.number !== state.currentTarget);
       if (!avail.length) return alert("لا يوجد لاعبون متاحون.");
       pushHistory();
       const chosen = avail[Math.floor(Math.random() * avail.length)];
       state.currentSelector = chosen.number;
-      addLog(`تم اختيار السائل عشوائياً: اللاعب ${chosen.number} (${chosen.name}).`);
+      addLog(`تم اختيار السائل عشوائياً: ${getPlayerDisplayName(chosen)}.`);
       saveAndSync();
     }
 
     function pickRandomTarget() {
       if (!isAdmin) return;
-      const avail = state.players.filter(p => p.name && p.status === "available" && p.number !== state.currentSelector);
+      const avail = state.players.filter(p => isPlayerParticipating(p) && p.status === "available" && p.number !== state.currentSelector);
       if (!avail.length) return alert("لا يوجد منافسون متاحون للاختيار.");
       pushHistory();
       const chosen = avail[Math.floor(Math.random() * avail.length)];
       state.currentTarget = chosen.number;
       const sel = getPlayer(state.currentSelector);
-      addLog(sel ? `اللاعب ${sel.number} (${sel.name}) اختار المنافس ${chosen.number} (${chosen.name}).` : `تم اختيار المنافس ${chosen.number} (${chosen.name}).`);
+      addLog(sel ? `${getPlayerDisplayName(sel)} اختار المنافس ${getPlayerDisplayName(chosen)}.` : `تم اختيار المنافس ${getPlayerDisplayName(chosen)}.`);
       saveAndSync();
     }
 
@@ -1394,7 +1777,7 @@
       state.stats.totalAsked++;
 
       const target = getPlayer(state.currentTarget);
-      addLog(`طُرح سؤال على المنافس ${target.number} (${target.name}).`);
+      addLog(`طُرح سؤال على ${getPlayerDisplayName(target)}.`);
       startTimerInterval();
       saveAndSync();
     }
@@ -1442,6 +1825,9 @@
       const target = getPlayer(state.currentTarget);
       if (!selector || !target) return;
 
+      const selLabel = getPlayerDisplayName(selector);
+      const tgtLabel = getPlayerDisplayName(target);
+
       pushHistory();
       stopTimer();
       state.timerRunning = false;
@@ -1449,39 +1835,26 @@
       if (isCorrect) {
         state.stats.correctAnswers++;
         target.kills++;
-        selector.errors++;
-        addLog(`✅ أجاب ${target.name} إجابة صحيحة وأسقط ${selector.name}!`);
-
-        if (selector.errors >= state.settings.maxErrors) {
-          selector.status = "eliminated";
-          addLog(`🚫 استُبعد اللاعب ${selector.number} (${selector.name}).`);
-        }
+        addLog(`✅ أجاب ${tgtLabel} إجابة صحيحة! يبقى ${selLabel} في اللعبة حتى يُوجَّه إليه سؤال ويخطئ.`);
 
         if (target.kills >= state.settings.killsToWin) {
-          target.status = "winner";
-          state.winners.push({ number: target.number, name: target.name, kills: target.kills });
-          state.currentSelector = null;
-          triggerConfetti();
-          addLog(`🏆 تأهل البطل ${target.name} إلى قائمة الفائزين!`);
+          recordWinnerQualification(target);
         } else {
           state.currentSelector = target.number;
         }
       } else {
-        selector.kills++;
         target.errors++;
-        addLog(`❌ أخطأ ${target.name} في الإجابة، واحتسبت نقطة إسقاط لـ ${selector.name}.`);
+        selector.kills++;
+        addLog(`❌ أخطأ ${tgtLabel} في الإجابة، واحتسبت نقطة إسقاط لـ ${selLabel}.`);
 
         if (target.errors >= state.settings.maxErrors) {
           target.status = "eliminated";
-          addLog(`🚫 استُبعد اللاعب ${target.number} (${target.name}).`);
+          if (state.currentSelector === target.number) state.currentSelector = null;
+          addLog(`🚫 انسحب ${tgtLabel} وتم إخفاء مربعه من اللوحة.`);
         }
 
         if (selector.kills >= state.settings.killsToWin) {
-          selector.status = "winner";
-          state.winners.push({ number: selector.number, name: selector.name, kills: selector.kills });
-          state.currentSelector = null;
-          triggerConfetti();
-          addLog(`🏆 تأهل البطل ${selector.name} إلى قائمة الفائزين!`);
+          recordWinnerQualification(selector);
         }
       }
 
@@ -1503,15 +1876,40 @@
       pushHistory();
       stopTimer();
       target.passes++;
-      addLog(`✋ اعتذر اللاعب ${target.number} (${target.name}) (${target.passes}/${state.settings.maxPasses}).`);
+      addLog(`✋ اعتذر ${getPlayerDisplayName(target)} (${target.passes}/${state.settings.maxPasses}).`);
       state.currentTarget = null;
       state.activeQuestion = null;
       state.timerRunning = false;
       saveAndSync();
     }
 
+    function splitCsvRowSmart(line) {
+      const cells = [];
+      let current = "";
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') {
+          if (inQuotes && line[i + 1] === '"') {
+            current += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if ((ch === "," || ch === "|" || ch === "؛" || ch === "\t") && !inQuotes) {
+          cells.push(current.trim());
+          current = "";
+        } else {
+          current += ch;
+        }
+      }
+      cells.push(current.trim());
+      return cells;
+    }
+
     function parseQuestionsLines(rawText) {
       const lines = String(rawText || "")
+        .replace(/^\uFEFF/, "")
         .split(/\r?\n/)
         .map(l => l.trim())
         .filter(Boolean);
@@ -1526,24 +1924,27 @@
       };
 
       const parsed = [];
-      for (const line of lines) {
-        let parts = [];
-        if (line.includes("|")) {
-          parts = line.split("|");
-        } else if (line.includes("؛")) {
-          parts = line.split("؛");
-        } else if (line.includes("\t")) {
-          parts = line.split("\t");
-        } else if (line.includes(",")) {
-          parts = line.split(",");
-        }
+      const seenInBatch = new Set();
 
-        const cleanParts = parts.map(s => s.trim().replace(/^["']|["']$/g, ""));
-        if (cleanParts.length >= 2 && cleanParts[0] && cleanParts[1]) {
-          const lvl = levelMap[cleanParts[2]?.toLowerCase()] || "easy";
+      for (let i = 0; i < lines.length; i++) {
+        const parts = splitCsvRowSmart(lines[i]).map(s => s.replace(/^["']|["']$/g, "").trim());
+        if (parts.length >= 2 && parts[0] && parts[1]) {
+          const qLower = parts[0].toLowerCase();
+          const aLower = parts[1].toLowerCase();
+          const isHeaderRow =
+            i === 0 &&
+            (qLower === "question" || qLower === "السؤال" || parts[0] === "سؤال") &&
+            (aLower === "answer" || aLower === "الإجابة" || parts[1] === "إجابة" || parts[1] === "الجواب");
+          if (isHeaderRow) continue;
+
+          const qKey = normalizeQuestionKey(parts[0]);
+          if (!qKey || seenInBatch.has(qKey)) continue;
+          seenInBatch.add(qKey);
+
+          const lvl = levelMap[(parts[2] || "").toLowerCase()] || "easy";
           parsed.push({
-            text: cleanParts[0],
-            answer: cleanParts[1],
+            text: parts[0],
+            answer: parts[1],
             level: lvl
           });
         }
@@ -1551,31 +1952,48 @@
       return parsed;
     }
 
-    function appendQuestionsToState(items, replace) {
+    function appendQuestionsToState(items, replace, sourceLabel = "الأرشيف") {
       if (!items.length) {
-        alert("لم يتم العثور على أسئلة صالحة. تأكد من الصيغة: السؤال | الإجابة | المستوى");
-        return 0;
+        return { added: 0, skippedDuplicates: 0 };
       }
 
       pushHistory();
       let nextId = replace ? 1 : (state.questions.reduce((m, q) => Math.max(m, q.id), 0) + 1);
-      const formatted = items.map(item => ({
-        id: nextId++,
-        text: item.text,
-        answer: item.answer,
-        level: item.level
-      }));
+      const existingKeys = new Set(
+        replace ? [] : state.questions.map(q => normalizeQuestionKey(q.text))
+      );
 
-      if (replace) {
-        state.questions = formatted;
-        state.usedQuestionIds = [];
-      } else {
-        state.questions.push(...formatted);
+      const uniqueItems = [];
+      let skippedDuplicates = 0;
+
+      for (const item of items) {
+        const key = normalizeQuestionKey(item.text);
+        if (!key) continue;
+        if (existingKeys.has(key)) {
+          skippedDuplicates++;
+          continue;
+        }
+        existingKeys.add(key);
+        uniqueItems.push({
+          id: nextId++,
+          text: item.text,
+          answer: item.answer,
+          level: item.level
+        });
       }
 
-      addLog(`تم استيراد ${formatted.length} سؤال إلى الأرشيف.`);
+      if (replace) {
+        state.questions = uniqueItems;
+        state.usedQuestionIds = [];
+      } else if (uniqueItems.length > 0) {
+        state.questions.push(...uniqueItems);
+      }
+
+      if (uniqueItems.length > 0) {
+        addLog(`تم تحديث ${uniqueItems.length} سؤال من ${sourceLabel} (منع ${skippedDuplicates} مكرر).`);
+      }
       saveAndSync();
-      return formatted.length;
+      return { added: uniqueItems.length, skippedDuplicates };
     }
 
     function importQuestionsFromText() {
@@ -1586,11 +2004,16 @@
 
       const replace = document.getElementById("replaceArchiveCheck").checked;
       const parsed = parseQuestionsLines(raw);
-      const count = appendQuestionsToState(parsed, replace);
-      if (count > 0) {
-        textarea.value = "";
-        const statusEl = document.getElementById("fileImportStatus");
-        if (statusEl) statusEl.textContent = `تمت إضافة ${count} سؤال بنجاح من النص.`;
+      if (!parsed.length) {
+        return alert("لم يتم العثور على أسئلة صالحة. تأكد من الصيغة: السؤال | الإجابة | المستوى");
+      }
+      const result = appendQuestionsToState(parsed, replace, "الإدخال النصي");
+      textarea.value = "";
+      const statusEl = document.getElementById("fileImportStatus");
+      if (statusEl) {
+        statusEl.textContent = result.added > 0
+          ? `تمت إضافة ${result.added} سؤال جديد من النص (ومنع ${result.skippedDuplicates} مكرر).`
+          : "جميع الأسئلة المدخلة مكررة أو موجودة مسبقاً في الأرشيف.";
       }
     }
 
@@ -1605,10 +2028,17 @@
       reader.onload = (e) => {
         const content = e.target && e.target.result ? String(e.target.result) : "";
         const parsed = parseQuestionsLines(content);
-        const count = appendQuestionsToState(parsed, replace);
+        if (!parsed.length) {
+          alert("لم يتم العثور على أسئلة صالحة داخل الملف.");
+          event.target.value = "";
+          return;
+        }
+        const result = appendQuestionsToState(parsed, replace, `الملف (${file.name})`);
         const statusEl = document.getElementById("fileImportStatus");
-        if (statusEl && count > 0) {
-          statusEl.textContent = `تم استيراد ${count} سؤال من الملف (${file.name}).`;
+        if (statusEl) {
+          statusEl.textContent = result.added > 0
+            ? `تم استيراد ${result.added} سؤال جديد من الملف (${file.name}) ومنع ${result.skippedDuplicates} مكرر.`
+            : `جميع الأسئلة في الملف (${file.name}) مكررة أو موجودة مسبقاً.`;
         }
         event.target.value = "";
       };
@@ -1619,6 +2049,126 @@
       };
 
       reader.readAsText(file, "UTF-8");
+    }
+
+    function normalizeSheetCsvUrl(rawUrl) {
+      const trimmed = String(rawUrl || "").trim();
+      if (!trimmed) return "";
+      try {
+        const u = new URL(trimmed);
+        if (u.hostname.includes("docs.google.com") && u.pathname.includes("/spreadsheets/d/")) {
+          const match = u.pathname.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+          if (match && match[1]) {
+            const sheetId = match[1];
+            const gidMatch = (u.searchParams.get("gid")) || (u.hash.match(/gid=(\d+)/)?.[1]) || "0";
+            return `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gidMatch}`;
+          }
+        }
+        return u.toString();
+      } catch {
+        return "";
+      }
+    }
+
+    function hydrateSheetInputs() {
+      const urlInput = document.getElementById("sheetQuestionsUrlInput");
+      const intervalInput = document.getElementById("sheetSyncIntervalInput");
+      const autoCheck = document.getElementById("sheetAutoSyncCheck");
+      const statusEl = document.getElementById("sheetSyncStatus");
+
+      if (urlInput && !urlInput.value && state.sheetConfig.url) {
+        urlInput.value = state.sheetConfig.url;
+      }
+      if (intervalInput) {
+        intervalInput.value = state.sheetConfig.intervalSec || 30;
+      }
+      if (autoCheck) {
+        autoCheck.checked = Boolean(state.sheetConfig.autoSync);
+      }
+      if (statusEl && state.sheetConfig.lastSyncText) {
+        statusEl.textContent = state.sheetConfig.lastSyncText;
+      }
+    }
+
+    function saveSheetConfig(andSyncNow = false) {
+      if (!isAdmin) return;
+      const rawUrl = document.getElementById("sheetQuestionsUrlInput").value.trim();
+      const intervalSec = Math.max(5, Math.min(3600, parseInt(document.getElementById("sheetSyncIntervalInput").value, 10) || 30));
+      const autoSync = document.getElementById("sheetAutoSyncCheck").checked;
+
+      state.sheetConfig.url = rawUrl;
+      state.sheetConfig.intervalSec = intervalSec;
+      state.sheetConfig.autoSync = autoSync;
+      saveAndSync();
+      applySheetAutoSyncTimer();
+
+      if (andSyncNow) {
+        syncQuestionsFromUrl(false);
+      }
+    }
+
+    function toggleSheetAutoSync() {
+      if (!isAdmin) return;
+      saveSheetConfig(false);
+      if (state.sheetConfig.autoSync && state.sheetConfig.url) {
+        syncQuestionsFromUrl(true);
+      }
+    }
+
+    function applySheetAutoSyncTimer() {
+      if (sheetSyncTimer) {
+        clearInterval(sheetSyncTimer);
+        sheetSyncTimer = null;
+      }
+      if (state.sheetConfig && state.sheetConfig.autoSync && state.sheetConfig.url) {
+        const ms = Math.max(5, Number(state.sheetConfig.intervalSec) || 30) * 1000;
+        sheetSyncTimer = setInterval(() => {
+          if (isAdmin) {
+            syncQuestionsFromUrl(true);
+          }
+        }, ms);
+      }
+    }
+
+    async function syncQuestionsFromUrl(isSilent = false) {
+      const inputEl = document.getElementById("sheetQuestionsUrlInput");
+      const rawUrl = (inputEl ? inputEl.value.trim() : "") || state.sheetConfig.url;
+      const csvUrl = normalizeSheetCsvUrl(rawUrl);
+      const statusEl = document.getElementById("sheetSyncStatus");
+
+      if (!csvUrl) {
+        if (!isSilent) alert("يرجى إدخال رابط Google Sheets أو ملف CSV صحيح.");
+        if (statusEl) statusEl.textContent = "الرابط غير صالح أو فارغ.";
+        return;
+      }
+
+      state.sheetConfig.url = rawUrl;
+      if (statusEl) statusEl.textContent = "جارٍ سحب الأسئلة من الرابط...";
+
+      try {
+        const sep = csvUrl.includes("?") ? "&" : "?";
+        const fetchUrl = `${csvUrl}${sep}_t=${Date.now()}`;
+        const res = await fetch(fetchUrl, { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const text = await res.text();
+        const parsed = parseQuestionsLines(text);
+        if (!parsed.length) {
+          throw new Error("لم يتم العثور على أسئلة صالحة في الجدول/الملف.");
+        }
+
+        const replace = document.getElementById("replaceArchiveCheck")?.checked || false;
+        const result = appendQuestionsToState(parsed, replace, "Google Sheets / CSV");
+        const msg = `تمت المزامنة (${getNowTime()}): قراءة ${parsed.length} سؤال، إضافة ${result.added} جديد، ومنع ${result.skippedDuplicates} مكرر.`;
+        state.sheetConfig.lastSyncText = msg;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        if (statusEl) statusEl.textContent = msg;
+      } catch (err) {
+        const errMsg = `تعذر السحب تلقائياً (${err.message}). تأكد من أن الجدول منشور للويب (File > Share > Publish to web) أو متاح للعرض.`;
+        state.sheetConfig.lastSyncText = errMsg;
+        if (statusEl) statusEl.textContent = errMsg;
+        if (!isSilent) alert(errMsg);
+      }
     }
 
     function resetUsedQuestions() {
@@ -1643,6 +2193,7 @@
       if (!isAdmin) return;
       pushHistory();
       const newTotal = Math.max(2, Math.min(100, parseInt(document.getElementById("cfgTotalPlayers").value) || 24));
+      state.settings.totalPlayers = newTotal;
       state.settings.killsToWin = Math.max(1, parseInt(document.getElementById("cfgKillsToWin").value) || 3);
       state.settings.maxWinners = Math.max(1, parseInt(document.getElementById("cfgMaxWinners").value) || 5);
       state.settings.maxErrors = Math.max(1, parseInt(document.getElementById("cfgMaxErrors").value) || 1);
@@ -1681,6 +2232,7 @@
         p.passes = 0;
       });
       state.winners = [];
+      state.lastWinnerNumber = null;
       state.usedQuestionIds = [];
       state.currentSelector = null;
       state.currentTarget = null;
@@ -1727,8 +2279,8 @@
       roleBtn.textContent = isAdmin ? "🔒 خروج المدير" : "🔑 دخول المدير";
       roleBtn.style.background = isAdmin ? "#475569" : "var(--primary)";
 
-      const activeCount = state.players.filter(p => p.name && p.status === "available").length;
-      const elimCount = state.players.filter(p => p.name && p.status === "eliminated").length;
+      const activeCount = state.players.filter(p => isPlayerParticipating(p) && p.status === "available").length;
+      const elimCount = state.players.filter(p => p.status === "eliminated").length;
       const remQ = Math.max(0, state.questions.length - state.usedQuestionIds.length);
       const acc = state.stats.totalAsked > 0
         ? Math.round((state.stats.correctAnswers / state.stats.totalAsked) * 100)
@@ -1741,10 +2293,13 @@
       document.getElementById("statRemainingQ").textContent = remQ;
       document.getElementById("statAccuracy").textContent = `${acc}%`;
 
+      const visiblePlayers = state.players.filter(p => p.status !== "eliminated" && p.status !== "winner");
       const grid = document.getElementById("playersGrid");
-      grid.innerHTML = state.players.map(p => {
+      grid.innerHTML = visiblePlayers.map(p => {
         const isSel = state.currentSelector === p.number;
         const isTgt = state.currentTarget === p.number;
+        const displayName = getPlayerDisplayName(p);
+        const hasCustomName = Boolean(String(p.name || "").trim());
         let cls = "player-card";
         let roleTag = "";
 
@@ -1754,12 +2309,6 @@
         } else if (isTgt) {
           cls += " is-target";
           roleTag = `<span class="p-role-tag tag-target">المسؤول</span>`;
-        } else if (p.status === "winner") {
-          cls += " status-winner";
-          roleTag = `<span class="p-role-tag tag-winner">فائز</span>`;
-        } else if (p.status === "eliminated") {
-          cls += " status-eliminated";
-          roleTag = `<span class="p-role-tag tag-eliminated">منسحب</span>`;
         }
 
         return `
@@ -1768,7 +2317,7 @@
               <span class="p-num-badge">${p.number}</span>
               ${roleTag}
             </div>
-            <div class="p-name ${p.name ? "" : "empty"}">${p.name || "مقعد شاغر"}</div>
+            <div class="p-name ${hasCustomName ? "" : "number-mode"}">${displayName}</div>
             <div class="p-card-bottom">
               <span>⚔ ${p.kills}/${state.settings.killsToWin}</span>
               <span>✋ ${p.passes}/${state.settings.maxPasses}</span>
@@ -1779,14 +2328,14 @@
 
       const sel = getPlayer(state.currentSelector);
       document.getElementById("heroSelectorNum").textContent = sel ? sel.number : "-";
-      document.getElementById("heroSelectorName").textContent = sel ? sel.name : "اختر السائل من لوحة الأرقام";
+      document.getElementById("heroSelectorName").textContent = sel ? getPlayerDisplayName(sel) : "اختر السائل من لوحة الأرقام";
       document.getElementById("heroSelectorMeta").textContent = sel
         ? `أسقط: ${sel.kills} من ${state.settings.killsToWin}  •  الاعتذارات: ${sel.passes}/${state.settings.maxPasses}`
         : `المطلوب للتأهل: إسقاط ${state.settings.killsToWin} منافسين`;
 
       const tgt = getPlayer(state.currentTarget);
       document.getElementById("targetNumBox").textContent = tgt ? tgt.number : "?";
-      document.getElementById("targetNameLabel").textContent = tgt ? tgt.name : "بانتظار تحديد المنافس المستهدف";
+      document.getElementById("targetNameLabel").textContent = tgt ? getPlayerDisplayName(tgt) : "بانتظار تحديد المنافس المستهدف";
       document.getElementById("targetPassesLabel").textContent = tgt
         ? `${tgt.passes} / ${state.settings.maxPasses}`
         : `0 / ${state.settings.maxPasses}`;
@@ -1805,7 +2354,7 @@
         document.getElementById("qfsAnswerBox").classList.toggle("visible", state.answerRevealed);
         document.getElementById("timerPauseBtn").textContent = state.timerRunning ? "⏸" : "▶";
         document.getElementById("qfsMatchupLabel").textContent =
-          sel && tgt ? `السائل: ${sel.name} ⬅ المسؤول: ${tgt.name}` : "سؤال مباشر";
+          sel && tgt ? `السائل: ${getPlayerDisplayName(sel)} ⬅ المسؤول: ${getPlayerDisplayName(tgt)}` : "سؤال مباشر";
       } else {
         qCard.classList.remove("visible");
         if (isAdmin) preCtrl.style.display = "block";
@@ -1821,12 +2370,15 @@
       if (state.winners.length === 0) {
         winBox.innerHTML = `<p style="font-size:0.83rem; color:var(--text-muted); text-align:center; padding:8px 0;">لا يوجد فائزون بعد. من يُسقط ${state.settings.killsToWin} منافسين يتأهل مباشرة.</p>`;
       } else {
-        winBox.innerHTML = state.winners.map((w, i) => `
-          <div class="winner-item">
-            <span>🏅 #${i + 1} — ${w.name}</span>
-            <span>${w.kills} إسقاطات</span>
-          </div>
-        `).join("");
+        winBox.innerHTML = state.winners.map((w, i) => {
+          const isLatest = state.lastWinnerNumber === w.number;
+          return `
+            <div class="winner-item ${isLatest ? "latest-winner" : ""}">
+              <span>🏅 #${i + 1} — ${w.name} ${isLatest ? `<span class="winner-badge-new">تأهل للتو</span>` : ""}</span>
+              <span>${w.kills} إسقاطات</span>
+            </div>
+          `;
+        }).join("");
       }
 
       document.getElementById("undoBtn").disabled = historyStack.length === 0;
@@ -1840,8 +2392,10 @@
       document.getElementById("publicRegForm").style.display = state.settings.allowPublicRegistration ? "flex" : "none";
       document.getElementById("publicRegClosedMsg").style.display = state.settings.allowPublicRegistration ? "none" : "block";
 
-      const registeredCount = state.players.filter(p => p.name).length;
-      document.getElementById("playersTableSummary").textContent = `إجمالي المقاعد المسجلة: ${registeredCount} من أصل ${state.players.length} مقعد.`;
+      const namedCount = state.players.filter(p => Boolean(String(p.name || "").trim())).length;
+      document.getElementById("playersTableSummary").textContent = namedCount > 0
+        ? `المقاعد المسجلة بالأسماء: ${namedCount} من أصل ${state.players.length} (وبقية الأرقام مفعّلة تلقائياً).`
+        : `وضع الأرقام التلقائي مفعّل: جميع الأرقام (${state.players.length}) جاهزة للمشاركة مباشرة دون الحاجة لأسماء.`;
 
       document.getElementById("archiveCountBadge").textContent = state.questions.length;
       const lvlNames = { easy: "سهل", medium: "متوسط", hard: "صعب" };
@@ -1887,6 +2441,10 @@
       draw();
     }
 
+    hydrateSheetInputs();
+    hydratePlayersSheetInputs();
+    applySheetAutoSyncTimer();
+    applyPlayersAutoSyncTimer();
     renderAll();
   </script>
 </body>
